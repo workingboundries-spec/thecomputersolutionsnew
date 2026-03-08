@@ -1,12 +1,34 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useEffect } from "react";
+import Navbar from "@/components/Navbar";
+import HeroBanner from "@/components/HeroBanner";
+import BrandsMarquee from "@/components/BrandsMarquee";
+import Services from "@/components/Services";
+import NewArrivals from "@/components/NewArrivals";
+import Products from "@/components/Products";
+import WhyChooseUs from "@/components/WhyChooseUs";
+import Gallery from "@/components/Gallery";
+import YouTubeVideos from "@/components/YouTubeVideos";
+import ContactUs from "@/components/ContactUs";
+import Footer from "@/components/Footer";
 
 const Index = () => {
+  useEffect(() => {
+    document.title = "LaptopHub — Premium Laptops at Best Prices";
+  }, []);
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen">
+      <Navbar />
+      <HeroBanner />
+      <BrandsMarquee />
+      <Services />
+      <NewArrivals />
+      <Products />
+      <WhyChooseUs />
+      <Gallery />
+      <YouTubeVideos />
+      <ContactUs />
+      <Footer />
     </div>
   );
 };

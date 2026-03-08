@@ -1,0 +1,47 @@
+import { getSiteData } from "@/lib/store";
+import { Sparkles, ArrowRight } from "lucide-react";
+
+export default function NewArrivals() {
+  const { products, whatsapp } = getSiteData();
+  const newItems = products.filter((p) => p.isNew).slice(0, 4);
+
+  if (newItems.length === 0) return null;
+
+  return (
+    <section className="section-padding">
+      <div className="container mx-auto">
+        <div className="flex items-center gap-3 mb-12">
+          <Sparkles className="h-8 w-8 text-primary" />
+          <h2 className="font-heading text-3xl md:text-4xl font-bold">New Arrivals</h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+          {newItems.map((p, i) => (
+            <div
+              key={p.id}
+              className="glass rounded-2xl p-5 hover:glow-border transition-all duration-300 group animate-fade-in-up"
+              style={{ animationDelay: `${i * 0.1}s` }}
+            >
+              <div className="aspect-square rounded-xl bg-secondary/50 flex items-center justify-center mb-4 overflow-hidden">
+                {p.image ? (
+                  <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-muted-foreground/30 text-sm">Image</span>
+                )}
+              </div>
+              <span className="text-xs text-primary font-semibold uppercase tracking-wide">{p.category}</span>
+              <h3 className="font-heading font-semibold mt-1">{p.name}</h3>
+              <p className="text-primary font-heading font-bold text-lg mt-1">{p.price}</p>
+              <button
+                onClick={() => window.open(`https://wa.me/${whatsapp}?text=Hi! I'm interested in ${encodeURIComponent(p.name)}`, "_blank")}
+                className="flex items-center gap-1 text-sm text-primary mt-3 group-hover:gap-2 transition-all"
+              >
+                Enquire <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Laptop, Menu, X } from "lucide-react";
+import { Monitor, Menu, X } from "lucide-react";
 
 const navLinks = [
   { label: "Home", href: "#home" },
@@ -23,11 +23,10 @@ export default function Navbar() {
     <nav className="fixed top-0 left-0 right-0 z-50 glass">
       <div className="container mx-auto flex items-center justify-between h-16 px-4">
         <Link to="/" className="flex items-center gap-2 font-heading text-xl font-bold">
-          <Laptop className="h-6 w-6 text-primary" />
-          <span className="text-gradient">LaptopHub</span>
+          <Monitor className="h-6 w-6 text-primary" />
+          <span className="text-gradient">ComputerSolutions</span>
         </Link>
 
-        {/* Desktop */}
         <div className="hidden md:flex items-center gap-8">
           {navLinks.map((l) => (
             <button key={l.href} onClick={() => scrollTo(l.href)} className="text-sm text-muted-foreground hover:text-primary transition-colors">
@@ -39,13 +38,11 @@ export default function Navbar() {
           </Link>
         </div>
 
-        {/* Mobile toggle */}
         <button className="md:hidden text-foreground" onClick={() => setOpen(!open)}>
           {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
       </div>
 
-      {/* Mobile menu */}
       {open && (
         <div className="md:hidden glass border-t border-border px-4 pb-4 space-y-3">
           {navLinks.map((l) => (

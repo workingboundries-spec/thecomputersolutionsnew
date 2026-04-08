@@ -1,14 +1,18 @@
-import { getSiteData } from "@/lib/store";
+import { useGalleryImages } from "@/hooks/use-site-data";
 import { Camera } from "lucide-react";
 import gallery1 from "@/assets/gallery-1.jpg";
 import gallery2 from "@/assets/gallery-2.jpg";
 import gallery3 from "@/assets/gallery-3.jpg";
 
-const defaultGallery = [gallery1, gallery2, gallery3];
+const defaultGallery = [
+  { url: gallery1, alt: "Laptop Display" },
+  { url: gallery2, alt: "Customer Testing" },
+  { url: gallery3, alt: "Repair Service" },
+];
 
 export default function Gallery() {
-  const { galleryImages } = getSiteData();
-  const images = galleryImages.length > 0 ? galleryImages : defaultGallery;
+  const { data: galleryImages = [] } = useGalleryImages();
+  const hasDbImages = galleryImages.length > 0;
 
   return (
     <section id="gallery" className="section-padding">
@@ -22,21 +26,21 @@ export default function Gallery() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {images.map((img, i) => (
-            <div
-              key={i}
-              className="rounded-2xl overflow-hidden group cursor-pointer animate-fade-in-up"
-              style={{ animationDelay: `${i * 0.1}s` }}
-            >
-              <div className="aspect-square overflow-hidden">
-                <img
-                  src={img}
-                  alt={`Gallery ${i + 1}`}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                />
-              </div>
-            </div>
-          ))}
+          {hasDbImages
+            ? galleryImages.map((img, i) => (
+                <div key={img.id} className="rounded-2xl overflow-hidden group cursor-pointer animate-fade-in-up" style={{ animationDelay: `${i * 0.1}s` }}>
+                  <div className="aspect-square overflow-hidden">
+                    <img src={img.image_url} alt={img.alt_text || `Gallery ${i + 1}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" />
+                  </div>
+                </div>
+              ))
+            : defaultGallery.map((img, i) => (
+                <div key={i} className="rounded-2xl overflow-hidden group cursor-pointer animate-fade-in-up" style={{ animationDelay: `${i * 0.1}s` }}>
+                  <div className="aspect-square overflow-hidden">
+                    <img src={img.url} alt={img.alt} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" />
+                  </div>
+                </div>
+              ))}
         </div>
       </div>
     </section>

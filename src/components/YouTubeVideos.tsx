@@ -1,10 +1,10 @@
-import { getSiteData } from "@/lib/store";
+import { useYouTubeVideos } from "@/hooks/use-site-data";
 import { Youtube } from "lucide-react";
 
 export default function YouTubeVideos() {
-  const { youtubeVideos } = getSiteData();
+  const { data: videos = [] } = useYouTubeVideos();
 
-  if (youtubeVideos.length === 0) return null;
+  if (videos.length === 0) return null;
 
   return (
     <section id="videos" className="section-padding bg-card/50">
@@ -21,16 +21,10 @@ export default function YouTubeVideos() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {youtubeVideos.map((url, i) => (
-            <div key={i} className="glass rounded-2xl overflow-hidden animate-fade-in-up" style={{ animationDelay: `${i * 0.1}s` }}>
+          {videos.map((v, i) => (
+            <div key={v.id} className="glass rounded-2xl overflow-hidden animate-fade-in-up" style={{ animationDelay: `${i * 0.1}s` }}>
               <div className="aspect-video">
-                <iframe
-                  src={url}
-                  title={`Video ${i + 1}`}
-                  className="w-full h-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
+                <iframe src={v.embed_url} title={v.title || `Video ${i + 1}`} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
               </div>
             </div>
           ))}

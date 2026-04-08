@@ -1,59 +1,167 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { getSiteData, setSiteData, type SiteData, type Product } from "@/lib/store";
+import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Save, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+
+interface Product {
+  id: string;
+  name: string;
+  price: string;
+  image: string;
+  category: string;
+  is_new: boolean;
+  specs: string | null;
+  display_order: number;
+}
+
+interface Service {
+  id: string;
+  title: string;
+  description: string;
+  icon_name: string;
+  display_order: number;
+}
+
+interface YouTubeVideo {
+  id: string;
+  embed_url: string;
+  title: string;
+  display_order: number;
+}
+
+interface GalleryImage {
+  id: string;
+  image_url: string;
+  alt_text: string;
+  display_order: number;
+}
+
+type Settings = Record<string, string>;
 
 export default function Admin() {
-  const [data, setData] = useState<SiteData>(getSiteData());
   const [activeTab, setActiveTab] = useState("banner");
+  const [settings, setSettings] = useState<Settings>({});
+  const [products, setProducts] = useState<Product[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [videos, setVideos] = useState<YouTubeVideo[]>([]);
+  const [gallery, setGallery] = useState<GalleryImage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
-    document.title = "Admin Panel — LaptopHub";
+    document.title = "Admin Panel — ComputerSolutions";
+    loadAll();
   }, []);
 
-  const save = () => {
-    setSiteData(data);
-    toast.success("Changes saved! Refresh the homepage to see updates.");
+  const loadAll = async () => {
+    setLoading(true);
+    const [s, p, sv, v, g] = await Promise.all([
+      supabase.from("site_settings").select("*"),
+      supabase.from("products").select("*").order("display_order"),
+      supabase.from("services").select("*").order("display_order"),
+      supabase.from("youtube_videos").select("*").order("display_order"),
+      supabase.from("gallery_images").select("*").order("display_order"),
+    ]);
+    const settingsMap: Settings = {};
+    s.data?.forEach((r) => { settingsMap[r.key] = r.value; });
+    setSettings(settingsMap);
+    setProducts((p.data as Product[]) || []);
+    setServices((sv.data as Service[]) || []);
+    setVideos((v.data as YouTubeVideo[]) || []);
+    setGallery((g.data as GalleryImage[]) || []);
+    setLoading(false);
   };
 
-  const updateProduct = (id: string, updates: Partial<Product>) => {
-    setData({ ...data, products: data.products.map((p) => (p.id === id ? { ...p, ...updates } : p)) });
+  const saveSettings = async () => {
+    for (const [key, value] of Object.entries(settings)) {
+      await supabase.from("site_settings").upsert({ key, value }, { onConflict: "key" });
+    }
   };
 
-  const addProduct = () => {
-    const newP: Product = {
-      id: Date.now().toString(),
-      name: "New Laptop",
-      price: "₹0",
-      image: "",
-      category: "Business",
-      isNew: true,
-      specs: "",
-    };
-    setData({ ...data, products: [...data.products, newP] });
+  const saveProducts = async () => {
+    const existing = await supabase.from("products").select("id");
+    const existingIds = new Set(existing.data?.map((r) => r.id) || []);
+    const currentIds = new Set(products.map((p) => p.id));
+    
+    // Delete removed
+    for (const id of existingIds) {
+      if (!currentIds.has(id)) await supabase.from("products").delete().eq("id", id);
+    }
+    // Upsert current
+    for (const p of products) {
+      await supabase.from("products").upsert(p);
+    }
   };
 
-  const removeProduct = (id: string) => {
-    setData({ ...data, products: data.products.filter((p) => p.id !== id) });
+  const saveServices = async () => {
+    const existing = await supabase.from("services").select("id");
+    const existingIds = new Set(existing.data?.map((r) => r.id) || []);
+    const currentIds = new Set(services.map((s) => s.id));
+    for (const id of existingIds) {
+      if (!currentIds.has(id)) await supabase.from("services").delete().eq("id", id);
+    }
+    for (const s of services) {
+      await supabase.from("services").upsert(s);
+    }
   };
 
-  const addYoutubeVideo = () => {
-    setData({ ...data, youtubeVideos: [...data.youtubeVideos, ""] });
+  const saveVideos = async () => {
+    const existing = await supabase.from("youtube_videos").select("id");
+    const existingIds = new Set(existing.data?.map((r) => r.id) || []);
+    const currentIds = new Set(videos.map((v) => v.id));
+    for (const id of existingIds) {
+      if (!currentIds.has(id)) await supabase.from("youtube_videos").delete().eq("id", id);
+    }
+    for (const v of videos) {
+      await supabase.from("youtube_videos").upsert(v);
+    }
   };
+
+  const saveGallery = async () => {
+    const existing = await supabase.from("gallery_images").select("id");
+    const existingIds = new Set(existing.data?.map((r) => r.id) || []);
+    const currentIds = new Set(gallery.map((g) => g.id));
+    for (const id of existingIds) {
+      if (!currentIds.has(id)) await supabase.from("gallery_images").delete().eq("id", id);
+    }
+    for (const g of gallery) {
+      await supabase.from("gallery_images").upsert(g);
+    }
+  };
+
+  const saveAll = async () => {
+    try {
+      await Promise.all([saveSettings(), saveProducts(), saveServices(), saveVideos(), saveGallery()]);
+      queryClient.invalidateQueries();
+      toast.success("All changes saved to database!");
+    } catch (err) {
+      toast.error("Error saving changes. Please try again.");
+    }
+  };
+
+  const updateSetting = (key: string, value: string) => setSettings({ ...settings, [key]: value });
 
   const tabs = [
     { id: "banner", label: "Banner" },
     { id: "products", label: "Products" },
+    { id: "services", label: "Services" },
     { id: "videos", label: "YouTube" },
+    { id: "gallery", label: "Gallery" },
     { id: "contact", label: "Contact" },
   ];
 
   const inputClass = "w-full bg-secondary rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50";
 
+  if (loading) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <p className="text-muted-foreground">Loading...</p>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <div className="border-b border-border">
         <div className="container mx-auto flex items-center justify-between h-16 px-4">
           <div className="flex items-center gap-4">
@@ -62,23 +170,16 @@ export default function Admin() {
             </Link>
             <h1 className="font-heading text-xl font-bold">Admin Panel</h1>
           </div>
-          <button onClick={save} className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity">
-            <Save className="h-4 w-4" /> Save Changes
+          <button onClick={saveAll} className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity">
+            <Save className="h-4 w-4" /> Save All
           </button>
         </div>
       </div>
 
       <div className="container mx-auto px-4 py-8">
-        {/* Tabs */}
         <div className="flex gap-2 mb-8 flex-wrap">
           {tabs.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setActiveTab(t.id)}
-              className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
-                activeTab === t.id ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-surface-hover"
-              }`}
-            >
+            <button key={t.id} onClick={() => setActiveTab(t.id)} className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${activeTab === t.id ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-surface-hover"}`}>
               {t.label}
             </button>
           ))}
@@ -90,15 +191,15 @@ export default function Admin() {
             <h2 className="font-heading text-2xl font-semibold mb-4">Banner Settings</h2>
             <div>
               <label className="text-sm text-muted-foreground mb-1 block">Banner Title</label>
-              <input className={inputClass} value={data.bannerTitle} onChange={(e) => setData({ ...data, bannerTitle: e.target.value })} />
+              <input className={inputClass} value={settings.banner_title || ""} onChange={(e) => updateSetting("banner_title", e.target.value)} />
             </div>
             <div>
               <label className="text-sm text-muted-foreground mb-1 block">Banner Subtitle</label>
-              <input className={inputClass} value={data.bannerSubtitle} onChange={(e) => setData({ ...data, bannerSubtitle: e.target.value })} />
+              <input className={inputClass} value={settings.banner_subtitle || ""} onChange={(e) => updateSetting("banner_subtitle", e.target.value)} />
             </div>
             <div>
-              <label className="text-sm text-muted-foreground mb-1 block">Banner Image URL (leave empty for default)</label>
-              <input className={inputClass} value={data.bannerImage} onChange={(e) => setData({ ...data, bannerImage: e.target.value })} placeholder="https://..." />
+              <label className="text-sm text-muted-foreground mb-1 block">Banner Image URL</label>
+              <input className={inputClass} value={settings.banner_image || ""} onChange={(e) => updateSetting("banner_image", e.target.value)} placeholder="https://..." />
             </div>
           </div>
         )}
@@ -108,48 +209,59 @@ export default function Admin() {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="font-heading text-2xl font-semibold">Products</h2>
-              <button onClick={addProduct} className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium">
+              <button onClick={() => setProducts([...products, { id: crypto.randomUUID(), name: "New Laptop", price: "₹0", image: "", category: "Business", is_new: true, specs: "", display_order: products.length + 1 }])} className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium">
                 <Plus className="h-4 w-4" /> Add Product
               </button>
             </div>
-
-            {data.products.map((p) => (
+            {products.map((p) => (
               <div key={p.id} className="glass rounded-2xl p-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="font-heading font-semibold">{p.name}</span>
-                  <button onClick={() => removeProduct(p.id)} className="text-destructive hover:opacity-80">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  <button onClick={() => setProducts(products.filter((x) => x.id !== p.id))} className="text-destructive hover:opacity-80"><Trash2 className="h-4 w-4" /></button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs text-muted-foreground">Name</label>
-                    <input className={inputClass} value={p.name} onChange={(e) => updateProduct(p.id, { name: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground">Price</label>
-                    <input className={inputClass} value={p.price} onChange={(e) => updateProduct(p.id, { price: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground">Category</label>
-                    <select className={inputClass} value={p.category} onChange={(e) => updateProduct(p.id, { category: e.target.value })}>
-                      {["Business", "Gaming", "Student", "Budget", "Premium"].map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
+                  <div><label className="text-xs text-muted-foreground">Name</label><input className={inputClass} value={p.name} onChange={(e) => setProducts(products.map((x) => x.id === p.id ? { ...x, name: e.target.value } : x))} /></div>
+                  <div><label className="text-xs text-muted-foreground">Price</label><input className={inputClass} value={p.price} onChange={(e) => setProducts(products.map((x) => x.id === p.id ? { ...x, price: e.target.value } : x))} /></div>
+                  <div><label className="text-xs text-muted-foreground">Category</label>
+                    <select className={inputClass} value={p.category} onChange={(e) => setProducts(products.map((x) => x.id === p.id ? { ...x, category: e.target.value } : x))}>
+                      {["Business", "Gaming", "Student", "Budget", "Premium"].map((c) => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground">Image URL</label>
-                    <input className={inputClass} value={p.image} onChange={(e) => updateProduct(p.id, { image: e.target.value })} placeholder="https://..." />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="text-xs text-muted-foreground">Specs</label>
-                    <input className={inputClass} value={p.specs || ""} onChange={(e) => updateProduct(p.id, { specs: e.target.value })} />
-                  </div>
+                  <div><label className="text-xs text-muted-foreground">Image URL</label><input className={inputClass} value={p.image} onChange={(e) => setProducts(products.map((x) => x.id === p.id ? { ...x, image: e.target.value } : x))} placeholder="https://..." /></div>
+                  <div className="md:col-span-2"><label className="text-xs text-muted-foreground">Specs</label><input className={inputClass} value={p.specs || ""} onChange={(e) => setProducts(products.map((x) => x.id === p.id ? { ...x, specs: e.target.value } : x))} /></div>
                   <div className="flex items-center gap-2">
-                    <input type="checkbox" checked={p.isNew} onChange={(e) => updateProduct(p.id, { isNew: e.target.checked })} className="accent-primary" id={`new-${p.id}`} />
+                    <input type="checkbox" checked={p.is_new} onChange={(e) => setProducts(products.map((x) => x.id === p.id ? { ...x, is_new: e.target.checked } : x))} className="accent-primary" id={`new-${p.id}`} />
                     <label htmlFor={`new-${p.id}`} className="text-sm">Mark as New Arrival</label>
                   </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Services Tab */}
+        {activeTab === "services" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="font-heading text-2xl font-semibold">Services</h2>
+              <button onClick={() => setServices([...services, { id: crypto.randomUUID(), title: "New Service", description: "", icon_name: "Monitor", display_order: services.length + 1 }])} className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium">
+                <Plus className="h-4 w-4" /> Add Service
+              </button>
+            </div>
+            {services.map((s) => (
+              <div key={s.id} className="glass rounded-2xl p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="font-heading font-semibold">{s.title}</span>
+                  <button onClick={() => setServices(services.filter((x) => x.id !== s.id))} className="text-destructive hover:opacity-80"><Trash2 className="h-4 w-4" /></button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div><label className="text-xs text-muted-foreground">Title</label><input className={inputClass} value={s.title} onChange={(e) => setServices(services.map((x) => x.id === s.id ? { ...x, title: e.target.value } : x))} /></div>
+                  <div><label className="text-xs text-muted-foreground">Icon Name</label>
+                    <select className={inputClass} value={s.icon_name} onChange={(e) => setServices(services.map((x) => x.id === s.id ? { ...x, icon_name: e.target.value } : x))}>
+                      {["Laptop", "Wrench", "RefreshCw", "ShieldCheck", "Truck", "Headphones", "Monitor", "Cpu", "HardDrive"].map((ic) => <option key={ic} value={ic}>{ic}</option>)}
+                    </select>
+                  </div>
+                  <div className="md:col-span-2"><label className="text-xs text-muted-foreground">Description</label><textarea className={inputClass + " resize-none"} rows={2} value={s.description} onChange={(e) => setServices(services.map((x) => x.id === s.id ? { ...x, description: e.target.value } : x))} /></div>
                 </div>
               </div>
             ))}
@@ -161,25 +273,38 @@ export default function Admin() {
           <div className="max-w-2xl space-y-5">
             <div className="flex items-center justify-between">
               <h2 className="font-heading text-2xl font-semibold">YouTube Videos</h2>
-              <button onClick={addYoutubeVideo} className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium">
+              <button onClick={() => setVideos([...videos, { id: crypto.randomUUID(), embed_url: "", title: "", display_order: videos.length + 1 }])} className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium">
                 <Plus className="h-4 w-4" /> Add Video
               </button>
             </div>
-            {data.youtubeVideos.map((url, i) => (
-              <div key={i} className="flex gap-3">
-                <input
-                  className={inputClass}
-                  value={url}
-                  onChange={(e) => {
-                    const vids = [...data.youtubeVideos];
-                    vids[i] = e.target.value;
-                    setData({ ...data, youtubeVideos: vids });
-                  }}
-                  placeholder="https://www.youtube.com/embed/..."
-                />
-                <button onClick={() => setData({ ...data, youtubeVideos: data.youtubeVideos.filter((_, j) => j !== i) })} className="text-destructive">
-                  <Trash2 className="h-4 w-4" />
-                </button>
+            {videos.map((v) => (
+              <div key={v.id} className="glass rounded-2xl p-4 space-y-3">
+                <div className="flex gap-3">
+                  <input className={inputClass} value={v.title} onChange={(e) => setVideos(videos.map((x) => x.id === v.id ? { ...x, title: e.target.value } : x))} placeholder="Video Title" />
+                  <button onClick={() => setVideos(videos.filter((x) => x.id !== v.id))} className="text-destructive"><Trash2 className="h-4 w-4" /></button>
+                </div>
+                <input className={inputClass} value={v.embed_url} onChange={(e) => setVideos(videos.map((x) => x.id === v.id ? { ...x, embed_url: e.target.value } : x))} placeholder="https://www.youtube.com/embed/..." />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Gallery Tab */}
+        {activeTab === "gallery" && (
+          <div className="max-w-2xl space-y-5">
+            <div className="flex items-center justify-between">
+              <h2 className="font-heading text-2xl font-semibold">Gallery Images</h2>
+              <button onClick={() => setGallery([...gallery, { id: crypto.randomUUID(), image_url: "", alt_text: "", display_order: gallery.length + 1 }])} className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium">
+                <Plus className="h-4 w-4" /> Add Image
+              </button>
+            </div>
+            {gallery.map((g) => (
+              <div key={g.id} className="glass rounded-2xl p-4 space-y-3">
+                <div className="flex gap-3">
+                  <input className={inputClass} value={g.alt_text} onChange={(e) => setGallery(gallery.map((x) => x.id === g.id ? { ...x, alt_text: e.target.value } : x))} placeholder="Alt Text" />
+                  <button onClick={() => setGallery(gallery.filter((x) => x.id !== g.id))} className="text-destructive"><Trash2 className="h-4 w-4" /></button>
+                </div>
+                <input className={inputClass} value={g.image_url} onChange={(e) => setGallery(gallery.map((x) => x.id === g.id ? { ...x, image_url: e.target.value } : x))} placeholder="https://image-url.com/..." />
               </div>
             ))}
           </div>
@@ -189,22 +314,11 @@ export default function Admin() {
         {activeTab === "contact" && (
           <div className="max-w-2xl space-y-5">
             <h2 className="font-heading text-2xl font-semibold mb-4">Contact Info</h2>
-            <div>
-              <label className="text-sm text-muted-foreground mb-1 block">Phone</label>
-              <input className={inputClass} value={data.contactPhone} onChange={(e) => setData({ ...data, contactPhone: e.target.value })} />
-            </div>
-            <div>
-              <label className="text-sm text-muted-foreground mb-1 block">Email</label>
-              <input className={inputClass} value={data.contactEmail} onChange={(e) => setData({ ...data, contactEmail: e.target.value })} />
-            </div>
-            <div>
-              <label className="text-sm text-muted-foreground mb-1 block">Address</label>
-              <input className={inputClass} value={data.contactAddress} onChange={(e) => setData({ ...data, contactAddress: e.target.value })} />
-            </div>
-            <div>
-              <label className="text-sm text-muted-foreground mb-1 block">WhatsApp Number (with country code, no +)</label>
-              <input className={inputClass} value={data.whatsapp} onChange={(e) => setData({ ...data, whatsapp: e.target.value })} placeholder="919876543210" />
-            </div>
+            <div><label className="text-sm text-muted-foreground mb-1 block">Phone</label><input className={inputClass} value={settings.contact_phone || ""} onChange={(e) => updateSetting("contact_phone", e.target.value)} /></div>
+            <div><label className="text-sm text-muted-foreground mb-1 block">Email</label><input className={inputClass} value={settings.contact_email || ""} onChange={(e) => updateSetting("contact_email", e.target.value)} /></div>
+            <div><label className="text-sm text-muted-foreground mb-1 block">Address</label><input className={inputClass} value={settings.contact_address || ""} onChange={(e) => updateSetting("contact_address", e.target.value)} /></div>
+            <div><label className="text-sm text-muted-foreground mb-1 block">WhatsApp (with country code, no +)</label><input className={inputClass} value={settings.whatsapp || ""} onChange={(e) => updateSetting("whatsapp", e.target.value)} placeholder="919876543210" /></div>
+            <div><label className="text-sm text-muted-foreground mb-1 block">Google Maps Embed URL</label><input className={inputClass} value={settings.google_maps_embed || ""} onChange={(e) => updateSetting("google_maps_embed", e.target.value)} placeholder="https://www.google.com/maps/embed?pb=..." /></div>
           </div>
         )}
       </div>

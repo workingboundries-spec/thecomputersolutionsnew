@@ -13,7 +13,7 @@ import Footer from "@/components/Footer";
 
 const Index = () => {
   useEffect(() => {
-    document.title = "LaptopHub — Premium Laptops at Best Prices";
+    document.title = "ComputerSolutions — Premium Laptops & Computers at Best Prices";
   }, []);
 
   return (

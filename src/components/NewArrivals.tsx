@@ -1,9 +1,11 @@
-import { getSiteData } from "@/lib/store";
+import { useProducts, useSiteSettings } from "@/hooks/use-site-data";
 import { Sparkles, ArrowRight } from "lucide-react";
 
 export default function NewArrivals() {
-  const { products, whatsapp } = getSiteData();
-  const newItems = products.filter((p) => p.isNew).slice(0, 4);
+  const { data: products = [] } = useProducts();
+  const { data: settings } = useSiteSettings();
+  const whatsapp = settings?.whatsapp || "919876543210";
+  const newItems = products.filter((p) => p.is_new).slice(0, 4);
 
   if (newItems.length === 0) return null;
 
@@ -17,14 +19,10 @@ export default function NewArrivals() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {newItems.map((p, i) => (
-            <div
-              key={p.id}
-              className="glass rounded-2xl p-5 hover:glow-border transition-all duration-300 group animate-fade-in-up"
-              style={{ animationDelay: `${i * 0.1}s` }}
-            >
+            <div key={p.id} className="glass rounded-2xl p-5 hover:glow-border transition-all duration-300 group animate-fade-in-up" style={{ animationDelay: `${i * 0.1}s` }}>
               <div className="aspect-square rounded-xl bg-secondary/50 flex items-center justify-center mb-4 overflow-hidden">
                 {p.image ? (
-                  <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+                  <img src={p.image} alt={p.name} className="w-full h-full object-cover" loading="lazy" />
                 ) : (
                   <span className="text-muted-foreground/30 text-sm">Image</span>
                 )}

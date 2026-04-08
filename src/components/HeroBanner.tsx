@@ -1,33 +1,34 @@
-import { getSiteData } from "@/lib/store";
+import { useSiteSettings } from "@/hooks/use-site-data";
 import heroBannerDefault from "@/assets/hero-banner.jpg";
 import { Phone } from "lucide-react";
 
 export default function HeroBanner() {
-  const data = getSiteData();
-  const bgImage = data.bannerImage || heroBannerDefault;
+  const { data: settings } = useSiteSettings();
+  const bannerTitle = settings?.banner_title || "Premium Laptops & Computers at Best Prices";
+  const bannerSubtitle = settings?.banner_subtitle || "Your trusted destination for branded laptops, desktops & accessories";
+  const bgImage = settings?.banner_image || heroBannerDefault;
+  const whatsapp = settings?.whatsapp || "919876543210";
 
   const handleWhatsApp = () => {
-    window.open(`https://wa.me/${data.whatsapp}`, "_blank");
+    window.open(`https://wa.me/${whatsapp}`, "_blank");
   };
 
   return (
     <section id="home" className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      {/* Background */}
       <div className="absolute inset-0">
-        <img src={bgImage} alt="Laptop Showroom" className="w-full h-full object-cover" />
+        <img src={bgImage} alt="Computer Showroom" className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-background/75" />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
       </div>
 
-      {/* Content */}
       <div className="relative z-10 container mx-auto px-4 text-center">
         <h1 className="font-heading text-4xl md:text-6xl lg:text-7xl font-bold mb-6 animate-fade-in-up">
-          {data.bannerTitle.split(" ").map((word, i) =>
+          {bannerTitle.split(" ").map((word, i) =>
             i < 2 ? <span key={i} className="text-gradient">{word} </span> : <span key={i}>{word} </span>
           )}
         </h1>
         <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
-          {data.bannerSubtitle}
+          {bannerSubtitle}
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in-up" style={{ animationDelay: "0.4s" }}>
           <button
@@ -44,7 +45,6 @@ export default function HeroBanner() {
           </button>
         </div>
 
-        {/* Stats */}
         <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-6 max-w-3xl mx-auto animate-fade-in-up" style={{ animationDelay: "0.6s" }}>
           {[
             { num: "500+", label: "Laptops Sold" },

@@ -1,10 +1,20 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Save, Plus, Trash2, LogOut } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, LogOut, Flame } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
+
+interface DailyDeal {
+  id: string;
+  name: string;
+  image: string;
+  original_price: string;
+  deal_price: string;
+  valid_until: string;
+  display_order: number;
+}
 
 interface Product {
   id: string;
@@ -48,6 +58,7 @@ export default function Admin() {
   const [services, setServices] = useState<Service[]>([]);
   const [videos, setVideos] = useState<YouTubeVideo[]>([]);
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
+  const [deals, setDeals] = useState<DailyDeal[]>([]);
   const [loading, setLoading] = useState(true);
   const queryClient = useQueryClient();
   const { signOut } = useAuth();
@@ -65,12 +76,13 @@ export default function Admin() {
 
   const loadAll = async () => {
     setLoading(true);
-    const [s, p, sv, v, g] = await Promise.all([
+    const [s, p, sv, v, g, d] = await Promise.all([
       supabase.from("site_settings").select("*"),
       supabase.from("products").select("*").order("display_order"),
       supabase.from("services").select("*").order("display_order"),
       supabase.from("youtube_videos").select("*").order("display_order"),
       supabase.from("gallery_images").select("*").order("display_order"),
+      supabase.from("daily_deals").select("*").order("display_order"),
     ]);
     const settingsMap: Settings = {};
     s.data?.forEach((r) => { settingsMap[r.key] = r.value; });
@@ -79,6 +91,7 @@ export default function Admin() {
     setServices((sv.data as Service[]) || []);
     setVideos((v.data as YouTubeVideo[]) || []);
     setGallery((g.data as GalleryImage[]) || []);
+    setDeals((d.data as DailyDeal[]) || []);
     setLoading(false);
   };
 
@@ -139,9 +152,21 @@ export default function Admin() {
     }
   };
 
+  const saveDeals = async () => {
+    const existing = await supabase.from("daily_deals").select("id");
+    const existingIds = new Set(existing.data?.map((r) => r.id) || []);
+    const currentIds = new Set(deals.map((d) => d.id));
+    for (const id of existingIds) {
+      if (!currentIds.has(id)) await supabase.from("daily_deals").delete().eq("id", id);
+    }
+    for (const d of deals) {
+      await supabase.from("daily_deals").upsert(d);
+    }
+  };
+
   const saveAll = async () => {
     try {
-      await Promise.all([saveSettings(), saveProducts(), saveServices(), saveVideos(), saveGallery()]);
+      await Promise.all([saveSettings(), saveProducts(), saveServices(), saveVideos(), saveGallery(), saveDeals()]);
       queryClient.invalidateQueries();
       toast.success("All changes saved to database!");
     } catch (err) {
@@ -153,6 +178,7 @@ export default function Admin() {
 
   const tabs = [
     { id: "banner", label: "Banner" },
+    { id: "deals", label: "🔥 Deals" },
     { id: "products", label: "Products" },
     { id: "services", label: "Services" },
     { id: "videos", label: "YouTube" },
@@ -214,6 +240,35 @@ export default function Admin() {
               <label className="text-sm text-muted-foreground mb-1 block">Banner Image URL</label>
               <input className={inputClass} value={settings.banner_image || ""} onChange={(e) => updateSetting("banner_image", e.target.value)} placeholder="https://..." />
             </div>
+          </div>
+        )}
+
+        {/* Daily Deals Tab */}
+        {activeTab === "deals" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="font-heading text-2xl font-semibold flex items-center gap-2"><Flame className="h-6 w-6 text-destructive" /> Daily Deals</h2>
+              <button onClick={() => setDeals([...deals, { id: crypto.randomUUID(), name: "New Deal", image: "", original_price: "₹0", deal_price: "₹0", valid_until: new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0], display_order: deals.length + 1 }])} className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium">
+                <Plus className="h-4 w-4" /> Add Deal
+              </button>
+            </div>
+            {deals.map((d) => (
+              <div key={d.id} className="glass rounded-2xl p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="font-heading font-semibold">{d.name}</span>
+                  <button onClick={() => setDeals(deals.filter((x) => x.id !== d.id))} className="text-destructive hover:opacity-80"><Trash2 className="h-4 w-4" /></button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div><label className="text-xs text-muted-foreground">Product Name</label><input className={inputClass} value={d.name} onChange={(e) => setDeals(deals.map((x) => x.id === d.id ? { ...x, name: e.target.value } : x))} /></div>
+                  <div><label className="text-xs text-muted-foreground">Image URL</label><input className={inputClass} value={d.image} onChange={(e) => setDeals(deals.map((x) => x.id === d.id ? { ...x, image: e.target.value } : x))} placeholder="https://..." /></div>
+                  <div><label className="text-xs text-muted-foreground">Original Price</label><input className={inputClass} value={d.original_price} onChange={(e) => setDeals(deals.map((x) => x.id === d.id ? { ...x, original_price: e.target.value } : x))} placeholder="₹50,000" /></div>
+                  <div><label className="text-xs text-muted-foreground">Deal Price</label><input className={inputClass} value={d.deal_price} onChange={(e) => setDeals(deals.map((x) => x.id === d.id ? { ...x, deal_price: e.target.value } : x))} placeholder="₹39,999" /></div>
+                  <div><label className="text-xs text-muted-foreground">Valid Until</label><input type="date" className={inputClass} value={d.valid_until} onChange={(e) => setDeals(deals.map((x) => x.id === d.id ? { ...x, valid_until: e.target.value } : x))} /></div>
+                  <div><label className="text-xs text-muted-foreground">Display Order</label><input type="number" className={inputClass} value={d.display_order} onChange={(e) => setDeals(deals.map((x) => x.id === d.id ? { ...x, display_order: parseInt(e.target.value) || 0 } : x))} /></div>
+                </div>
+              </div>
+            ))}
+            {deals.length === 0 && <p className="text-muted-foreground text-center py-8">No deals yet. Click "Add Deal" to create one.</p>}
           </div>
         )}
 

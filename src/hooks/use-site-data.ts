@@ -34,6 +34,16 @@ export interface YouTubeVideo {
   display_order: number;
 }
 
+export interface DailyDeal {
+  id: string;
+  name: string;
+  image: string;
+  original_price: string;
+  deal_price: string;
+  valid_until: string;
+  display_order: number;
+}
+
 export type SiteSettings = Record<string, string>;
 
 export function useSiteSettings() {
@@ -78,6 +88,17 @@ export function useGalleryImages() {
       const { data, error } = await supabase.from("gallery_images").select("*").order("display_order");
       if (error) throw error;
       return data as GalleryImage[];
+    },
+  });
+}
+
+export function useDailyDeals() {
+  return useQuery({
+    queryKey: ["daily-deals"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("daily_deals").select("*").order("display_order");
+      if (error) throw error;
+      return data as DailyDeal[];
     },
   });
 }

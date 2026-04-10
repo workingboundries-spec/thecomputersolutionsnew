@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      daily_deals: {
+        Row: {
+          created_at: string
+          deal_price: string
+          display_order: number
+          id: string
+          image: string
+          name: string
+          original_price: string
+          updated_at: string
+          valid_until: string
+        }
+        Insert: {
+          created_at?: string
+          deal_price: string
+          display_order?: number
+          id?: string
+          image?: string
+          name: string
+          original_price: string
+          updated_at?: string
+          valid_until?: string
+        }
+        Update: {
+          created_at?: string
+          deal_price?: string
+          display_order?: number
+          id?: string
+          image?: string
+          name?: string
+          original_price?: string
+          updated_at?: string
+          valid_until?: string
+        }
+        Relationships: []
+      }
       gallery_images: {
         Row: {
           alt_text: string | null

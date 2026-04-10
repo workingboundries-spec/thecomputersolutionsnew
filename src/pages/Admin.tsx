@@ -15,8 +15,6 @@ interface DailyDeal {
   valid_until: string;
   display_order: number;
 }
-import { useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/use-auth";
 
 interface Product {
   id: string;

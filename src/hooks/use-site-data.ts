@@ -34,6 +34,16 @@ export interface YouTubeVideo {
   display_order: number;
 }
 
+export interface DailyDeal {
+  id: string;
+  name: string;
+  image: string;
+  original_price: string;
+  deal_price: string;
+  valid_until: string;
+  display_order: number;
+}
+
 export type SiteSettings = Record<string, string>;
 
 export function useSiteSettings() {

@@ -92,6 +92,17 @@ export function useGalleryImages() {
   });
 }
 
+export function useDailyDeals() {
+  return useQuery({
+    queryKey: ["daily-deals"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("daily_deals").select("*").order("display_order");
+      if (error) throw error;
+      return data as DailyDeal[];
+    },
+  });
+}
+
 export function useYouTubeVideos() {
   return useQuery({
     queryKey: ["youtube-videos"],

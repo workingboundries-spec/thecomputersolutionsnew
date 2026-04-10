@@ -58,6 +58,7 @@ export default function Admin() {
   const [services, setServices] = useState<Service[]>([]);
   const [videos, setVideos] = useState<YouTubeVideo[]>([]);
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
+  const [deals, setDeals] = useState<DailyDeal[]>([]);
   const [loading, setLoading] = useState(true);
   const queryClient = useQueryClient();
   const { signOut } = useAuth();
@@ -75,12 +76,13 @@ export default function Admin() {
 
   const loadAll = async () => {
     setLoading(true);
-    const [s, p, sv, v, g] = await Promise.all([
+    const [s, p, sv, v, g, d] = await Promise.all([
       supabase.from("site_settings").select("*"),
       supabase.from("products").select("*").order("display_order"),
       supabase.from("services").select("*").order("display_order"),
       supabase.from("youtube_videos").select("*").order("display_order"),
       supabase.from("gallery_images").select("*").order("display_order"),
+      supabase.from("daily_deals").select("*").order("display_order"),
     ]);
     const settingsMap: Settings = {};
     s.data?.forEach((r) => { settingsMap[r.key] = r.value; });
@@ -89,6 +91,7 @@ export default function Admin() {
     setServices((sv.data as Service[]) || []);
     setVideos((v.data as YouTubeVideo[]) || []);
     setGallery((g.data as GalleryImage[]) || []);
+    setDeals((d.data as DailyDeal[]) || []);
     setLoading(false);
   };
 
@@ -146,6 +149,18 @@ export default function Admin() {
     }
     for (const g of gallery) {
       await supabase.from("gallery_images").upsert(g);
+    }
+  };
+
+  const saveDeals = async () => {
+    const existing = await supabase.from("daily_deals").select("id");
+    const existingIds = new Set(existing.data?.map((r) => r.id) || []);
+    const currentIds = new Set(deals.map((d) => d.id));
+    for (const id of existingIds) {
+      if (!currentIds.has(id)) await supabase.from("daily_deals").delete().eq("id", id);
+    }
+    for (const d of deals) {
+      await supabase.from("daily_deals").upsert(d);
     }
   };
 

@@ -1,8 +1,20 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Save, Plus, Trash2, LogOut } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, LogOut, Flame } from "lucide-react";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/use-auth";
+
+interface DailyDeal {
+  id: string;
+  name: string;
+  image: string;
+  original_price: string;
+  deal_price: string;
+  valid_until: string;
+  display_order: number;
+}
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 

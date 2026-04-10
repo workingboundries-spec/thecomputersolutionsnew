@@ -1,6 +1,19 @@
 import { useProducts, useSiteSettings } from "@/hooks/use-site-data";
 import { ShoppingCart, Star } from "lucide-react";
 import { useState } from "react";
+import productBusiness from "@/assets/product-business.jpg";
+import productGaming from "@/assets/product-gaming.jpg";
+import productStudent from "@/assets/product-student.jpg";
+import productBudget from "@/assets/product-budget.jpg";
+import productPremium from "@/assets/product-premium.jpg";
+
+const categoryFallbacks: Record<string, string> = {
+  Business: productBusiness,
+  Gaming: productGaming,
+  Student: productStudent,
+  Budget: productBudget,
+  Premium: productPremium,
+};
 
 const categories = ["All", "Business", "Gaming", "Student", "Budget", "Premium"];
 
@@ -42,8 +55,8 @@ export default function Products() {
           {filtered.map((p, i) => (
             <div key={p.id} className="glass rounded-2xl overflow-hidden group hover:glow-border transition-all duration-300 animate-fade-in-up" style={{ animationDelay: `${i * 0.1}s` }}>
               <div className="aspect-[4/3] bg-secondary/50 flex items-center justify-center relative overflow-hidden">
-                {p.image ? (
-                  <img src={p.image} alt={p.name} className="w-full h-full object-cover" loading="lazy" />
+                {(p.image || categoryFallbacks[p.category]) ? (
+                  <img src={p.image || categoryFallbacks[p.category]} alt={p.name} className="w-full h-full object-cover" loading="lazy" />
                 ) : (
                   <div className="text-center p-4">
                     <ShoppingCart className="h-12 w-12 text-muted-foreground/30 mx-auto mb-2" />

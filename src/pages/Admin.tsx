@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Save, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/use-auth";
 
 interface Product {
   id: string;
@@ -49,6 +50,13 @@ export default function Admin() {
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
   const [loading, setLoading] = useState(true);
   const queryClient = useQueryClient();
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/admin/login");
+  };
 
   useEffect(() => {
     document.title = "Admin Panel — ComputerSolutions";
@@ -170,9 +178,14 @@ export default function Admin() {
             </Link>
             <h1 className="font-heading text-xl font-bold">Admin Panel</h1>
           </div>
-          <button onClick={saveAll} className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity">
-            <Save className="h-4 w-4" /> Save All
-          </button>
+          <div className="flex items-center gap-3">
+            <button onClick={saveAll} className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity">
+              <Save className="h-4 w-4" /> Save All
+            </button>
+            <button onClick={handleLogout} className="flex items-center gap-2 bg-destructive text-destructive-foreground px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity">
+              <LogOut className="h-4 w-4" /> Logout
+            </button>
+          </div>
         </div>
       </div>
 

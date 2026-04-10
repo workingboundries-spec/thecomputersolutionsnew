@@ -33,9 +33,6 @@ export default function Navbar() {
               {l.label}
             </button>
           ))}
-          <Link to="/admin" className="text-sm bg-primary text-primary-foreground px-4 py-2 rounded-md font-medium hover:opacity-90 transition-opacity">
-            Admin
-          </Link>
         </div>
 
         <button className="md:hidden text-foreground" onClick={() => setOpen(!open)}>
@@ -50,9 +47,6 @@ export default function Navbar() {
               {l.label}
             </button>
           ))}
-          <Link to="/admin" onClick={() => setOpen(false)} className="block text-center bg-primary text-primary-foreground px-4 py-2 rounded-md font-medium">
-            Admin
-          </Link>
         </div>
       )}
     </nav>

@@ -166,7 +166,7 @@ export default function Admin() {
 
   const saveAll = async () => {
     try {
-      await Promise.all([saveSettings(), saveProducts(), saveServices(), saveVideos(), saveGallery()]);
+      await Promise.all([saveSettings(), saveProducts(), saveServices(), saveVideos(), saveGallery(), saveDeals()]);
       queryClient.invalidateQueries();
       toast.success("All changes saved to database!");
     } catch (err) {
@@ -178,6 +178,7 @@ export default function Admin() {
 
   const tabs = [
     { id: "banner", label: "Banner" },
+    { id: "deals", label: "🔥 Deals" },
     { id: "products", label: "Products" },
     { id: "services", label: "Services" },
     { id: "videos", label: "YouTube" },

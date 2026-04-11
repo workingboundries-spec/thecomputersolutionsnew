@@ -1,5 +1,6 @@
 import { useDailyDeals } from "@/hooks/use-site-data";
 import { Flame, Clock } from "lucide-react";
+import dealFallback from "@/assets/deal-laptop.jpg";
 
 const DailyDeals = () => {
   const { data: deals, isLoading } = useDailyDeals();
@@ -58,15 +59,22 @@ const DailyDeals = () => {
                 <div className="aspect-[4/3] overflow-hidden bg-secondary">
                   {deal.image ? (
                     <img
-                      src={deal.image}
+                      src={deal.image || dealFallback}
                       alt={deal.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       loading="lazy"
+                      width={800}
+                      height={600}
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                      No Image
-                    </div>
+                    <img
+                      src={dealFallback}
+                      alt={deal.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      loading="lazy"
+                      width={800}
+                      height={600}
+                    />
                   )}
                 </div>
 

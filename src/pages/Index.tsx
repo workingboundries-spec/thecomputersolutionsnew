@@ -9,6 +9,7 @@ import Products from "@/components/Products";
 import WhyChooseUs from "@/components/WhyChooseUs";
 import Gallery from "@/components/Gallery";
 import YouTubeVideos from "@/components/YouTubeVideos";
+import SocialLinks from "@/components/SocialLinks";
 import ContactUs from "@/components/ContactUs";
 import Footer from "@/components/Footer";
 
@@ -29,6 +30,7 @@ const Index = () => {
       <WhyChooseUs />
       <Gallery />
       <YouTubeVideos />
+      <SocialLinks />
       <ContactUs />
       <Footer />
     </div>

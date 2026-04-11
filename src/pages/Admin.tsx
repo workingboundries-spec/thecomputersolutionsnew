@@ -387,6 +387,11 @@ export default function Admin() {
             <div><label className="text-sm text-muted-foreground mb-1 block">Address</label><input className={inputClass} value={settings.contact_address || ""} onChange={(e) => updateSetting("contact_address", e.target.value)} /></div>
             <div><label className="text-sm text-muted-foreground mb-1 block">WhatsApp (with country code, no +)</label><input className={inputClass} value={settings.whatsapp || ""} onChange={(e) => updateSetting("whatsapp", e.target.value)} placeholder="919876543210" /></div>
             <div><label className="text-sm text-muted-foreground mb-1 block">Google Maps Embed URL</label><input className={inputClass} value={settings.google_maps_embed || ""} onChange={(e) => updateSetting("google_maps_embed", e.target.value)} placeholder="https://www.google.com/maps/embed?pb=..." /></div>
+            <h3 className="font-heading text-xl font-semibold pt-4 border-t border-border">Social Media</h3>
+            <div><label className="text-sm text-muted-foreground mb-1 block">Instagram URL</label><input className={inputClass} value={settings.instagram_url || ""} onChange={(e) => updateSetting("instagram_url", e.target.value)} placeholder="https://instagram.com/yourpage" /></div>
+            <div><label className="text-sm text-muted-foreground mb-1 block">Instagram Thumbnail URL</label><input className={inputClass} value={settings.instagram_thumbnail || ""} onChange={(e) => updateSetting("instagram_thumbnail", e.target.value)} placeholder="https://image-url.com/insta-thumb.jpg" /></div>
+            <div><label className="text-sm text-muted-foreground mb-1 block">Facebook URL</label><input className={inputClass} value={settings.facebook_url || ""} onChange={(e) => updateSetting("facebook_url", e.target.value)} placeholder="https://facebook.com/yourpage" /></div>
+            <div><label className="text-sm text-muted-foreground mb-1 block">Facebook Thumbnail URL</label><input className={inputClass} value={settings.facebook_thumbnail || ""} onChange={(e) => updateSetting("facebook_thumbnail", e.target.value)} placeholder="https://image-url.com/fb-thumb.jpg" /></div>
           </div>
         )}
       </div>

@@ -1,5 +1,11 @@
 import { useProducts, useSiteSettings } from "@/hooks/use-site-data";
 import { Sparkles, ArrowRight } from "lucide-react";
+import newArrival1 from "@/assets/new-arrival-1.jpg";
+import newArrival2 from "@/assets/new-arrival-2.jpg";
+import newArrival3 from "@/assets/new-arrival-3.jpg";
+import newArrival4 from "@/assets/new-arrival-4.jpg";
+
+const fallbackImages = [newArrival1, newArrival2, newArrival3, newArrival4];
 
 export default function NewArrivals() {
   const { data: products = [] } = useProducts();
@@ -21,11 +27,7 @@ export default function NewArrivals() {
           {newItems.map((p, i) => (
             <div key={p.id} className="glass rounded-2xl p-5 hover:glow-border transition-all duration-300 group animate-fade-in-up" style={{ animationDelay: `${i * 0.1}s` }}>
               <div className="aspect-square rounded-xl bg-secondary/50 flex items-center justify-center mb-4 overflow-hidden">
-                {p.image ? (
-                  <img src={p.image} alt={p.name} className="w-full h-full object-cover" loading="lazy" />
-                ) : (
-                  <span className="text-muted-foreground/30 text-sm">Image</span>
-                )}
+                <img src={p.image || fallbackImages[i % fallbackImages.length]} alt={p.name} className="w-full h-full object-cover" loading="lazy" width={800} height={800} />
               </div>
               <span className="text-xs text-primary font-semibold uppercase tracking-wide">{p.category}</span>
               <h3 className="font-heading font-semibold mt-1">{p.name}</h3>

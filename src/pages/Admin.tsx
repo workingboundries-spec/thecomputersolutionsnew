@@ -114,7 +114,7 @@ export default function Admin() {
     }
   };
 
-  const saveCRUD = async (table: string, items: any[], setItems?: any) => {
+  const saveCRUD = async (table: "products" | "services" | "youtube_videos" | "gallery_images" | "daily_deals" | "cctv_products", items: any[]) => {
     const existing = await supabase.from(table).select("id");
     const existingIds = new Set(existing.data?.map((r: any) => r.id) || []);
     const currentIds = new Set(items.map((i) => i.id));

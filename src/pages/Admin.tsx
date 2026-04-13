@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Save, Plus, Trash2, LogOut, Flame } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, LogOut, Flame, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
@@ -24,6 +24,16 @@ interface Product {
   category: string;
   is_new: boolean;
   specs: string | null;
+  display_order: number;
+}
+
+interface CCTVProduct {
+  id: string;
+  name: string;
+  price: string;
+  image: string;
+  description: string;
+  category: string;
   display_order: number;
 }
 
@@ -59,6 +69,7 @@ export default function Admin() {
   const [videos, setVideos] = useState<YouTubeVideo[]>([]);
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
   const [deals, setDeals] = useState<DailyDeal[]>([]);
+  const [cctvProducts, setCctvProducts] = useState<CCTVProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const queryClient = useQueryClient();
   const { signOut } = useAuth();
@@ -76,13 +87,14 @@ export default function Admin() {
 
   const loadAll = async () => {
     setLoading(true);
-    const [s, p, sv, v, g, d] = await Promise.all([
+    const [s, p, sv, v, g, d, cc] = await Promise.all([
       supabase.from("site_settings").select("*"),
       supabase.from("products").select("*").order("display_order"),
       supabase.from("services").select("*").order("display_order"),
       supabase.from("youtube_videos").select("*").order("display_order"),
       supabase.from("gallery_images").select("*").order("display_order"),
       supabase.from("daily_deals").select("*").order("display_order"),
+      supabase.from("cctv_products").select("*").order("display_order"),
     ]);
     const settingsMap: Settings = {};
     s.data?.forEach((r) => { settingsMap[r.key] = r.value; });
@@ -92,6 +104,7 @@ export default function Admin() {
     setVideos((v.data as YouTubeVideo[]) || []);
     setGallery((g.data as GalleryImage[]) || []);
     setDeals((d.data as DailyDeal[]) || []);
+    setCctvProducts((cc.data as CCTVProduct[]) || []);
     setLoading(false);
   };
 
@@ -101,72 +114,29 @@ export default function Admin() {
     }
   };
 
-  const saveProducts = async () => {
-    const existing = await supabase.from("products").select("id");
-    const existingIds = new Set(existing.data?.map((r) => r.id) || []);
-    const currentIds = new Set(products.map((p) => p.id));
-    
-    // Delete removed
+  const saveCRUD = async (table: string, items: any[], setItems?: any) => {
+    const existing = await supabase.from(table).select("id");
+    const existingIds = new Set(existing.data?.map((r: any) => r.id) || []);
+    const currentIds = new Set(items.map((i) => i.id));
     for (const id of existingIds) {
-      if (!currentIds.has(id)) await supabase.from("products").delete().eq("id", id);
+      if (!currentIds.has(id)) await supabase.from(table).delete().eq("id", id);
     }
-    // Upsert current
-    for (const p of products) {
-      await supabase.from("products").upsert(p);
-    }
-  };
-
-  const saveServices = async () => {
-    const existing = await supabase.from("services").select("id");
-    const existingIds = new Set(existing.data?.map((r) => r.id) || []);
-    const currentIds = new Set(services.map((s) => s.id));
-    for (const id of existingIds) {
-      if (!currentIds.has(id)) await supabase.from("services").delete().eq("id", id);
-    }
-    for (const s of services) {
-      await supabase.from("services").upsert(s);
-    }
-  };
-
-  const saveVideos = async () => {
-    const existing = await supabase.from("youtube_videos").select("id");
-    const existingIds = new Set(existing.data?.map((r) => r.id) || []);
-    const currentIds = new Set(videos.map((v) => v.id));
-    for (const id of existingIds) {
-      if (!currentIds.has(id)) await supabase.from("youtube_videos").delete().eq("id", id);
-    }
-    for (const v of videos) {
-      await supabase.from("youtube_videos").upsert(v);
-    }
-  };
-
-  const saveGallery = async () => {
-    const existing = await supabase.from("gallery_images").select("id");
-    const existingIds = new Set(existing.data?.map((r) => r.id) || []);
-    const currentIds = new Set(gallery.map((g) => g.id));
-    for (const id of existingIds) {
-      if (!currentIds.has(id)) await supabase.from("gallery_images").delete().eq("id", id);
-    }
-    for (const g of gallery) {
-      await supabase.from("gallery_images").upsert(g);
-    }
-  };
-
-  const saveDeals = async () => {
-    const existing = await supabase.from("daily_deals").select("id");
-    const existingIds = new Set(existing.data?.map((r) => r.id) || []);
-    const currentIds = new Set(deals.map((d) => d.id));
-    for (const id of existingIds) {
-      if (!currentIds.has(id)) await supabase.from("daily_deals").delete().eq("id", id);
-    }
-    for (const d of deals) {
-      await supabase.from("daily_deals").upsert(d);
+    for (const item of items) {
+      await supabase.from(table).upsert(item);
     }
   };
 
   const saveAll = async () => {
     try {
-      await Promise.all([saveSettings(), saveProducts(), saveServices(), saveVideos(), saveGallery(), saveDeals()]);
+      await Promise.all([
+        saveSettings(),
+        saveCRUD("products", products),
+        saveCRUD("services", services),
+        saveCRUD("youtube_videos", videos),
+        saveCRUD("gallery_images", gallery),
+        saveCRUD("daily_deals", deals),
+        saveCRUD("cctv_products", cctvProducts),
+      ]);
       queryClient.invalidateQueries();
       toast.success("All changes saved to database!");
     } catch (err) {
@@ -176,10 +146,13 @@ export default function Admin() {
 
   const updateSetting = (key: string, value: string) => setSettings({ ...settings, [key]: value });
 
+  const productCategories = (settings.product_categories || "Business,Gaming,Student,Budget,Premium").split(",").map(c => c.trim()).filter(Boolean);
+
   const tabs = [
     { id: "banner", label: "Banner" },
     { id: "deals", label: "🔥 Deals" },
     { id: "products", label: "Products" },
+    { id: "cctv", label: "📹 CCTV" },
     { id: "services", label: "Services" },
     { id: "videos", label: "YouTube" },
     { id: "gallery", label: "Gallery" },
@@ -240,6 +213,17 @@ export default function Admin() {
               <label className="text-sm text-muted-foreground mb-1 block">Banner Image URL</label>
               <input className={inputClass} value={settings.banner_image || ""} onChange={(e) => updateSetting("banner_image", e.target.value)} placeholder="https://..." />
             </div>
+            <h3 className="font-heading text-xl font-semibold pt-4 border-t border-border">Brands Section</h3>
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Brands Tagline</label>
+              <input className={inputClass} value={settings.brands_tagline || ""} onChange={(e) => updateSetting("brands_tagline", e.target.value)} placeholder="Authorized Dealer for All Major Brands" />
+            </div>
+            <h3 className="font-heading text-xl font-semibold pt-4 border-t border-border">Product Categories</h3>
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Categories (comma-separated)</label>
+              <input className={inputClass} value={settings.product_categories || ""} onChange={(e) => updateSetting("product_categories", e.target.value)} placeholder="Business,Gaming,Student,Budget,Premium" />
+              <p className="text-xs text-muted-foreground mt-1">These categories appear as filter buttons in Featured Laptops section</p>
+            </div>
           </div>
         )}
 
@@ -277,7 +261,7 @@ export default function Admin() {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="font-heading text-2xl font-semibold">Products</h2>
-              <button onClick={() => setProducts([...products, { id: crypto.randomUUID(), name: "New Laptop", price: "₹0", image: "", category: "Business", is_new: true, specs: "", display_order: products.length + 1 }])} className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium">
+              <button onClick={() => setProducts([...products, { id: crypto.randomUUID(), name: "New Laptop", price: "₹0", image: "", category: productCategories[0] || "Business", is_new: true, specs: "", display_order: products.length + 1 }])} className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium">
                 <Plus className="h-4 w-4" /> Add Product
               </button>
             </div>
@@ -292,7 +276,7 @@ export default function Admin() {
                   <div><label className="text-xs text-muted-foreground">Price</label><input className={inputClass} value={p.price} onChange={(e) => setProducts(products.map((x) => x.id === p.id ? { ...x, price: e.target.value } : x))} /></div>
                   <div><label className="text-xs text-muted-foreground">Category</label>
                     <select className={inputClass} value={p.category} onChange={(e) => setProducts(products.map((x) => x.id === p.id ? { ...x, category: e.target.value } : x))}>
-                      {["Business", "Gaming", "Student", "Budget", "Premium"].map((c) => <option key={c} value={c}>{c}</option>)}
+                      {productCategories.map((c) => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
                   <div><label className="text-xs text-muted-foreground">Image URL</label><input className={inputClass} value={p.image} onChange={(e) => setProducts(products.map((x) => x.id === p.id ? { ...x, image: e.target.value } : x))} placeholder="https://..." /></div>
@@ -304,6 +288,39 @@ export default function Admin() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* CCTV Tab */}
+        {activeTab === "cctv" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="font-heading text-2xl font-semibold flex items-center gap-2"><Camera className="h-6 w-6 text-primary" /> CCTV Products</h2>
+              <button onClick={() => setCctvProducts([...cctvProducts, { id: crypto.randomUUID(), name: "New Camera", price: "₹0", image: "", description: "", category: "Dome", display_order: cctvProducts.length + 1 }])} className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium">
+                <Plus className="h-4 w-4" /> Add CCTV Product
+              </button>
+            </div>
+            {cctvProducts.map((c) => (
+              <div key={c.id} className="glass rounded-2xl p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="font-heading font-semibold">{c.name}</span>
+                  <button onClick={() => setCctvProducts(cctvProducts.filter((x) => x.id !== c.id))} className="text-destructive hover:opacity-80"><Trash2 className="h-4 w-4" /></button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div><label className="text-xs text-muted-foreground">Name</label><input className={inputClass} value={c.name} onChange={(e) => setCctvProducts(cctvProducts.map((x) => x.id === c.id ? { ...x, name: e.target.value } : x))} /></div>
+                  <div><label className="text-xs text-muted-foreground">Price</label><input className={inputClass} value={c.price} onChange={(e) => setCctvProducts(cctvProducts.map((x) => x.id === c.id ? { ...x, price: e.target.value } : x))} /></div>
+                  <div><label className="text-xs text-muted-foreground">Category</label>
+                    <select className={inputClass} value={c.category} onChange={(e) => setCctvProducts(cctvProducts.map((x) => x.id === c.id ? { ...x, category: e.target.value } : x))}>
+                      {["Dome", "Bullet", "PTZ", "DVR", "NVR", "IP Camera", "Wireless"].map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+                    </select>
+                  </div>
+                  <div><label className="text-xs text-muted-foreground">Image URL</label><input className={inputClass} value={c.image} onChange={(e) => setCctvProducts(cctvProducts.map((x) => x.id === c.id ? { ...x, image: e.target.value } : x))} placeholder="https://..." /></div>
+                  <div className="md:col-span-2"><label className="text-xs text-muted-foreground">Description</label><input className={inputClass} value={c.description} onChange={(e) => setCctvProducts(cctvProducts.map((x) => x.id === c.id ? { ...x, description: e.target.value } : x))} /></div>
+                  <div><label className="text-xs text-muted-foreground">Display Order</label><input type="number" className={inputClass} value={c.display_order} onChange={(e) => setCctvProducts(cctvProducts.map((x) => x.id === c.id ? { ...x, display_order: parseInt(e.target.value) || 0 } : x))} /></div>
+                </div>
+              </div>
+            ))}
+            {cctvProducts.length === 0 && <p className="text-muted-foreground text-center py-8">No CCTV products yet. Click "Add CCTV Product" to create one.</p>}
           </div>
         )}
 

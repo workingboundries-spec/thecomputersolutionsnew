@@ -15,12 +15,12 @@ const categoryFallbacks: Record<string, string> = {
   Premium: productPremium,
 };
 
-const categories = ["All", "Business", "Gaming", "Student", "Budget", "Premium"];
-
 export default function Products() {
   const { data: products = [] } = useProducts();
   const { data: settings } = useSiteSettings();
   const whatsapp = settings?.whatsapp || "919876543210";
+  const categoriesStr = settings?.product_categories || "Business,Gaming,Student,Budget,Premium";
+  const categories = ["All", ...categoriesStr.split(",").map(c => c.trim()).filter(Boolean)];
   const [activeCategory, setActiveCategory] = useState("All");
 
   const filtered = activeCategory === "All" ? products : products.filter((p) => p.category === activeCategory);
@@ -56,7 +56,7 @@ export default function Products() {
             <div key={p.id} className="glass rounded-2xl overflow-hidden group hover:glow-border transition-all duration-300 animate-fade-in-up" style={{ animationDelay: `${i * 0.1}s` }}>
               <div className="aspect-[4/3] bg-secondary/50 flex items-center justify-center relative overflow-hidden">
                 {(p.image || categoryFallbacks[p.category]) ? (
-                  <img src={p.image || categoryFallbacks[p.category]} alt={p.name} className="w-full h-full object-cover" loading="lazy" />
+                  <img src={p.image || categoryFallbacks[p.category]} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
                 ) : (
                   <div className="text-center p-4">
                     <ShoppingCart className="h-12 w-12 text-muted-foreground/30 mx-auto mb-2" />

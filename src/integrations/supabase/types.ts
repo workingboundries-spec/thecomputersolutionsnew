@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      cctv_products: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          image: string
+          name: string
+          price: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          image?: string
+          name: string
+          price: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          image?: string
+          name?: string
+          price?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       daily_deals: {
         Row: {
           created_at: string

@@ -6,6 +6,7 @@ import DailyDeals from "@/components/DailyDeals";
 import Services from "@/components/Services";
 import NewArrivals from "@/components/NewArrivals";
 import Products from "@/components/Products";
+import CCTVProducts from "@/components/CCTVProducts";
 import WhyChooseUs from "@/components/WhyChooseUs";
 import Gallery from "@/components/Gallery";
 import YouTubeVideos from "@/components/YouTubeVideos";
@@ -27,6 +28,7 @@ const Index = () => {
       <Services />
       <NewArrivals />
       <Products />
+      <CCTVProducts />
       <WhyChooseUs />
       <Gallery />
       <YouTubeVideos />

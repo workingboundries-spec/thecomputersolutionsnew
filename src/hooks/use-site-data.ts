@@ -44,6 +44,16 @@ export interface DailyDeal {
   display_order: number;
 }
 
+export interface CCTVProduct {
+  id: string;
+  name: string;
+  price: string;
+  image: string;
+  description: string;
+  category: string;
+  display_order: number;
+}
+
 export type SiteSettings = Record<string, string>;
 
 export function useSiteSettings() {
@@ -110,6 +120,17 @@ export function useYouTubeVideos() {
       const { data, error } = await supabase.from("youtube_videos").select("*").order("display_order");
       if (error) throw error;
       return data as YouTubeVideo[];
+    },
+  });
+}
+
+export function useCCTVProducts() {
+  return useQuery({
+    queryKey: ["cctv-products"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("cctv_products").select("*").order("display_order");
+      if (error) throw error;
+      return data as CCTVProduct[];
     },
   });
 }

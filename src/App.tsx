@@ -18,7 +18,9 @@ import CrmSales from "./crm/pages/CrmSales";
 import CrmCustomers from "./crm/pages/CrmCustomers";
 import CrmCatalogue from "./crm/pages/CrmCatalogue";
 import CrmStock from "./crm/pages/CrmStock";
-import { CrmServices, CrmWarranty, CrmSettings } from "./crm/pages/CrmStubs";
+import CrmServices from "./crm/pages/CrmServices";
+import CrmWarranty from "./crm/pages/CrmWarranty";
+import CrmSettings from "./crm/pages/CrmSettings";
 import QuoteShare from "./pages/QuoteShare";
 
 const queryClient = new QueryClient();

@@ -50,6 +50,496 @@ export type Database = {
         }
         Relationships: []
       }
+      crm_catalogue: {
+        Row: {
+          billing_price: number
+          brand: string
+          category: string
+          created_at: string
+          id: string
+          image_url: string | null
+          is_active: boolean
+          model: string
+          mrp: number
+          nlc_price: number
+          online_price: number
+          sale_price: number
+          specs: string | null
+          stock_qty: number
+          updated_at: string
+        }
+        Insert: {
+          billing_price?: number
+          brand: string
+          category?: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          model: string
+          mrp?: number
+          nlc_price?: number
+          online_price?: number
+          sale_price?: number
+          specs?: string | null
+          stock_qty?: number
+          updated_at?: string
+        }
+        Update: {
+          billing_price?: number
+          brand?: string
+          category?: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          model?: string
+          mrp?: number
+          nlc_price?: number
+          online_price?: number
+          sale_price?: number
+          specs?: string | null
+          stock_qty?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      crm_customers: {
+        Row: {
+          address: string | null
+          created_at: string
+          dob: string | null
+          email: string | null
+          id: string
+          last_purchase_date: string | null
+          name: string
+          notes: string | null
+          phone: string
+          total_purchases: number
+          total_value: number
+          updated_at: string
+          whatsapp: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          dob?: string | null
+          email?: string | null
+          id?: string
+          last_purchase_date?: string | null
+          name: string
+          notes?: string | null
+          phone: string
+          total_purchases?: number
+          total_value?: number
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          dob?: string | null
+          email?: string | null
+          id?: string
+          last_purchase_date?: string | null
+          name?: string
+          notes?: string | null
+          phone?: string
+          total_purchases?: number
+          total_value?: number
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
+      crm_enquiries: {
+        Row: {
+          address: string | null
+          assigned_to: string | null
+          budget: number | null
+          created_at: string
+          customer_name: string
+          description: string | null
+          id: string
+          item_name: string | null
+          notes: string | null
+          phone: string
+          product_category: string
+          source: string
+          status: string
+          updated_at: string
+          whatsapp: string | null
+        }
+        Insert: {
+          address?: string | null
+          assigned_to?: string | null
+          budget?: number | null
+          created_at?: string
+          customer_name: string
+          description?: string | null
+          id?: string
+          item_name?: string | null
+          notes?: string | null
+          phone: string
+          product_category?: string
+          source?: string
+          status?: string
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          address?: string | null
+          assigned_to?: string | null
+          budget?: number | null
+          created_at?: string
+          customer_name?: string
+          description?: string | null
+          id?: string
+          item_name?: string | null
+          notes?: string | null
+          phone?: string
+          product_category?: string
+          source?: string
+          status?: string
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
+      crm_quote_shares: {
+        Row: {
+          catalogue_id: string | null
+          created_at: string
+          customer_name: string | null
+          customer_phone: string | null
+          id: string
+          is_active: boolean
+          share_link: string
+          shared_config: string | null
+          shared_price: number
+          updated_at: string
+          valid_until: string
+        }
+        Insert: {
+          catalogue_id?: string | null
+          created_at?: string
+          customer_name?: string | null
+          customer_phone?: string | null
+          id?: string
+          is_active?: boolean
+          share_link?: string
+          shared_config?: string | null
+          shared_price?: number
+          updated_at?: string
+          valid_until?: string
+        }
+        Update: {
+          catalogue_id?: string | null
+          created_at?: string
+          customer_name?: string | null
+          customer_phone?: string | null
+          id?: string
+          is_active?: boolean
+          share_link?: string
+          shared_config?: string | null
+          shared_price?: number
+          updated_at?: string
+          valid_until?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_quote_shares_catalogue_id_fkey"
+            columns: ["catalogue_id"]
+            isOneToOne: false
+            referencedRelation: "crm_catalogue"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_sales: {
+        Row: {
+          address: string | null
+          created_at: string
+          customer_dob: string | null
+          customer_name: string
+          discount: number
+          enquiry_id: string | null
+          id: string
+          invoice_no: string
+          item_id: string | null
+          item_name: string
+          notes: string | null
+          payment_mode: string
+          payment_status: string
+          phone: string
+          qty: number
+          sale_date: string
+          sale_price: number
+          total_amount: number
+          updated_at: string
+          warranty_expiry: string | null
+          warranty_months: number
+          whatsapp: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          customer_dob?: string | null
+          customer_name: string
+          discount?: number
+          enquiry_id?: string | null
+          id?: string
+          invoice_no: string
+          item_id?: string | null
+          item_name: string
+          notes?: string | null
+          payment_mode?: string
+          payment_status?: string
+          phone: string
+          qty?: number
+          sale_date?: string
+          sale_price?: number
+          total_amount?: number
+          updated_at?: string
+          warranty_expiry?: string | null
+          warranty_months?: number
+          whatsapp?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          customer_dob?: string | null
+          customer_name?: string
+          discount?: number
+          enquiry_id?: string | null
+          id?: string
+          invoice_no?: string
+          item_id?: string | null
+          item_name?: string
+          notes?: string | null
+          payment_mode?: string
+          payment_status?: string
+          phone?: string
+          qty?: number
+          sale_date?: string
+          sale_price?: number
+          total_amount?: number
+          updated_at?: string
+          warranty_expiry?: string | null
+          warranty_months?: number
+          whatsapp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_sales_enquiry_id_fkey"
+            columns: ["enquiry_id"]
+            isOneToOne: false
+            referencedRelation: "crm_enquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_sales_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "crm_catalogue"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_services: {
+        Row: {
+          brand: string | null
+          created_at: string
+          customer_name: string
+          delivery_date: string | null
+          device_type: string
+          estimated_cost: number | null
+          final_cost: number | null
+          id: string
+          issue_description: string | null
+          job_card_no: string
+          model: string | null
+          phone: string
+          received_date: string
+          status: string
+          technician_notes: string | null
+          updated_at: string
+          whatsapp: string | null
+        }
+        Insert: {
+          brand?: string | null
+          created_at?: string
+          customer_name: string
+          delivery_date?: string | null
+          device_type: string
+          estimated_cost?: number | null
+          final_cost?: number | null
+          id?: string
+          issue_description?: string | null
+          job_card_no: string
+          model?: string | null
+          phone: string
+          received_date?: string
+          status?: string
+          technician_notes?: string | null
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          brand?: string | null
+          created_at?: string
+          customer_name?: string
+          delivery_date?: string | null
+          device_type?: string
+          estimated_cost?: number | null
+          final_cost?: number | null
+          id?: string
+          issue_description?: string | null
+          job_card_no?: string
+          model?: string | null
+          phone?: string
+          received_date?: string
+          status?: string
+          technician_notes?: string | null
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
+      crm_settings: {
+        Row: {
+          created_at: string
+          id: string
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          key: string
+          updated_at?: string
+          value?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
+      crm_user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["crm_app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["crm_app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["crm_app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      crm_warranty_reminders: {
+        Row: {
+          created_at: string
+          customer_name: string
+          id: string
+          item_name: string | null
+          phone: string
+          purchase_date: string | null
+          reminder_type: string
+          sale_id: string | null
+          scheduled_date: string
+          sent_at: string | null
+          status: string
+          updated_at: string
+          warranty_expiry: string | null
+          whatsapp: string | null
+          whatsapp_message: string | null
+        }
+        Insert: {
+          created_at?: string
+          customer_name: string
+          id?: string
+          item_name?: string | null
+          phone: string
+          purchase_date?: string | null
+          reminder_type: string
+          sale_id?: string | null
+          scheduled_date: string
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+          warranty_expiry?: string | null
+          whatsapp?: string | null
+          whatsapp_message?: string | null
+        }
+        Update: {
+          created_at?: string
+          customer_name?: string
+          id?: string
+          item_name?: string | null
+          phone?: string
+          purchase_date?: string | null
+          reminder_type?: string
+          sale_id?: string | null
+          scheduled_date?: string
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+          warranty_expiry?: string | null
+          whatsapp?: string | null
+          whatsapp_message?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_warranty_reminders_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "crm_sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_whatsapp_templates: {
+        Row: {
+          created_at: string
+          id: string
+          message_body: string
+          template_name: string
+          template_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message_body: string
+          template_name: string
+          template_type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message_body?: string
+          template_name?: string
+          template_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       daily_deals: {
         Row: {
           created_at: string
@@ -238,10 +728,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_crm_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["crm_app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_crm_user: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      crm_app_role: "crm_user" | "crm_admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -368,6 +865,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      crm_app_role: ["crm_user", "crm_admin"],
+    },
   },
 } as const

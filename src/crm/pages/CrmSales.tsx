@@ -1,0 +1,472 @@
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { formatINR, formatDate, todayISO, addMonths, addDays } from "@/crm/lib/format";
+import { toast } from "sonner";
+import { Plus, Search, Eye, Edit2, MessageCircle, Printer } from "lucide-react";
+
+const PAY_BADGE: Record<string, string> = {
+  paid: "bg-green-500/15 text-green-300",
+  partial: "bg-yellow-500/15 text-yellow-300",
+  pending: "bg-red-500/15 text-red-300",
+};
+
+const empty = {
+  enquiry_id: null as string | null,
+  customer_name: "", phone: "", whatsapp: "", address: "", customer_dob: "",
+  item_name: "", item_id: null as string | null,
+  qty: 1, sale_price: 0, discount: 0, total_amount: 0,
+  payment_mode: "cash", payment_status: "paid",
+  invoice_no: "", warranty_months: 12, warranty_expiry: "",
+  sale_date: todayISO(), notes: "",
+};
+
+async function nextInvoiceNo() {
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = String(today.getMonth() + 1).padStart(2, "0");
+  const d = String(today.getDate()).padStart(2, "0");
+  const prefix = `INV-${y}${m}${d}`;
+  const { data } = await supabase
+    .from("crm_sales")
+    .select("invoice_no")
+    .like("invoice_no", `${prefix}-%`)
+    .order("invoice_no", { ascending: false })
+    .limit(1);
+  let n = 1;
+  if (data && data[0]) {
+    const last = data[0].invoice_no.split("-").pop();
+    n = (parseInt(last || "0", 10) || 0) + 1;
+  }
+  return `${prefix}-${String(n).padStart(3, "0")}`;
+}
+
+async function loadTemplates() {
+  const { data } = await supabase.from("crm_whatsapp_templates").select("template_name, message_body");
+  const map: Record<string, string> = {};
+  (data || []).forEach((t: any) => { map[t.template_name] = t.message_body; });
+  return map;
+}
+
+function fillTemplate(tpl: string, vars: Record<string, string>) {
+  return tpl.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? "");
+}
+
+async function createWarrantyReminders(sale: any, templates: Record<string, string>) {
+  const reminders: any[] = [];
+  const baseVars = {
+    name: sale.customer_name,
+    item: sale.item_name,
+    date: formatDate(sale.sale_date),
+    expiry: formatDate(sale.warranty_expiry),
+    phone: sale.phone,
+  };
+  const types: { type: string; days: number; tpl: string }[] = [
+    { type: "1month", days: 30, tpl: "warranty_1month" },
+    { type: "3month", days: 90, tpl: "warranty_3month" },
+    { type: "6month", days: 180, tpl: "warranty_6month" },
+  ];
+  for (const t of types) {
+    reminders.push({
+      sale_id: sale.id,
+      customer_name: sale.customer_name,
+      phone: sale.phone,
+      whatsapp: sale.whatsapp || sale.phone,
+      item_name: sale.item_name,
+      purchase_date: sale.sale_date,
+      warranty_expiry: sale.warranty_expiry,
+      reminder_type: t.type,
+      scheduled_date: addDays(sale.sale_date, t.days),
+      whatsapp_message: fillTemplate(templates[t.tpl] || "", baseVars),
+      status: "pending",
+    });
+  }
+  if (sale.warranty_expiry) {
+    reminders.push({
+      sale_id: sale.id,
+      customer_name: sale.customer_name,
+      phone: sale.phone,
+      whatsapp: sale.whatsapp || sale.phone,
+      item_name: sale.item_name,
+      purchase_date: sale.sale_date,
+      warranty_expiry: sale.warranty_expiry,
+      reminder_type: "pre_expiry",
+      scheduled_date: addDays(sale.warranty_expiry, -30),
+      whatsapp_message: fillTemplate(templates["warranty_pre_expiry"] || "", baseVars),
+      status: "pending",
+    });
+  }
+  if (sale.customer_dob) {
+    const dob = new Date(sale.customer_dob);
+    const next = new Date();
+    next.setMonth(dob.getMonth());
+    next.setDate(dob.getDate());
+    if (next < new Date()) next.setFullYear(next.getFullYear() + 1);
+    reminders.push({
+      sale_id: sale.id,
+      customer_name: sale.customer_name,
+      phone: sale.phone,
+      whatsapp: sale.whatsapp || sale.phone,
+      item_name: sale.item_name,
+      purchase_date: sale.sale_date,
+      warranty_expiry: sale.warranty_expiry,
+      reminder_type: "birthday",
+      scheduled_date: next.toISOString().slice(0, 10),
+      whatsapp_message: fillTemplate(templates["birthday"] || "", baseVars),
+      status: "pending",
+    });
+  }
+  if (reminders.length) await supabase.from("crm_warranty_reminders").insert(reminders);
+}
+
+async function upsertCustomer(sale: any) {
+  const { data: existing } = await supabase.from("crm_customers").select("*").eq("phone", sale.phone).maybeSingle();
+  if (existing) {
+    await supabase.from("crm_customers").update({
+      name: sale.customer_name,
+      whatsapp: sale.whatsapp || sale.phone,
+      address: sale.address || existing.address,
+      dob: sale.customer_dob || existing.dob,
+      total_purchases: (existing.total_purchases || 0) + 1,
+      total_value: Number(existing.total_value || 0) + Number(sale.total_amount || 0),
+      last_purchase_date: sale.sale_date,
+    }).eq("id", existing.id);
+  } else {
+    await supabase.from("crm_customers").insert({
+      name: sale.customer_name,
+      phone: sale.phone,
+      whatsapp: sale.whatsapp || sale.phone,
+      address: sale.address,
+      dob: sale.customer_dob || null,
+      total_purchases: 1,
+      total_value: Number(sale.total_amount || 0),
+      last_purchase_date: sale.sale_date,
+    });
+  }
+}
+
+async function decrementStock(item_id: string | null, qty: number) {
+  if (!item_id) return;
+  const { data } = await supabase.from("crm_catalogue").select("stock_qty").eq("id", item_id).maybeSingle();
+  if (data) {
+    await supabase.from("crm_catalogue").update({ stock_qty: Math.max(0, (data.stock_qty || 0) - qty) }).eq("id", item_id);
+  }
+}
+
+export default function CrmSales() {
+  const [params, setParams] = useSearchParams();
+  const [rows, setRows] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [filterPay, setFilterPay] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
+  const [form, setForm] = useState<any>(empty);
+  const [viewing, setViewing] = useState<any>(null);
+  const [catalogue, setCatalogue] = useState<any[]>([]);
+  const [shopInfo, setShopInfo] = useState<Record<string, string>>({});
+
+  const load = async () => {
+    setLoading(true);
+    const [salesRes, catRes, settRes] = await Promise.all([
+      supabase.from("crm_sales").select("*").order("created_at", { ascending: false }),
+      supabase.from("crm_catalogue").select("id, brand, model, sale_price, stock_qty"),
+      supabase.from("crm_settings").select("key, value"),
+    ]);
+    if (salesRes.error) toast.error(salesRes.error.message);
+    setRows(salesRes.data || []);
+    setCatalogue(catRes.data || []);
+    const info: Record<string, string> = {};
+    (settRes.data || []).forEach((r: any) => { info[r.key] = r.value; });
+    setShopInfo(info);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  // Handle ?new=1 from enquiry conversion
+  useEffect(() => {
+    if (params.get("new") === "1") {
+      const prefill: any = { ...empty };
+      params.forEach((v, k) => { if (k !== "new" && k in prefill) prefill[k] = v; });
+      if (params.get("enquiry_id")) prefill.enquiry_id = params.get("enquiry_id");
+      const sp = Number(prefill.sale_price || 0);
+      prefill.sale_price = sp;
+      prefill.total_amount = sp;
+      openNew(prefill);
+      params.delete("new");
+      setParams(params, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const filtered = rows.filter((r) => {
+    if (filterPay && r.payment_status !== filterPay) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      if (!r.customer_name?.toLowerCase().includes(q) && !r.phone?.includes(q) && !r.invoice_no?.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+
+  const totalsByDate = (() => {
+    const today = todayISO();
+    const weekAgo = addDays(today, -7);
+    const monthStart = today.slice(0, 7) + "-01";
+    let t = 0, w = 0, m = 0;
+    rows.forEach((r) => {
+      const amt = Number(r.total_amount || 0);
+      if (r.sale_date === today) t += amt;
+      if (r.sale_date >= weekAgo) w += amt;
+      if (r.sale_date >= monthStart) m += amt;
+    });
+    return { t, w, m };
+  })();
+
+  const openNew = async (prefill?: any) => {
+    setEditing(null);
+    const inv = await nextInvoiceNo();
+    const base = { ...empty, ...(prefill || {}), invoice_no: inv };
+    base.warranty_expiry = addMonths(base.sale_date, base.warranty_months);
+    setForm(base);
+    setShowForm(true);
+  };
+
+  const openEdit = (r: any) => { setEditing(r); setForm({ ...empty, ...r }); setShowForm(true); };
+
+  const recalc = (f: any) => {
+    const t = Math.max(0, Number(f.qty || 0) * Number(f.sale_price || 0) - Number(f.discount || 0));
+    return { ...f, total_amount: t };
+  };
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const payload = {
+      ...form,
+      qty: Number(form.qty || 1),
+      sale_price: Number(form.sale_price || 0),
+      discount: Number(form.discount || 0),
+      total_amount: Number(form.total_amount || 0),
+      warranty_months: Number(form.warranty_months || 0),
+      warranty_expiry: form.warranty_expiry || addMonths(form.sale_date, Number(form.warranty_months || 0)),
+      whatsapp: form.whatsapp || form.phone,
+      customer_dob: form.customer_dob || null,
+      enquiry_id: form.enquiry_id || null,
+      item_id: form.item_id || null,
+    };
+
+    if (editing) {
+      const { error } = await supabase.from("crm_sales").update(payload).eq("id", editing.id);
+      if (error) return toast.error(error.message);
+      toast.success("Sale updated");
+    } else {
+      const { data, error } = await supabase.from("crm_sales").insert(payload).select().single();
+      if (error) return toast.error(error.message);
+      const templates = await loadTemplates();
+      await Promise.all([
+        createWarrantyReminders(data, templates),
+        upsertCustomer(data),
+        decrementStock(data.item_id, data.qty),
+        payload.enquiry_id ? supabase.from("crm_enquiries").update({ status: "converted" }).eq("id", payload.enquiry_id) : Promise.resolve(),
+      ]);
+      toast.success("Sale saved + reminders scheduled");
+    }
+    setShowForm(false);
+    load();
+  };
+
+  const sendReceipt = (s: any) => {
+    const msg = `Hi ${s.customer_name}, thank you for your purchase!\nInvoice: ${s.invoice_no}\nItem: ${s.item_name}\nAmount: ${formatINR(s.total_amount)}\nWarranty till: ${formatDate(s.warranty_expiry)}\n— ${shopInfo.shop_name || "The Computer Solutions"}`;
+    const phone = (s.whatsapp || s.phone || "").replace(/\D/g, "");
+    const cc = phone.startsWith("91") ? phone : "91" + phone;
+    window.open(`https://wa.me/${cc}?text=${encodeURIComponent(msg)}`, "_blank");
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Sales</h1>
+          <p className="text-sm text-slate-400">{filtered.length} of {rows.length} sales</p>
+        </div>
+        <button onClick={() => openNew()} className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm flex items-center gap-1.5"><Plus size={14} />Add Sale</button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <Stat label="Today" value={formatINR(totalsByDate.t)} />
+        <Stat label="This Week" value={formatINR(totalsByDate.w)} />
+        <Stat label="This Month" value={formatINR(totalsByDate.m)} />
+      </div>
+
+      <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 flex flex-wrap gap-2">
+        <div className="relative flex-1 min-w-[180px]">
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search customer / phone / invoice…" className="w-full pl-8 pr-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-white" />
+        </div>
+        <select value={filterPay} onChange={(e) => setFilterPay(e.target.value)} className="px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-white">
+          <option value="">All payments</option>
+          <option value="paid">Paid</option><option value="partial">Partial</option><option value="pending">Pending</option>
+        </select>
+      </div>
+
+      <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-800/50 text-xs uppercase text-slate-400">
+            <tr>
+              <th className="text-left px-3 py-2">Date</th>
+              <th className="text-left px-3 py-2">Invoice</th>
+              <th className="text-left px-3 py-2">Customer</th>
+              <th className="text-left px-3 py-2">Item</th>
+              <th className="text-right px-3 py-2">Amount</th>
+              <th className="text-left px-3 py-2">Payment</th>
+              <th className="text-right px-3 py-2">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? <tr><td colSpan={7} className="text-center py-6 text-slate-500">Loading…</td></tr> :
+              filtered.length === 0 ? <tr><td colSpan={7} className="text-center py-10 text-slate-500">No sales yet — <button onClick={() => openNew()} className="text-blue-400 hover:underline">add the first</button></td></tr> :
+              filtered.map((r) => (
+                <tr key={r.id} className="border-t border-slate-800 hover:bg-slate-800/30">
+                  <td className="px-3 py-2 text-slate-400 text-xs">{formatDate(r.sale_date)}</td>
+                  <td className="px-3 py-2 text-slate-300 font-mono text-xs">{r.invoice_no}</td>
+                  <td className="px-3 py-2 text-white">{r.customer_name}<div className="text-xs text-slate-500">{r.phone}</div></td>
+                  <td className="px-3 py-2 text-slate-300">{r.item_name} <span className="text-xs text-slate-500">×{r.qty}</span></td>
+                  <td className="px-3 py-2 text-right text-green-400 font-medium">{formatINR(r.total_amount)}</td>
+                  <td className="px-3 py-2"><span className={`px-2 py-0.5 rounded text-xs ${PAY_BADGE[r.payment_status]}`}>{r.payment_status}</span></td>
+                  <td className="px-3 py-2 text-right">
+                    <div className="flex justify-end gap-1">
+                      <button onClick={() => setViewing(r)} title="View invoice" className="p-1.5 text-slate-300 hover:bg-slate-700 rounded"><Eye size={14} /></button>
+                      <button onClick={() => sendReceipt(r)} title="WhatsApp receipt" className="p-1.5 text-green-400 hover:bg-green-600/20 rounded"><MessageCircle size={14} /></button>
+                      <button onClick={() => openEdit(r)} title="Edit" className="p-1.5 text-blue-400 hover:bg-blue-600/20 rounded"><Edit2 size={14} /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+      </div>
+
+      {/* Form modal */}
+      {showForm && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-start justify-center p-4 overflow-y-auto" onClick={() => setShowForm(false)}>
+          <form onSubmit={save} onClick={(e) => e.stopPropagation()} className="bg-slate-900 border border-slate-700 rounded-lg p-5 w-full max-w-3xl my-8 space-y-3">
+            <h3 className="text-lg font-semibold text-white">{editing ? "Edit" : "New"} Sale</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <Field label="Invoice No"><input value={form.invoice_no} onChange={(e) => setForm({ ...form, invoice_no: e.target.value })} className={fInput} /></Field>
+              <Field label="Sale Date"><input type="date" value={form.sale_date} onChange={(e) => setForm(recalc({ ...form, sale_date: e.target.value, warranty_expiry: addMonths(e.target.value, Number(form.warranty_months || 0)) }))} className={fInput} /></Field>
+              <Field label="Payment Mode">
+                <select value={form.payment_mode} onChange={(e) => setForm({ ...form, payment_mode: e.target.value })} className={fInput}>
+                  <option value="cash">Cash</option><option value="upi">UPI</option><option value="card">Card</option><option value="credit">Credit</option><option value="emi">EMI</option>
+                </select>
+              </Field>
+              <Field label="Customer Name *"><input required value={form.customer_name} onChange={(e) => setForm({ ...form, customer_name: e.target.value })} className={fInput} /></Field>
+              <Field label="Phone *"><input required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={fInput} /></Field>
+              <Field label="WhatsApp"><input value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} className={fInput} /></Field>
+              <Field label="Address"><input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className={fInput} /></Field>
+              <Field label="Customer DOB (for birthday)"><input type="date" value={form.customer_dob || ""} onChange={(e) => setForm({ ...form, customer_dob: e.target.value })} className={fInput} /></Field>
+              <Field label="Pick from Catalogue (optional)">
+                <select value={form.item_id || ""} onChange={(e) => {
+                  const c = catalogue.find((x) => x.id === e.target.value);
+                  if (c) setForm(recalc({ ...form, item_id: c.id, item_name: `${c.brand} ${c.model}`, sale_price: c.sale_price }));
+                  else setForm({ ...form, item_id: null });
+                }} className={fInput}>
+                  <option value="">— Manual entry —</option>
+                  {catalogue.map((c) => <option key={c.id} value={c.id}>{c.brand} {c.model} (stock {c.stock_qty})</option>)}
+                </select>
+              </Field>
+              <Field label="Item Name *"><input required value={form.item_name} onChange={(e) => setForm({ ...form, item_name: e.target.value })} className={fInput} /></Field>
+              <Field label="Qty"><input type="number" min={1} value={form.qty} onChange={(e) => setForm(recalc({ ...form, qty: Number(e.target.value || 1) }))} className={fInput} /></Field>
+              <Field label="Sale Price (each)"><input type="number" value={form.sale_price} onChange={(e) => setForm(recalc({ ...form, sale_price: Number(e.target.value || 0) }))} className={fInput} /></Field>
+              <Field label="Discount"><input type="number" value={form.discount} onChange={(e) => setForm(recalc({ ...form, discount: Number(e.target.value || 0) }))} className={fInput} /></Field>
+              <Field label="Total Amount"><input type="number" value={form.total_amount} onChange={(e) => setForm({ ...form, total_amount: Number(e.target.value || 0) })} className={`${fInput} font-bold text-green-400`} /></Field>
+              <Field label="Payment Status">
+                <select value={form.payment_status} onChange={(e) => setForm({ ...form, payment_status: e.target.value })} className={fInput}>
+                  <option value="paid">Paid</option><option value="partial">Partial</option><option value="pending">Pending</option>
+                </select>
+              </Field>
+              <Field label="Warranty (months)"><input type="number" value={form.warranty_months} onChange={(e) => setForm({ ...form, warranty_months: Number(e.target.value || 0), warranty_expiry: addMonths(form.sale_date, Number(e.target.value || 0)) })} className={fInput} /></Field>
+              <Field label="Warranty Expiry"><input type="date" value={form.warranty_expiry || ""} onChange={(e) => setForm({ ...form, warranty_expiry: e.target.value })} className={fInput} /></Field>
+            </div>
+            <Field label="Notes"><textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className={fInput} /></Field>
+            <div className="flex justify-end gap-2 pt-2">
+              <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-slate-300 hover:bg-slate-800 rounded">Cancel</button>
+              <button type="submit" className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded font-medium">Save Sale</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Invoice modal */}
+      {viewing && <InvoiceModal sale={viewing} shop={shopInfo} onClose={() => setViewing(null)} />}
+    </div>
+  );
+}
+
+function InvoiceModal({ sale, shop, onClose }: any) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-start justify-center p-4 overflow-y-auto" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="bg-white text-slate-900 rounded-lg w-full max-w-2xl my-8 print:my-0 print:shadow-none">
+        <div className="p-6 print:p-0">
+          <div className="flex justify-between items-start border-b pb-4">
+            <div>
+              <h2 className="text-2xl font-bold">{shop.shop_name || "The Computer Solutions"}</h2>
+              <div className="text-sm text-slate-600">{shop.shop_address}</div>
+              <div className="text-sm text-slate-600">{shop.shop_phone}</div>
+              {shop.shop_gst && <div className="text-xs text-slate-500">GST: {shop.shop_gst}</div>}
+            </div>
+            <div className="text-right">
+              <div className="text-xs uppercase tracking-wider text-slate-500">Invoice</div>
+              <div className="font-mono font-bold">{sale.invoice_no}</div>
+              <div className="text-sm text-slate-600 mt-1">{formatDate(sale.sale_date)}</div>
+            </div>
+          </div>
+          <div className="py-4 grid grid-cols-2 gap-4 text-sm border-b">
+            <div>
+              <div className="text-xs uppercase text-slate-500">Bill to</div>
+              <div className="font-semibold">{sale.customer_name}</div>
+              <div className="text-slate-600">{sale.phone}</div>
+              <div className="text-slate-600">{sale.address}</div>
+            </div>
+            <div className="text-right">
+              <div className="text-xs uppercase text-slate-500">Payment</div>
+              <div className="font-semibold capitalize">{sale.payment_mode} — {sale.payment_status}</div>
+            </div>
+          </div>
+          <table className="w-full text-sm my-4">
+            <thead className="border-b">
+              <tr><th className="text-left py-2">Item</th><th className="text-right">Qty</th><th className="text-right">Rate</th><th className="text-right">Amount</th></tr>
+            </thead>
+            <tbody>
+              <tr className="border-b"><td className="py-2">{sale.item_name}</td><td className="text-right">{sale.qty}</td><td className="text-right">{formatINR(sale.sale_price)}</td><td className="text-right">{formatINR(Number(sale.qty) * Number(sale.sale_price))}</td></tr>
+              {Number(sale.discount) > 0 && <tr><td colSpan={3} className="py-1 text-right text-slate-600">Discount</td><td className="text-right text-red-600">- {formatINR(sale.discount)}</td></tr>}
+              <tr className="font-bold border-t"><td colSpan={3} className="py-2 text-right">Total</td><td className="text-right">{formatINR(sale.total_amount)}</td></tr>
+            </tbody>
+          </table>
+          <div className="text-xs text-slate-600 border-t pt-3">
+            <div><strong>Warranty:</strong> {sale.warranty_months} months — valid till {formatDate(sale.warranty_expiry)}</div>
+            {sale.notes && <div className="mt-2"><strong>Notes:</strong> {sale.notes}</div>}
+            <div className="mt-3 text-center text-slate-500">Thank you for your business!</div>
+          </div>
+        </div>
+        <div className="border-t bg-slate-50 p-3 flex justify-end gap-2 print:hidden">
+          <button onClick={onClose} className="px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-200 rounded">Close</button>
+          <button onClick={() => window.print()} className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded flex items-center gap-1.5"><Printer size={14} />Print</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value }: any) {
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
+      <div className="text-xs uppercase tracking-wider text-slate-500">{label}</div>
+      <div className="text-xl font-bold text-white mt-0.5">{value}</div>
+    </div>
+  );
+}
+const fInput = "w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500";
+function Field({ label, children }: any) {
+  return <label className="block"><span className="text-xs text-slate-400 mb-1 block">{label}</span>{children}</label>;
+}

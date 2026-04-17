@@ -16,7 +16,10 @@ import CrmDashboard from "./crm/pages/CrmDashboard";
 import CrmEnquiries from "./crm/pages/CrmEnquiries";
 import CrmSales from "./crm/pages/CrmSales";
 import CrmCustomers from "./crm/pages/CrmCustomers";
-import { CrmCatalogue, CrmStock, CrmServices, CrmWarranty, CrmSettings } from "./crm/pages/CrmStubs";
+import CrmCatalogue from "./crm/pages/CrmCatalogue";
+import CrmStock from "./crm/pages/CrmStock";
+import { CrmServices, CrmWarranty, CrmSettings } from "./crm/pages/CrmStubs";
+import QuoteShare from "./pages/QuoteShare";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +47,9 @@ const App = () => (
             <Route path="/crm/customers" element={<CrmCustomers />} />
             <Route path="/crm/settings" element={<CrmSettings />} />
           </Route>
+
+          {/* Public quote share */}
+          <Route path="/q/:uuid" element={<QuoteShare />} />
 
           <Route path="*" element={<NotFound />} />
         </Routes>

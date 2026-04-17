@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export const CRM_EMAIL = "crm@thecomputersolutions.in";
+// CRM uses the same shop owner account
+export const CRM_EMAIL = "admin@thecomputersolutions.in";
 
 export async function crmSignIn(username: string, password: string) {
   // Fixed username "crm" maps to a real Supabase auth user

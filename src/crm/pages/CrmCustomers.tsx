@@ -17,6 +17,7 @@ function Avatar({ name, photo, size = 32 }: { name: string; photo?: string | nul
 export default function CrmCustomers() {
   const [rows, setRows] = useState<any[]>([]);
   const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"all" | "Purchase" | "Service" | "Both">("all");
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -29,9 +30,62 @@ export default function CrmCustomers() {
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from("crm_customers").select("*").order("last_purchase_date", { ascending: false, nullsFirst: false });
-    if (error) toast.error(error.message);
-    setRows(data || []);
+    const [custRes, svcRes, salesRes] = await Promise.all([
+      supabase.from("crm_customers").select("*").order("last_purchase_date", { ascending: false, nullsFirst: false }),
+      supabase.from("crm_services").select("customer_name, phone, whatsapp, received_date").order("received_date", { ascending: false }),
+      supabase.from("crm_sales").select("phone").limit(5000),
+    ]);
+    if (custRes.error) toast.error(custRes.error.message);
+    const customers = custRes.data || [];
+    const services = svcRes.data || [];
+    const salesPhones = new Set((salesRes.data || []).map((s: any) => s.phone));
+
+    // Group services by phone
+    const svcByPhone = new Map<string, { name: string; phone: string; whatsapp: string | null; last: string }>();
+    for (const s of services) {
+      if (!s.phone) continue;
+      if (!svcByPhone.has(s.phone)) {
+        svcByPhone.set(s.phone, { name: s.customer_name, phone: s.phone, whatsapp: s.whatsapp, last: s.received_date });
+      }
+    }
+
+    const custByPhone = new Map<string, any>();
+    customers.forEach((c: any) => custByPhone.set(c.phone, c));
+
+    const merged: any[] = [];
+    // Existing customers
+    for (const c of customers) {
+      const hasSale = (c.total_purchases && c.total_purchases > 0) || salesPhones.has(c.phone);
+      const hasService = svcByPhone.has(c.phone);
+      let customerType: "Purchase" | "Service" | "Both" = "Purchase";
+      if (hasSale && hasService) customerType = "Both";
+      else if (hasService && !hasSale) customerType = "Service";
+      else customerType = "Purchase";
+      merged.push({ ...c, customerType, _virtual: false });
+    }
+    // Service-only (not in crm_customers)
+    for (const [phone, s] of svcByPhone.entries()) {
+      if (custByPhone.has(phone)) continue;
+      merged.push({
+        id: `virtual-${phone}`,
+        name: s.name,
+        phone: s.phone,
+        whatsapp: s.whatsapp,
+        email: null,
+        address: null,
+        dob: null,
+        notes: null,
+        photo_url: null,
+        total_purchases: 0,
+        total_value: 0,
+        last_purchase_date: null,
+        customerType: "Service" as const,
+        _virtual: true,
+        _lastService: s.last,
+      });
+    }
+
+    setRows(merged);
     setLoading(false);
   };
 
@@ -48,13 +102,28 @@ export default function CrmCustomers() {
   };
 
   const filtered = rows.filter((r) => {
+    if (typeFilter !== "all" && r.customerType !== typeFilter) return false;
     if (!search) return true;
     const q = search.toLowerCase();
     return r.name?.toLowerCase().includes(q) || r.phone?.includes(q);
   });
 
+  const counts = {
+    all: rows.length,
+    Purchase: rows.filter((r) => r.customerType === "Purchase").length,
+    Service: rows.filter((r) => r.customerType === "Service").length,
+    Both: rows.filter((r) => r.customerType === "Both").length,
+  };
+
   const openNew = () => { setEditing(null); setForm(empty); setPhotoMode("upload"); setShowForm(true); };
-  const openEdit = (r: any) => { setEditing(r); setForm({ ...empty, ...r, dob: r.dob || "", photo_url: r.photo_url || "" }); setPhotoMode(r.photo_url ? "url" : "upload"); setShowForm(true); };
+  const openEdit = (r: any) => {
+    // Service-only virtual rows: clear id so saving inserts new customer
+    const base = r._virtual ? { ...empty, name: r.name, phone: r.phone, whatsapp: r.whatsapp || "" } : { ...empty, ...r, dob: r.dob || "", photo_url: r.photo_url || "" };
+    setEditing(r._virtual ? null : r);
+    setForm(base);
+    setPhotoMode(r.photo_url ? "url" : "upload");
+    setShowForm(true);
+  };
 
   const handleFileUpload = async (file: File) => {
     if (!file) return;
@@ -103,10 +172,26 @@ export default function CrmCustomers() {
         <button onClick={openNew} className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm flex items-center gap-1.5"><Plus size={14} />Add Customer</button>
       </div>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
+      <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 space-y-2">
         <div className="relative">
           <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name or phone…" className="w-full pl-8 pr-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-white" />
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {([
+            ["all", "All", "bg-slate-700"],
+            ["Purchase", "Purchase", "bg-blue-600"],
+            ["Service", "Service", "bg-orange-600"],
+            ["Both", "Both", "bg-green-600"],
+          ] as const).map(([key, label, color]) => (
+            <button
+              key={key}
+              onClick={() => setTypeFilter(key as any)}
+              className={`px-2.5 py-1 text-xs rounded font-medium ${typeFilter === key ? `${color} text-white` : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}
+            >
+              {label} <span className="opacity-70">({counts[key as keyof typeof counts]})</span>
+            </button>
+          ))}
         </div>
       </div>
 
@@ -116,6 +201,7 @@ export default function CrmCustomers() {
             <tr>
               <th className="text-left px-3 py-2 w-12"></th>
               <th className="text-left px-3 py-2">Name</th>
+              <th className="text-left px-3 py-2">Type</th>
               <th className="text-left px-3 py-2">Phone</th>
               <th className="text-right px-3 py-2">Purchases</th>
               <th className="text-right px-3 py-2">Total Value</th>
@@ -125,25 +211,29 @@ export default function CrmCustomers() {
             </tr>
           </thead>
           <tbody>
-            {loading ? <tr><td colSpan={8} className="text-center py-6 text-slate-500">Loading…</td></tr> :
-              filtered.length === 0 ? <tr><td colSpan={8} className="text-center py-10 text-slate-500">No customers yet</td></tr> :
-              filtered.map((r) => (
+            {loading ? <tr><td colSpan={9} className="text-center py-6 text-slate-500">Loading…</td></tr> :
+              filtered.length === 0 ? <tr><td colSpan={9} className="text-center py-10 text-slate-500">No customers yet</td></tr> :
+              filtered.map((r) => {
+                const badgeColor = r.customerType === "Both" ? "bg-green-600/20 text-green-300 border-green-600/40" : r.customerType === "Service" ? "bg-orange-600/20 text-orange-300 border-orange-600/40" : "bg-blue-600/20 text-blue-300 border-blue-600/40";
+                return (
                 <tr key={r.id} className="border-t border-slate-800 hover:bg-slate-800/30 cursor-pointer" onClick={() => openDetail(r)}>
                   <td className="px-3 py-2"><Avatar name={r.name} photo={r.photo_url} size={32} /></td>
                   <td className="px-3 py-2 text-white">{r.name}</td>
+                  <td className="px-3 py-2"><span className={`px-2 py-0.5 text-[10px] font-semibold rounded border ${badgeColor}`}>{r.customerType}</span></td>
                   <td className="px-3 py-2 text-slate-300">{r.phone}</td>
                   <td className="px-3 py-2 text-right text-slate-300">{r.total_purchases || 0}</td>
                   <td className="px-3 py-2 text-right text-green-400 font-medium">{formatINR(r.total_value)}</td>
-                  <td className="px-3 py-2 text-slate-400 text-xs">{formatDate(r.last_purchase_date)}</td>
+                  <td className="px-3 py-2 text-slate-400 text-xs">{r._virtual ? <span className="italic">svc {formatDate(r._lastService)}</span> : formatDate(r.last_purchase_date)}</td>
                   <td className="px-3 py-2 text-slate-400 text-xs">{r.dob ? formatDate(r.dob) : "—"}</td>
                   <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="flex justify-end gap-1">
-                      <button onClick={() => openEdit(r)} className="p-1.5 text-blue-400 hover:bg-blue-600/20 rounded"><Edit2 size={14} /></button>
-                      <button onClick={() => remove(r.id)} className="p-1.5 text-red-400 hover:bg-red-600/20 rounded"><Trash2 size={14} /></button>
+                      <button onClick={() => openEdit(r)} title={r._virtual ? "Add to customers" : "Edit"} className="p-1.5 text-blue-400 hover:bg-blue-600/20 rounded"><Edit2 size={14} /></button>
+                      {!r._virtual && <button onClick={() => remove(r.id)} className="p-1.5 text-red-400 hover:bg-red-600/20 rounded"><Trash2 size={14} /></button>}
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
           </tbody>
         </table>
       </div>

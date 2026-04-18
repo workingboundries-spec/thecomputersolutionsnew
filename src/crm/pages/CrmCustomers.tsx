@@ -102,13 +102,28 @@ export default function CrmCustomers() {
   };
 
   const filtered = rows.filter((r) => {
+    if (typeFilter !== "all" && r.customerType !== typeFilter) return false;
     if (!search) return true;
     const q = search.toLowerCase();
     return r.name?.toLowerCase().includes(q) || r.phone?.includes(q);
   });
 
+  const counts = {
+    all: rows.length,
+    Purchase: rows.filter((r) => r.customerType === "Purchase").length,
+    Service: rows.filter((r) => r.customerType === "Service").length,
+    Both: rows.filter((r) => r.customerType === "Both").length,
+  };
+
   const openNew = () => { setEditing(null); setForm(empty); setPhotoMode("upload"); setShowForm(true); };
-  const openEdit = (r: any) => { setEditing(r); setForm({ ...empty, ...r, dob: r.dob || "", photo_url: r.photo_url || "" }); setPhotoMode(r.photo_url ? "url" : "upload"); setShowForm(true); };
+  const openEdit = (r: any) => {
+    // Service-only virtual rows: clear id so saving inserts new customer
+    const base = r._virtual ? { ...empty, name: r.name, phone: r.phone, whatsapp: r.whatsapp || "" } : { ...empty, ...r, dob: r.dob || "", photo_url: r.photo_url || "" };
+    setEditing(r._virtual ? null : r);
+    setForm(base);
+    setPhotoMode(r.photo_url ? "url" : "upload");
+    setShowForm(true);
+  };
 
   const handleFileUpload = async (file: File) => {
     if (!file) return;

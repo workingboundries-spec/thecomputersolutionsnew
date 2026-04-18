@@ -3,7 +3,8 @@ import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { formatINR, formatDate, todayISO, addMonths, addDays } from "@/crm/lib/format";
 import { toast } from "sonner";
-import { Plus, Search, Eye, Edit2, MessageCircle, Printer, X } from "lucide-react";
+import { Plus, Search, Eye, Edit2, MessageCircle, Printer, X, Trash2 } from "lucide-react";
+import { useAdminSetting } from "@/crm/hooks/useAdminSettings";
 
 const PAY_BADGE: Record<string, string> = {
   paid: "bg-green-500/15 text-green-300",

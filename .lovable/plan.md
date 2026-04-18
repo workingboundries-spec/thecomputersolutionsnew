@@ -1,21 +1,36 @@
 
-User says: added "Megha" as a customer, marked an enquiry as "converted" (likely via the status dropdown in the enquiry edit form), but it didn't appear in Sales.
+The user wants the Customers list to include people who only came in for services (not just purchases), with a label/badge showing whether they're a Purchase customer, Service customer, or Both.
 
-Root cause: The "converted" status is just a text field. Setting status='converted' manually does NOT create a sale row. A sale is only created when the user clicks the green arrow "Convert to Sale" button (which opens the Sales form pre-filled, then saving inserts into `crm_sales`).
+Currently `crm_customers` only holds people added manually or via sales. Service customers in `crm_services` aren't auto-added.
 
-So this is a UX/expectation mismatch + a missing safeguard.
+Plan:
 
-Fix plan:
+**1. Merge service customers into the Customers list (`CrmCustomers.tsx`)**
+- After loading `crm_customers`, also fetch distinct customers from `crm_services` (group by phone).
+- Merge into the displayed list, deduped by phone:
+  - If phone exists in `crm_customers` → use that record, but compute a `type` flag.
+  - If phone only exists in `crm_services` → create a virtual row (name, phone, whatsapp from latest service; no id from customers table).
+- Compute `customerType` for each row:
+  - `Purchase` → has sales (total_purchases > 0) and no service
+  - `Service` → only in services table
+  - `Both` → has sales AND services
 
-1. **In `CrmEnquiries.tsx`** — when the user manually changes status to "converted" in the edit form (without going through the Convert button), block the save and show a toast: "Use the green Convert arrow to create a sale. Status will auto-update after the sale is saved." Then keep status as previous value.
+**2. Add a "Type" column with colored badges**
+- Purchase → blue badge
+- Service → orange badge  
+- Both → green badge
+- Place between Name and Phone columns.
 
-2. **Make the Convert flow more discoverable**: rename the green arrow tooltip from "Convert to Sale" to "Convert to Sale (creates sale entry)" and add a small label/button "Convert →" instead of just an icon arrow on each row.
+**3. Section heading / filter chips at top**
+- Add filter chips: `All` | `Purchase` | `Service` | `Both` next to the search bar.
+- Counts shown on each chip.
 
-3. **Add a one-time backfill helper** for already-marked-converted enquiries that have no linked sale: show an inline "⚠ No sale linked — Create sale" link on rows where `status='converted'` but no matching `crm_sales.enquiry_id` exists. Clicking it runs the same convertToSale flow.
+**4. Detail panel already shows Sales + Services + Enquiries, so no change needed there — it works for service-only customers too (queried by phone).**
 
-4. Verify nothing else regresses.
+**5. Edit/Delete behavior for service-only rows**
+- Service-only rows have no `crm_customers.id`, so Edit opens the form pre-filled and saving creates a new `crm_customers` record (promoting them to a managed customer).
+- Delete is hidden for service-only rows (since there's nothing to delete in `crm_customers`).
 
-Files to edit:
-- `src/crm/pages/CrmEnquiries.tsx` only
+**Files to edit:** `src/crm/pages/CrmCustomers.tsx` only. No DB changes.
 
-No DB changes needed.
+Keeping it minimal and non-disruptive — no changes to other modules.

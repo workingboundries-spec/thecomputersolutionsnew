@@ -1,10 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatINR, formatDate } from "@/crm/lib/format";
 import { toast } from "sonner";
-import { Plus, Search, Edit2, Trash2, X } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, X, Upload, Link as LinkIcon } from "lucide-react";
 
-const empty = { name: "", phone: "", whatsapp: "", email: "", address: "", dob: "", notes: "" };
+const empty = { name: "", phone: "", whatsapp: "", email: "", address: "", dob: "", notes: "", photo_url: "" };
+
+function Avatar({ name, photo, size = 32 }: { name: string; photo?: string | null; size?: number }) {
+  const initial = (name || "?").trim().charAt(0).toUpperCase();
+  const colors = ["bg-blue-600", "bg-green-600", "bg-purple-600", "bg-pink-600", "bg-orange-600", "bg-teal-600"];
+  const color = colors[(name?.charCodeAt(0) || 0) % colors.length];
+  if (photo) return <img src={photo} alt={name} style={{ width: size, height: size }} className="rounded-full object-cover border border-slate-700" />;
+  return <div style={{ width: size, height: size, fontSize: size * 0.4 }} className={`${color} rounded-full flex items-center justify-center text-white font-semibold shrink-0`}>{initial}</div>;
+}
 
 export default function CrmCustomers() {
   const [rows, setRows] = useState<any[]>([]);
@@ -13,6 +21,9 @@ export default function CrmCustomers() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState<any>(empty);
+  const [photoMode, setPhotoMode] = useState<"upload" | "url">("upload");
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [detail, setDetail] = useState<any>(null);
   const [detailData, setDetailData] = useState<{ sales: any[]; services: any[]; enquiries: any[] }>({ sales: [], services: [], enquiries: [] });
 
@@ -42,12 +53,27 @@ export default function CrmCustomers() {
     return r.name?.toLowerCase().includes(q) || r.phone?.includes(q);
   });
 
-  const openNew = () => { setEditing(null); setForm(empty); setShowForm(true); };
-  const openEdit = (r: any) => { setEditing(r); setForm({ ...empty, ...r, dob: r.dob || "" }); setShowForm(true); };
+  const openNew = () => { setEditing(null); setForm(empty); setPhotoMode("upload"); setShowForm(true); };
+  const openEdit = (r: any) => { setEditing(r); setForm({ ...empty, ...r, dob: r.dob || "", photo_url: r.photo_url || "" }); setPhotoMode(r.photo_url ? "url" : "upload"); setShowForm(true); };
+
+  const handleFileUpload = async (file: File) => {
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { toast.error("Max 2MB"); return; }
+    if (!["image/jpeg", "image/png"].includes(file.type)) { toast.error("Only JPG/PNG allowed"); return; }
+    setUploading(true);
+    const ext = file.name.split(".").pop();
+    const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error } = await supabase.storage.from("customer-photos").upload(path, file, { upsert: false });
+    if (error) { toast.error(error.message); setUploading(false); return; }
+    const { data } = supabase.storage.from("customer-photos").getPublicUrl(path);
+    setForm((f: any) => ({ ...f, photo_url: data.publicUrl }));
+    setUploading(false);
+    toast.success("Photo uploaded");
+  };
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    const payload = { ...form, dob: form.dob || null, whatsapp: form.whatsapp || form.phone };
+    const payload = { ...form, dob: form.dob || null, whatsapp: form.whatsapp || form.phone, photo_url: form.photo_url || null };
     if (editing) {
       const { error } = await supabase.from("crm_customers").update(payload).eq("id", editing.id);
       if (error) return toast.error(error.message);
@@ -88,6 +114,7 @@ export default function CrmCustomers() {
         <table className="w-full text-sm">
           <thead className="bg-slate-800/50 text-xs uppercase text-slate-400">
             <tr>
+              <th className="text-left px-3 py-2 w-12"></th>
               <th className="text-left px-3 py-2">Name</th>
               <th className="text-left px-3 py-2">Phone</th>
               <th className="text-right px-3 py-2">Purchases</th>
@@ -98,10 +125,11 @@ export default function CrmCustomers() {
             </tr>
           </thead>
           <tbody>
-            {loading ? <tr><td colSpan={7} className="text-center py-6 text-slate-500">Loading…</td></tr> :
-              filtered.length === 0 ? <tr><td colSpan={7} className="text-center py-10 text-slate-500">No customers yet</td></tr> :
+            {loading ? <tr><td colSpan={8} className="text-center py-6 text-slate-500">Loading…</td></tr> :
+              filtered.length === 0 ? <tr><td colSpan={8} className="text-center py-10 text-slate-500">No customers yet</td></tr> :
               filtered.map((r) => (
                 <tr key={r.id} className="border-t border-slate-800 hover:bg-slate-800/30 cursor-pointer" onClick={() => openDetail(r)}>
+                  <td className="px-3 py-2"><Avatar name={r.name} photo={r.photo_url} size={32} /></td>
                   <td className="px-3 py-2 text-white">{r.name}</td>
                   <td className="px-3 py-2 text-slate-300">{r.phone}</td>
                   <td className="px-3 py-2 text-right text-slate-300">{r.total_purchases || 0}</td>
@@ -124,6 +152,34 @@ export default function CrmCustomers() {
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 overflow-y-auto" onClick={() => setShowForm(false)}>
           <form onSubmit={save} onClick={(e) => e.stopPropagation()} className="bg-slate-900 border border-slate-700 rounded-lg p-5 w-full max-w-xl my-8 space-y-3">
             <h3 className="text-lg font-semibold text-white">{editing ? "Edit" : "New"} Customer</h3>
+
+            {/* Photo */}
+            <div className="bg-slate-950/50 border border-slate-800 rounded p-3">
+              <div className="flex items-center gap-3 mb-3">
+                <Avatar name={form.name || "?"} photo={form.photo_url} size={64} />
+                <div className="flex-1">
+                  <div className="text-xs text-slate-400 mb-1">Customer Photo</div>
+                  <div className="inline-flex bg-slate-800 rounded p-0.5">
+                    <button type="button" onClick={() => setPhotoMode("upload")} className={`px-2 py-1 text-xs rounded flex items-center gap-1 ${photoMode === "upload" ? "bg-blue-600 text-white" : "text-slate-400"}`}><Upload size={12} /> Upload</button>
+                    <button type="button" onClick={() => setPhotoMode("url")} className={`px-2 py-1 text-xs rounded flex items-center gap-1 ${photoMode === "url" ? "bg-blue-600 text-white" : "text-slate-400"}`}><LinkIcon size={12} /> URL</button>
+                  </div>
+                </div>
+                {form.photo_url && (
+                  <button type="button" onClick={() => setForm({ ...form, photo_url: "" })} className="p-1.5 text-red-400 hover:bg-red-600/20 rounded" title="Remove photo"><X size={14} /></button>
+                )}
+              </div>
+              {photoMode === "upload" ? (
+                <div>
+                  <input ref={fileRef} type="file" accept="image/jpeg,image/png" className="hidden" onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])} />
+                  <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="w-full px-3 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-sm text-slate-300 rounded border border-dashed border-slate-700">
+                    {uploading ? "Uploading…" : "Choose JPG/PNG (max 2MB)"}
+                  </button>
+                </div>
+              ) : (
+                <input value={form.photo_url} onChange={(e) => setForm({ ...form, photo_url: e.target.value })} placeholder="https://..." className={fInput} />
+              )}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Field label="Name *"><input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={fInput} /></Field>
               <Field label="Phone *"><input required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={fInput} /></Field>
@@ -144,11 +200,14 @@ export default function CrmCustomers() {
       {detail && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-start justify-center p-4 overflow-y-auto" onClick={() => setDetail(null)}>
           <div onClick={(e) => e.stopPropagation()} className="bg-slate-900 border border-slate-700 rounded-lg p-5 w-full max-w-3xl my-8 space-y-4">
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="text-xl font-bold text-white">{detail.name}</h3>
-                <div className="text-sm text-slate-400">{detail.phone} · {detail.email}</div>
-                <div className="text-xs text-slate-500 mt-0.5">{detail.address}</div>
+            <div className="flex justify-between items-start gap-4">
+              <div className="flex items-start gap-4">
+                <Avatar name={detail.name} photo={detail.photo_url} size={80} />
+                <div>
+                  <h3 className="text-xl font-bold text-white">{detail.name}</h3>
+                  <div className="text-sm text-slate-400">{detail.phone} · {detail.email}</div>
+                  <div className="text-xs text-slate-500 mt-0.5">{detail.address}</div>
+                </div>
               </div>
               <button onClick={() => setDetail(null)} className="p-1 text-slate-400 hover:text-white"><X size={18} /></button>
             </div>

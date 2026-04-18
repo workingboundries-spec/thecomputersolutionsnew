@@ -66,15 +66,24 @@ async function createWarrantyReminders(sale: any, templates: Record<string, stri
   const baseVars = {
     name: sale.customer_name,
     item: sale.item_name,
+    purchase_date: formatDate(sale.sale_date),
     date: formatDate(sale.sale_date),
     expiry: formatDate(sale.warranty_expiry),
     phone: sale.phone,
+    shop_phone: "",
+    shop_name: "The Computer Solutions",
   };
+  // 5 standard reminder types per spec: 1 week, 1 month, 3 month, 6 month, 11 month
   const types: { type: string; days: number; tpl: string }[] = [
-    { type: "1month", days: 30, tpl: "warranty_1month" },
-    { type: "3month", days: 90, tpl: "warranty_3month" },
-    { type: "6month", days: 180, tpl: "warranty_6month" },
+    { type: "1week", days: 7, tpl: "whatsapp_week_template" },
+    { type: "1month", days: 30, tpl: "whatsapp_month_template" },
+    { type: "3month", days: 90, tpl: "whatsapp_3month_template" },
+    { type: "6month", days: 180, tpl: "whatsapp_6month_template" },
   ];
+  // 11-month reminder only if warranty >= 12 months
+  if (Number(sale.warranty_months || 0) >= 12) {
+    types.push({ type: "11month", days: 330, tpl: "whatsapp_11month_template" });
+  }
   for (const t of types) {
     reminders.push({
       sale_id: sale.id,
@@ -88,41 +97,7 @@ async function createWarrantyReminders(sale: any, templates: Record<string, stri
       scheduled_date: addDays(sale.sale_date, t.days),
       whatsapp_message: fillTemplate(templates[t.tpl] || "", baseVars),
       status: "pending",
-    });
-  }
-  if (sale.warranty_expiry) {
-    reminders.push({
-      sale_id: sale.id,
-      customer_name: sale.customer_name,
-      phone: sale.phone,
-      whatsapp: sale.whatsapp || sale.phone,
-      item_name: sale.item_name,
-      purchase_date: sale.sale_date,
-      warranty_expiry: sale.warranty_expiry,
-      reminder_type: "pre_expiry",
-      scheduled_date: addDays(sale.warranty_expiry, -30),
-      whatsapp_message: fillTemplate(templates["warranty_pre_expiry"] || "", baseVars),
-      status: "pending",
-    });
-  }
-  if (sale.customer_dob) {
-    const dob = new Date(sale.customer_dob);
-    const next = new Date();
-    next.setMonth(dob.getMonth());
-    next.setDate(dob.getDate());
-    if (next < new Date()) next.setFullYear(next.getFullYear() + 1);
-    reminders.push({
-      sale_id: sale.id,
-      customer_name: sale.customer_name,
-      phone: sale.phone,
-      whatsapp: sale.whatsapp || sale.phone,
-      item_name: sale.item_name,
-      purchase_date: sale.sale_date,
-      warranty_expiry: sale.warranty_expiry,
-      reminder_type: "birthday",
-      scheduled_date: next.toISOString().slice(0, 10),
-      whatsapp_message: fillTemplate(templates["birthday"] || "", baseVars),
-      status: "pending",
+      message_sent: false,
     });
   }
   if (reminders.length) await supabase.from("crm_warranty_reminders").insert(reminders);

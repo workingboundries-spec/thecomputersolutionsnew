@@ -1,357 +1,277 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { formatDate, todayISO, waLink, addDays } from "@/crm/lib/format";
+import { formatDate, todayISO, addDays, waLink } from "@/crm/lib/format";
+import { useAdminSettings } from "@/crm/hooks/useAdminSettings";
+import { fillTemplate, logWhatsApp } from "@/crm/lib/whatsapp";
 import { toast } from "sonner";
-import { Bell, MessageCircle, Check, Search, ChevronDown, ChevronRight, CalendarRange, Cake } from "lucide-react";
+import { MessageCircle, Check, ChevronDown, ChevronRight, Cake, Bell, Calendar, Search } from "lucide-react";
 
-type Section = {
-  id: string;
-  title: string;
-  color: string;
-  filter: (r: any, today: string) => boolean;
-};
+const TABS = ["Warranty Reminders", "Birthdays"] as const;
 
-function endOfMonth(today: string) {
+const QUICK_FILTERS = [
+  { id: "today", label: "Today", days: 0 },
+  { id: "week", label: "This Week", days: 7 },
+  { id: "month", label: "This Month", days: 30 },
+  { id: "quarter", label: "Quarterly", days: 90 },
+  { id: "halfyear", label: "Half Yearly", days: 180 },
+  { id: "11month", label: "11 Month", days: 330 },
+];
+
+function endOfMonthISO(today: string) {
   const d = new Date(today);
   return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
 }
-function addMonths(today: string, m: number) {
-  const d = new Date(today);
-  d.setMonth(d.getMonth() + m);
-  return d.toISOString().slice(0, 10);
-}
 
-const SECTIONS: Section[] = [
-  { id: "overdue", title: "Overdue", color: "red", filter: (r, t) => r.scheduled_date < t },
-  { id: "week", title: "This Week", color: "orange", filter: (r, t) => r.scheduled_date >= t && r.scheduled_date <= addDays(t, 7) },
-  { id: "month", title: "This Month", color: "blue", filter: (r, t) => r.scheduled_date > addDays(t, 7) && r.scheduled_date <= endOfMonth(t) },
-  { id: "quarterly", title: "Quarterly", color: "purple", filter: (r, t) => r.scheduled_date > endOfMonth(t) && r.scheduled_date <= addMonths(t, 3) },
-  { id: "halfyear", title: "Half Yearly", color: "teal", filter: (r, t) => r.scheduled_date > addMonths(t, 3) && r.scheduled_date <= addMonths(t, 6) },
-  { id: "annual", title: "Annually", color: "gray", filter: (r, t) => r.scheduled_date > addMonths(t, 6) },
-];
-
-const COLOR_STYLES: Record<string, { header: string; badge: string }> = {
-  red: { header: "bg-red-500/15 border-red-500/30 text-red-300", badge: "bg-red-500/20 text-red-300" },
-  orange: { header: "bg-orange-500/15 border-orange-500/30 text-orange-300", badge: "bg-orange-500/20 text-orange-300" },
-  blue: { header: "bg-blue-500/15 border-blue-500/30 text-blue-300", badge: "bg-blue-500/20 text-blue-300" },
-  purple: { header: "bg-purple-500/15 border-purple-500/30 text-purple-300", badge: "bg-purple-500/20 text-purple-300" },
-  teal: { header: "bg-teal-500/15 border-teal-500/30 text-teal-300", badge: "bg-teal-500/20 text-teal-300" },
-  gray: { header: "bg-slate-700/30 border-slate-600/40 text-slate-300", badge: "bg-slate-700 text-slate-300" },
-};
-
-function Avatar({ name, photo, size = 32 }: { name: string; photo?: string | null; size?: number }) {
-  const initial = (name || "?").trim().charAt(0).toUpperCase();
-  const colors = ["bg-blue-600", "bg-green-600", "bg-purple-600", "bg-pink-600", "bg-orange-600", "bg-teal-600"];
-  const color = colors[(name?.charCodeAt(0) || 0) % colors.length];
-  if (photo) return <img src={photo} alt={name} style={{ width: size, height: size }} className="rounded-full object-cover border border-slate-700" />;
-  return <div style={{ width: size, height: size, fontSize: size * 0.45 }} className={`${color} rounded-full flex items-center justify-center text-white font-semibold shrink-0`}>{initial}</div>;
-}
-
-function daysBetween(fromISO: string, toISO: string) {
-  return Math.round((new Date(toISO).getTime() - new Date(fromISO).getTime()) / 86400000);
+function rangeFor(filterId: string) {
+  const today = todayISO();
+  if (filterId === "today") return { from: today, to: today };
+  if (filterId === "week") return { from: today, to: addDays(today, 7) };
+  if (filterId === "month") return { from: today, to: endOfMonthISO(today) };
+  return { from: today, to: addDays(today, QUICK_FILTERS.find((f) => f.id === filterId)?.days || 30) };
 }
 
 export default function CrmWarranty() {
-  const [reminders, setReminders] = useState<any[]>([]);
-  const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [tab, setTab] = useState<typeof TABS[number]>("Warranty Reminders");
+  return (
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-2xl font-bold text-white">Warranty & Reminders</h1>
+        <p className="text-sm text-slate-400">Send WhatsApp reminders and birthday wishes</p>
+      </div>
+      <div className="flex border-b border-slate-800">
+        {TABS.map((t) => (
+          <button key={t} onClick={() => setTab(t)} className={`px-4 py-2 text-sm font-medium ${tab === t ? "text-white border-b-2 border-blue-500" : "text-slate-400 hover:text-white"}`}>{t}</button>
+        ))}
+      </div>
+      {tab === "Warranty Reminders" && <Reminders />}
+      {tab === "Birthdays" && <Birthdays />}
+    </div>
+  );
+}
 
-  // Date Range Checker state
-  const [fromDate, setFromDate] = useState<string>(todayISO());
-  const [toDate, setToDate] = useState<string>(addDays(todayISO(), 30));
-  const [rangeBirthdays, setRangeBirthdays] = useState<any[] | null>(null);
-  const [rangeWarranties, setRangeWarranties] = useState<any[] | null>(null);
-  const [checking, setChecking] = useState(false);
+function Reminders() {
+  const settings = useAdminSettings(["shop_phone", "shop_name", "whatsapp_week_template", "whatsapp_month_template", "whatsapp_3month_template", "whatsapp_6month_template", "whatsapp_11month_template"]);
+  const [filter, setFilter] = useState("week");
+  const [reminders, setReminders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sentOpen, setSentOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("crm_warranty_reminders")
-      .select("*")
-      .eq("status", "pending")
-      .order("scheduled_date", { ascending: true });
+    const { from, to } = rangeFor(filter);
+    const { data } = await supabase.from("crm_warranty_reminders").select("*").gte("scheduled_date", from).lte("scheduled_date", to).order("scheduled_date", { ascending: true });
     setReminders(data || []);
     setLoading(false);
   };
+  useEffect(() => { load(); }, [filter]);
 
-  useEffect(() => { load(); }, []);
+  const pending = reminders.filter((r) => !r.message_sent && r.status !== "sent");
+  const sent = reminders.filter((r) => r.message_sent || r.status === "sent");
 
-  const today = todayISO();
+  const tplKey = (type: string) => {
+    if (type === "1week") return "whatsapp_week_template";
+    if (type === "1month") return "whatsapp_month_template";
+    if (type === "3month") return "whatsapp_3month_template";
+    if (type === "6month") return "whatsapp_6month_template";
+    if (type === "11month") return "whatsapp_11month_template";
+    return "whatsapp_month_template";
+  };
 
-  const filteredReminders = useMemo(() => {
-    if (!search) return reminders;
-    const s = search.toLowerCase();
-    return reminders.filter(r => [r.customer_name, r.phone, r.item_name].filter(Boolean).some((x: string) => x.toLowerCase().includes(s)));
-  }, [reminders, search]);
-
-  const sectionData = useMemo(() => {
-    return SECTIONS.map(s => ({ ...s, items: filteredReminders.filter(r => s.filter(r, today)) }));
-  }, [filteredReminders, today]);
-
-  const sendReminder = async (r: any) => {
-    const msg = r.whatsapp_message || `Hi ${r.customer_name}, this is a friendly reminder regarding your ${r.item_name || "purchase"}. — The Computer Solutions`;
+  const sendWA = async (r: any) => {
+    const tpl = settings[tplKey(r.reminder_type)] || r.whatsapp_message || `Hi ${r.customer_name}, reminder regarding your purchase.`;
+    const msg = fillTemplate(tpl, {
+      name: r.customer_name, item: r.item_name || "your purchase",
+      purchase_date: formatDate(r.purchase_date), expiry: formatDate(r.warranty_expiry),
+      shop_phone: settings.shop_phone, shop_name: settings.shop_name, phone: r.phone,
+    });
     window.open(waLink(r.whatsapp || r.phone, msg), "_blank");
+    if (confirm("Mark this reminder as sent?")) {
+      await supabase.from("crm_warranty_reminders").update({ message_sent: true, message_sent_at: new Date().toISOString(), status: "sent", sent_at: new Date().toISOString() }).eq("id", r.id);
+      await logWhatsApp({ sale_id: r.sale_id, customer_name: r.customer_name, phone: r.phone, message_type: r.reminder_type, message_text: msg });
+      toast.success("Marked as sent");
+      load();
+    }
   };
 
   const markSent = async (r: any) => {
-    const { error } = await supabase
-      .from("crm_warranty_reminders")
-      .update({ status: "sent", sent_at: new Date().toISOString() })
-      .eq("id", r.id);
-    if (error) toast.error(error.message);
-    else { toast.success("Marked as sent"); load(); }
-  };
-
-  const setPreset = (days: number) => {
-    setFromDate(todayISO());
-    setToDate(addDays(todayISO(), days));
-  };
-
-  const runCheck = async () => {
-    if (!fromDate || !toDate || fromDate > toDate) {
-      toast.error("Pick a valid date range");
-      return;
-    }
-    setChecking(true);
-    const [{ data: customers }, { data: sales }] = await Promise.all([
-      supabase.from("crm_customers").select("id, name, phone, whatsapp, dob, photo_url").not("dob", "is", null),
-      supabase.from("crm_sales").select("id, customer_name, phone, whatsapp, item_name, sale_date, warranty_expiry").not("warranty_expiry", "is", null).gte("warranty_expiry", fromDate).lte("warranty_expiry", toDate),
-    ]);
-
-    // Birthdays — match month+day within range (handles year wrap)
-    const from = new Date(fromDate);
-    const to = new Date(toDate);
-    const bdays: any[] = [];
-    (customers || []).forEach((c: any) => {
-      const dob = new Date(c.dob);
-      // walk forward through years from fromDate.year - 1 to toDate.year + 1 to be safe
-      for (let y = from.getFullYear(); y <= to.getFullYear() + 1; y++) {
-        const candidate = new Date(y, dob.getMonth(), dob.getDate());
-        if (candidate >= from && candidate <= to) {
-          const candidateISO = candidate.toISOString().slice(0, 10);
-          bdays.push({
-            ...c,
-            nextBirthday: candidateISO,
-            days: daysBetween(todayISO(), candidateISO),
-          });
-          break;
-        }
-      }
-    });
-    bdays.sort((a, b) => a.nextBirthday.localeCompare(b.nextBirthday));
-
-    const warranties = (sales || []).map((s: any) => ({
-      ...s,
-      daysRemaining: daysBetween(todayISO(), s.warranty_expiry),
-    })).sort((a: any, b: any) => a.warranty_expiry.localeCompare(b.warranty_expiry));
-
-    setRangeBirthdays(bdays);
-    setRangeWarranties(warranties);
-    setChecking(false);
-  };
-
-  const sendBirthday = (c: any) => {
-    const msg = `Happy Birthday ${c.name}! 🎂 Wishing you a wonderful year ahead! - The Computer Solutions Team`;
-    window.open(waLink(c.whatsapp || c.phone, msg), "_blank");
-  };
-  const sendWarrantyAlert = (s: any) => {
-    const msg = `Hi ${s.customer_name}, your warranty for ${s.item_name} expires on ${formatDate(s.warranty_expiry)}. Visit us if you need any service before then. — The Computer Solutions`;
-    window.open(waLink(s.whatsapp || s.phone, msg), "_blank");
+    await supabase.from("crm_warranty_reminders").update({ message_sent: true, message_sent_at: new Date().toISOString(), status: "sent", sent_at: new Date().toISOString() }).eq("id", r.id);
+    toast.success("Marked as sent");
+    load();
   };
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold text-white">Warranty & Reminders</h1>
-        <p className="text-sm text-slate-400">Time-based reminder sections plus a date range checker</p>
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2">
+        {QUICK_FILTERS.map((f) => (
+          <button key={f.id} onClick={() => setFilter(f.id)} className={`px-3 py-1.5 rounded-full text-xs font-medium ${filter === f.id ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"}`}>{f.label}</button>
+        ))}
       </div>
 
-      {/* Date Range Checker */}
-      <div className="bg-gradient-to-br from-blue-600/10 to-purple-600/10 border border-blue-500/30 rounded-lg p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <CalendarRange size={18} className="text-blue-300" />
-          <h3 className="font-semibold text-white">Date Range Checker</h3>
-        </div>
-        <div className="flex flex-wrap items-end gap-2 mb-3">
-          <label className="block">
-            <span className="text-xs text-slate-400 mb-1 block">From Date</span>
-            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="px-3 py-2 bg-slate-900 border border-slate-700 rounded text-sm text-white" />
-          </label>
-          <label className="block">
-            <span className="text-xs text-slate-400 mb-1 block">To Date</span>
-            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="px-3 py-2 bg-slate-900 border border-slate-700 rounded text-sm text-white" />
-          </label>
-          <button onClick={runCheck} disabled={checking} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded text-sm font-medium">
-            {checking ? "Checking…" : "Check Now"}
-          </button>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {[{ l: "Next 7 Days", d: 7 }, { l: "Next 1 Month", d: 30 }, { l: "Next 2 Months", d: 60 }, { l: "Next 3 Months", d: 90 }].map(p => (
-            <button key={p.d} onClick={() => setPreset(p.d)} className="text-xs px-3 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded">
-              {p.l}
+      {loading ? <div className="text-slate-400">Loading…</div> : (
+        <>
+          <Section title="🔴 Not Yet Sent" count={pending.length} color="red">
+            {pending.length === 0 ? <Empty msg="Nothing pending in this period 🎉" /> :
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {pending.map((r) => <ReminderCard key={r.id} r={r} onSend={() => sendWA(r)} onMark={() => markSent(r)} pending />)}
+              </div>
+            }
+          </Section>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
+            <button onClick={() => setSentOpen(!sentOpen)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-800/40">
+              <div className="flex items-center gap-2 text-white font-semibold text-sm">{sentOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />} ✅ Already Sent</div>
+              <span className="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-300">{sent.length}</span>
             </button>
-          ))}
-        </div>
-
-        {rangeBirthdays !== null && (
-          <div className="mt-4 space-y-4">
-            {/* Birthdays */}
-            <div className="bg-slate-900/60 border border-slate-800 rounded">
-              <div className="flex items-center justify-between px-3 py-2 border-b border-slate-800">
-                <div className="flex items-center gap-2 text-sm font-semibold text-white"><Cake size={14} className="text-pink-300" /> Birthdays</div>
-                <span className="text-xs px-2 py-0.5 rounded bg-pink-500/20 text-pink-300">{rangeBirthdays.length} found</span>
+            {sentOpen && (
+              <div className="border-t border-slate-800 p-3">
+                {sent.length === 0 ? <Empty msg="None sent in this period yet" /> :
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {sent.map((r) => <ReminderCard key={r.id} r={r} onSend={() => sendWA(r)} onMark={() => {}} pending={false} />)}
+                  </div>
+                }
               </div>
-              {rangeBirthdays.length === 0 ? (
-                <div className="px-3 py-6 text-center text-sm text-slate-500">No birthdays in this period 🎉</div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-950/60 text-xs uppercase text-slate-400">
-                      <tr>
-                        <th className="text-left px-3 py-2">Customer</th>
-                        <th className="text-left px-3 py-2">Phone</th>
-                        <th className="text-left px-3 py-2">Birthday</th>
-                        <th className="text-left px-3 py-2">Days Away</th>
-                        <th className="text-right px-3 py-2">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rangeBirthdays.map((c: any) => (
-                        <tr key={c.id} className="border-t border-slate-800">
-                          <td className="px-3 py-2 text-white"><div className="flex items-center gap-2"><Avatar name={c.name} photo={c.photo_url} size={28} />{c.name}</div></td>
-                          <td className="px-3 py-2 text-slate-400">{c.phone}</td>
-                          <td className="px-3 py-2 text-slate-300">{formatDate(c.nextBirthday)}</td>
-                          <td className="px-3 py-2 text-slate-400">{c.days <= 0 ? "Today" : `In ${c.days}d`}</td>
-                          <td className="px-3 py-2 text-right">
-                            <button onClick={() => sendBirthday(c)} className="inline-flex items-center gap-1 px-2 py-1 bg-green-600/20 hover:bg-green-600/30 text-green-300 text-xs rounded"><MessageCircle size={12} /> Wish</button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-
-            {/* Warranties */}
-            <div className="bg-slate-900/60 border border-slate-800 rounded">
-              <div className="flex items-center justify-between px-3 py-2 border-b border-slate-800">
-                <div className="flex items-center gap-2 text-sm font-semibold text-white"><Bell size={14} className="text-orange-300" /> Warranties Expiring</div>
-                <span className="text-xs px-2 py-0.5 rounded bg-orange-500/20 text-orange-300">{rangeWarranties?.length || 0} found</span>
-              </div>
-              {(rangeWarranties || []).length === 0 ? (
-                <div className="px-3 py-6 text-center text-sm text-slate-500">No warranties expiring in this period</div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-950/60 text-xs uppercase text-slate-400">
-                      <tr>
-                        <th className="text-left px-3 py-2">Customer</th>
-                        <th className="text-left px-3 py-2">Phone</th>
-                        <th className="text-left px-3 py-2">Item</th>
-                        <th className="text-left px-3 py-2">Purchase</th>
-                        <th className="text-left px-3 py-2">Expiry</th>
-                        <th className="text-left px-3 py-2">Days Left</th>
-                        <th className="text-right px-3 py-2">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(rangeWarranties || []).map((s: any) => (
-                        <tr key={s.id} className="border-t border-slate-800">
-                          <td className="px-3 py-2 text-white">{s.customer_name}</td>
-                          <td className="px-3 py-2 text-slate-400">{s.phone}</td>
-                          <td className="px-3 py-2 text-slate-300">{s.item_name}</td>
-                          <td className="px-3 py-2 text-slate-400 text-xs">{formatDate(s.sale_date)}</td>
-                          <td className="px-3 py-2 text-slate-300 text-xs">{formatDate(s.warranty_expiry)}</td>
-                          <td className="px-3 py-2"><span className={`text-xs px-2 py-0.5 rounded ${s.daysRemaining <= 7 ? "bg-red-500/20 text-red-300" : s.daysRemaining <= 30 ? "bg-yellow-500/20 text-yellow-300" : "bg-slate-800 text-slate-300"}`}>{s.daysRemaining}d</span></td>
-                          <td className="px-3 py-2 text-right">
-                            <button onClick={() => sendWarrantyAlert(s)} className="inline-flex items-center gap-1 px-2 py-1 bg-green-600/20 hover:bg-green-600/30 text-green-300 text-xs rounded"><MessageCircle size={12} /> Remind</button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
+    </div>
+  );
+}
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by customer, phone, item..."
-          className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-800 rounded text-sm text-white placeholder:text-slate-500"
-        />
-      </div>
+function Section({ title, count, color, children }: any) {
+  const c: Record<string, string> = { red: "bg-red-500/15 text-red-300", green: "bg-green-500/15 text-green-300" };
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 space-y-3">
+      <div className="flex items-center gap-2"><span className="text-white font-semibold text-sm">{title}</span><span className={`text-xs px-2 py-0.5 rounded ${c[color]}`}>{count}</span></div>
+      {children}
+    </div>
+  );
+}
 
-      {loading ? (
-        <div className="text-slate-400 text-sm">Loading...</div>
-      ) : (
-        <div className="space-y-3">
-          {sectionData.map(s => {
-            const styles = COLOR_STYLES[s.color];
-            const isCollapsed = collapsed[s.id] !== undefined ? collapsed[s.id] : s.items.length === 0;
-            return (
-              <div key={s.id} className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
-                <button
-                  onClick={() => setCollapsed({ ...collapsed, [s.id]: !isCollapsed })}
-                  className={`w-full flex items-center justify-between px-4 py-3 border-b ${styles.header} ${s.items.length === 0 ? "opacity-60" : ""}`}
-                >
-                  <div className="flex items-center gap-2 font-semibold text-sm">
-                    {isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-                    {s.title}
-                  </div>
-                  <span className={`text-xs px-2 py-0.5 rounded ${styles.badge}`}>{s.items.length}</span>
-                </button>
-                {!isCollapsed && (
-                  <div className="overflow-x-auto">
-                    {s.items.length === 0 ? (
-                      <div className="px-4 py-6 text-center text-sm text-slate-500">No reminders in this period</div>
-                    ) : (
-                      <table className="w-full text-sm">
-                        <thead className="bg-slate-950/40 text-xs uppercase text-slate-500">
-                          <tr>
-                            <th className="text-left px-4 py-2">Customer</th>
-                            <th className="text-left px-4 py-2">Item</th>
-                            <th className="text-left px-4 py-2">Type</th>
-                            <th className="text-left px-4 py-2">Date</th>
-                            <th className="text-right px-4 py-2">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {s.items.map(r => (
-                            <tr key={r.id} className="border-t border-slate-800 hover:bg-slate-950/40">
-                              <td className="px-4 py-2"><div className="text-white">{r.customer_name}</div><div className="text-xs text-slate-500">{r.phone}</div></td>
-                              <td className="px-4 py-2 text-slate-300">{r.item_name || "—"}</td>
-                              <td className="px-4 py-2"><span className="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded">{r.reminder_type}</span></td>
-                              <td className="px-4 py-2 text-slate-400 text-xs">{formatDate(r.scheduled_date)}</td>
-                              <td className="px-4 py-2 text-right">
-                                <div className="inline-flex gap-1">
-                                  <button onClick={() => sendReminder(r)} className="inline-flex items-center gap-1 px-2 py-1 bg-green-600/20 hover:bg-green-600/30 text-green-300 text-xs rounded"><MessageCircle size={12} /> WA</button>
-                                  <button onClick={() => markSent(r)} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 text-xs rounded"><Check size={12} /> Mark Sent</button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          {sectionData.every(s => s.items.length === 0) && (
-            <div className="text-center py-10 text-slate-500"><Bell className="mx-auto mb-2 opacity-40" /> No pending reminders</div>
-          )}
+function ReminderCard({ r, onSend, onMark, pending }: any) {
+  return (
+    <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span className={`text-[10px] px-1.5 py-0.5 rounded ${pending ? "bg-red-500/20 text-red-300" : "bg-green-500/20 text-green-300"}`}>{pending ? "PENDING" : "SENT"}</span>
+        <span className="text-xs text-slate-500">{formatDate(r.scheduled_date)}</span>
+      </div>
+      <div className="text-white font-medium text-sm">{r.customer_name} <span className="text-slate-500 text-xs">📞 {r.phone}</span></div>
+      <div className="text-xs text-slate-400">Item: <span className="text-slate-300">{r.item_name || "—"}</span></div>
+      <div className="text-xs text-slate-400">Type: <span className="text-blue-300">{r.reminder_type}</span></div>
+      {pending && (
+        <div className="flex gap-1.5 pt-1">
+          <button onClick={onSend} className="flex-1 px-2 py-1.5 bg-green-600/20 hover:bg-green-600/30 text-green-300 rounded text-xs flex items-center justify-center gap-1"><MessageCircle size={12} />Send WhatsApp</button>
+          <button onClick={onMark} className="px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs flex items-center gap-1"><Check size={12} />Mark</button>
         </div>
       )}
+    </div>
+  );
+}
+
+function Empty({ msg }: { msg: string }) {
+  return <div className="text-center py-6 text-sm text-slate-500">{msg}</div>;
+}
+
+function Birthdays() {
+  const settings = useAdminSettings(["whatsapp_birthday_template", "shop_phone", "shop_name"]);
+  const [filter, setFilter] = useState("month");
+  const [from, setFrom] = useState(todayISO());
+  const [to, setTo] = useState(addDays(todayISO(), 30));
+  const [results, setResults] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const run = async () => {
+    setLoading(true);
+    let f = from, t = to;
+    if (filter !== "custom") {
+      const r = rangeFor(filter); f = r.from; t = r.to;
+    }
+    const [custRes, svcRes] = await Promise.all([
+      supabase.from("crm_customers").select("id, name, phone, whatsapp, dob, photo_url").not("dob", "is", null),
+      supabase.from("crm_services").select("customer_name, phone, whatsapp"),
+    ]);
+    const customers = custRes.data || [];
+    const services = svcRes.data || [];
+
+    const fromD = new Date(f), toD = new Date(t);
+    const matchesRange = (dob: string) => {
+      const d = new Date(dob);
+      // walk years from fromD.year to toD.year+1
+      for (let y = fromD.getFullYear(); y <= toD.getFullYear() + 1; y++) {
+        const cand = new Date(y, d.getMonth(), d.getDate());
+        if (cand >= fromD && cand <= toD) {
+          const todayD = new Date(todayISO());
+          const days = Math.round((cand.getTime() - todayD.getTime()) / 86400000);
+          const age = y - d.getFullYear();
+          return { thisYear: cand.toISOString().slice(0, 10), days, age };
+        }
+      }
+      return null;
+    };
+
+    const seen = new Set<string>();
+    const out: any[] = [];
+    customers.forEach((c) => {
+      const m = matchesRange(c.dob);
+      if (m) { seen.add(c.phone); out.push({ ...c, ...m, source: "customers" }); }
+    });
+    // services don't have dob; only included if matched by phone to customers (handled above)
+    setResults(out.sort((a, b) => a.thisYear.localeCompare(b.thisYear)));
+    setLoading(false);
+  };
+
+  useEffect(() => { run(); }, [filter]);
+
+  const wish = async (c: any) => {
+    const tpl = settings.whatsapp_birthday_template || `Happy Birthday {name}! - The Computer Solutions`;
+    const msg = fillTemplate(tpl, { name: c.name, phone: c.phone, shop_phone: settings.shop_phone, shop_name: settings.shop_name });
+    window.open(waLink(c.whatsapp || c.phone, msg), "_blank");
+    if (confirm("Mark as Wished?")) {
+      await logWhatsApp({ customer_name: c.name, phone: c.phone, message_type: "birthday", message_text: msg });
+      toast.success("Logged");
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2">
+        {[{ id: "today", label: "Today" }, { id: "week", label: "This Week" }, { id: "month", label: "This Month" }, { id: "custom", label: "Custom Range" }].map((f) => (
+          <button key={f.id} onClick={() => setFilter(f.id)} className={`px-3 py-1.5 rounded-full text-xs font-medium ${filter === f.id ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"}`}>{f.label}</button>
+        ))}
+      </div>
+      {filter === "custom" && (
+        <div className="flex flex-wrap gap-2 items-end bg-slate-900 border border-slate-800 rounded p-3">
+          <label className="block"><span className="text-xs text-slate-400 mb-1 block">From</span><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-white" /></label>
+          <label className="block"><span className="text-xs text-slate-400 mb-1 block">To</span><input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-white" /></label>
+          <button onClick={run} className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm flex items-center gap-1.5"><Search size={14} />Search</button>
+        </div>
+      )}
+
+      {loading ? <div className="text-slate-400">Loading…</div> :
+        results.length === 0 ? <div className="text-center py-10 bg-slate-900 border border-slate-800 rounded text-slate-500">No birthdays in this period 🎉</div> :
+        <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-800/50 text-xs uppercase text-slate-400">
+              <tr><th className="text-left p-3">Customer</th><th className="text-left p-3">Phone</th><th className="text-left p-3">Birthday</th><th className="text-left p-3">Days Away</th><th className="text-left p-3">Age</th><th className="text-right p-3">Action</th></tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {results.map((c) => (
+                <tr key={c.id} className="hover:bg-slate-800/30">
+                  <td className="p-3 text-white flex items-center gap-2">
+                    {c.photo_url ? <img src={c.photo_url} alt={c.name} className="w-7 h-7 rounded-full object-cover" /> : <div className="w-7 h-7 rounded-full bg-pink-600 flex items-center justify-center text-xs">{c.name?.[0]}</div>}
+                    {c.name}
+                  </td>
+                  <td className="p-3 text-slate-300">{c.phone}</td>
+                  <td className="p-3 text-slate-300">{formatDate(c.dob)}</td>
+                  <td className="p-3"><span className={`text-xs px-2 py-0.5 rounded ${c.days <= 0 ? "bg-pink-500/20 text-pink-300" : c.days <= 7 ? "bg-orange-500/20 text-orange-300" : "bg-slate-800 text-slate-300"}`}>{c.days <= 0 ? "Today!" : `In ${c.days}d`}</span></td>
+                  <td className="p-3 text-slate-400">{c.age}</td>
+                  <td className="p-3 text-right"><button onClick={() => wish(c)} className="px-3 py-1 bg-green-600/20 hover:bg-green-600/30 text-green-300 rounded text-xs flex items-center gap-1 ml-auto"><MessageCircle size={12} />WA Wish</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      }
     </div>
   );
 }

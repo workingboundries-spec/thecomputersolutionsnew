@@ -50,6 +50,33 @@ export type Database = {
         }
         Relationships: []
       }
+      crm_admin_settings: {
+        Row: {
+          created_at: string
+          id: string
+          setting_key: string
+          setting_type: string
+          setting_value: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          setting_key: string
+          setting_type?: string
+          setting_value?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          setting_key?: string
+          setting_type?: string
+          setting_value?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       crm_catalogue: {
         Row: {
           billing_price: number
@@ -164,6 +191,7 @@ export type Database = {
           customer_name: string
           description: string | null
           id: string
+          is_converted: boolean
           item_name: string | null
           notes: string | null
           phone: string
@@ -181,6 +209,7 @@ export type Database = {
           customer_name: string
           description?: string | null
           id?: string
+          is_converted?: boolean
           item_name?: string | null
           notes?: string | null
           phone: string
@@ -198,6 +227,7 @@ export type Database = {
           customer_name?: string
           description?: string | null
           id?: string
+          is_converted?: boolean
           item_name?: string | null
           notes?: string | null
           phone?: string
@@ -208,6 +238,86 @@ export type Database = {
           whatsapp?: string | null
         }
         Relationships: []
+      }
+      crm_quotations: {
+        Row: {
+          address: string | null
+          created_at: string
+          customer_name: string
+          discount: number
+          email: string | null
+          enquiry_id: string | null
+          gst_amount: number
+          gst_percent: number
+          id: string
+          items: Json
+          notes: string | null
+          phone: string | null
+          quote_no: string
+          status: string
+          subtotal: number
+          terms: string | null
+          total_amount: number
+          updated_at: string
+          validity_date: string | null
+          validity_days: number
+          whatsapp: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          customer_name: string
+          discount?: number
+          email?: string | null
+          enquiry_id?: string | null
+          gst_amount?: number
+          gst_percent?: number
+          id?: string
+          items?: Json
+          notes?: string | null
+          phone?: string | null
+          quote_no: string
+          status?: string
+          subtotal?: number
+          terms?: string | null
+          total_amount?: number
+          updated_at?: string
+          validity_date?: string | null
+          validity_days?: number
+          whatsapp?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          customer_name?: string
+          discount?: number
+          email?: string | null
+          enquiry_id?: string | null
+          gst_amount?: number
+          gst_percent?: number
+          id?: string
+          items?: Json
+          notes?: string | null
+          phone?: string | null
+          quote_no?: string
+          status?: string
+          subtotal?: number
+          terms?: string | null
+          total_amount?: number
+          updated_at?: string
+          validity_date?: string | null
+          validity_days?: number
+          whatsapp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_quotations_enquiry_id_fkey"
+            columns: ["enquiry_id"]
+            isOneToOne: false
+            referencedRelation: "crm_enquiries"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       crm_quote_shares: {
         Row: {
@@ -269,6 +379,7 @@ export type Database = {
           enquiry_id: string | null
           id: string
           invoice_no: string
+          is_deleted: boolean
           item_id: string | null
           item_name: string
           notes: string | null
@@ -293,6 +404,7 @@ export type Database = {
           enquiry_id?: string | null
           id?: string
           invoice_no: string
+          is_deleted?: boolean
           item_id?: string | null
           item_name: string
           notes?: string | null
@@ -317,6 +429,7 @@ export type Database = {
           enquiry_id?: string | null
           id?: string
           invoice_no?: string
+          is_deleted?: boolean
           item_id?: string | null
           item_name?: string
           notes?: string | null
@@ -433,6 +546,65 @@ export type Database = {
         }
         Relationships: []
       }
+      crm_stock_audit_log: {
+        Row: {
+          audit_date: string
+          audit_month: string
+          brand: string | null
+          catalogue_id: string | null
+          created_at: string
+          entered_by: string | null
+          id: string
+          item_name: string | null
+          model: string | null
+          notes: string | null
+          opening_stock: number
+          physical_count: number
+          sold_qty: number
+          variance: number
+        }
+        Insert: {
+          audit_date?: string
+          audit_month: string
+          brand?: string | null
+          catalogue_id?: string | null
+          created_at?: string
+          entered_by?: string | null
+          id?: string
+          item_name?: string | null
+          model?: string | null
+          notes?: string | null
+          opening_stock?: number
+          physical_count?: number
+          sold_qty?: number
+          variance?: number
+        }
+        Update: {
+          audit_date?: string
+          audit_month?: string
+          brand?: string | null
+          catalogue_id?: string | null
+          created_at?: string
+          entered_by?: string | null
+          id?: string
+          item_name?: string | null
+          model?: string | null
+          notes?: string | null
+          opening_stock?: number
+          physical_count?: number
+          sold_qty?: number
+          variance?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_stock_audit_log_catalogue_id_fkey"
+            columns: ["catalogue_id"]
+            isOneToOne: false
+            referencedRelation: "crm_catalogue"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crm_user_roles: {
         Row: {
           created_at: string
@@ -460,6 +632,8 @@ export type Database = {
           customer_name: string
           id: string
           item_name: string | null
+          message_sent: boolean
+          message_sent_at: string | null
           phone: string
           purchase_date: string | null
           reminder_type: string
@@ -477,6 +651,8 @@ export type Database = {
           customer_name: string
           id?: string
           item_name?: string | null
+          message_sent?: boolean
+          message_sent_at?: string | null
           phone: string
           purchase_date?: string | null
           reminder_type: string
@@ -494,6 +670,8 @@ export type Database = {
           customer_name?: string
           id?: string
           item_name?: string | null
+          message_sent?: boolean
+          message_sent_at?: string | null
           phone?: string
           purchase_date?: string | null
           reminder_type?: string
@@ -509,6 +687,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "crm_warranty_reminders_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "crm_sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_whatsapp_log: {
+        Row: {
+          created_at: string
+          customer_name: string | null
+          id: string
+          message_text: string | null
+          message_type: string | null
+          phone: string | null
+          sale_id: string | null
+          sent_at: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          customer_name?: string | null
+          id?: string
+          message_text?: string | null
+          message_type?: string | null
+          phone?: string | null
+          sale_id?: string | null
+          sent_at?: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          customer_name?: string | null
+          id?: string
+          message_text?: string | null
+          message_type?: string | null
+          phone?: string | null
+          sale_id?: string | null
+          sent_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_whatsapp_log_sale_id_fkey"
             columns: ["sale_id"]
             isOneToOne: false
             referencedRelation: "crm_sales"

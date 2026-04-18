@@ -3,7 +3,8 @@ import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { formatINR, formatDate, todayISO, addMonths, addDays } from "@/crm/lib/format";
 import { toast } from "sonner";
-import { Plus, Search, Eye, Edit2, MessageCircle, Printer, X } from "lucide-react";
+import { Plus, Search, Eye, Edit2, MessageCircle, Printer, X, Trash2 } from "lucide-react";
+import { useAdminSetting } from "@/crm/hooks/useAdminSettings";
 
 const PAY_BADGE: Record<string, string> = {
   paid: "bg-green-500/15 text-green-300",
@@ -50,9 +51,13 @@ async function nextInvoiceNo() {
 }
 
 async function loadTemplates() {
-  const { data } = await supabase.from("crm_whatsapp_templates").select("template_name, message_body");
+  // Load message templates from crm_admin_settings (keys like whatsapp_week_template, whatsapp_month_template, etc.)
+  const { data } = await supabase
+    .from("crm_admin_settings")
+    .select("setting_key, setting_value")
+    .like("setting_key", "whatsapp_%_template");
   const map: Record<string, string> = {};
-  (data || []).forEach((t: any) => { map[t.template_name] = t.message_body; });
+  (data || []).forEach((t: any) => { map[t.setting_key] = t.setting_value; });
   return map;
 }
 
@@ -65,15 +70,24 @@ async function createWarrantyReminders(sale: any, templates: Record<string, stri
   const baseVars = {
     name: sale.customer_name,
     item: sale.item_name,
+    purchase_date: formatDate(sale.sale_date),
     date: formatDate(sale.sale_date),
     expiry: formatDate(sale.warranty_expiry),
     phone: sale.phone,
+    shop_phone: "",
+    shop_name: "The Computer Solutions",
   };
+  // 5 standard reminder types per spec: 1 week, 1 month, 3 month, 6 month, 11 month
   const types: { type: string; days: number; tpl: string }[] = [
-    { type: "1month", days: 30, tpl: "warranty_1month" },
-    { type: "3month", days: 90, tpl: "warranty_3month" },
-    { type: "6month", days: 180, tpl: "warranty_6month" },
+    { type: "1week", days: 7, tpl: "whatsapp_week_template" },
+    { type: "1month", days: 30, tpl: "whatsapp_month_template" },
+    { type: "3month", days: 90, tpl: "whatsapp_3month_template" },
+    { type: "6month", days: 180, tpl: "whatsapp_6month_template" },
   ];
+  // 11-month reminder only if warranty >= 12 months
+  if (Number(sale.warranty_months || 0) >= 12) {
+    types.push({ type: "11month", days: 330, tpl: "whatsapp_11month_template" });
+  }
   for (const t of types) {
     reminders.push({
       sale_id: sale.id,
@@ -87,41 +101,7 @@ async function createWarrantyReminders(sale: any, templates: Record<string, stri
       scheduled_date: addDays(sale.sale_date, t.days),
       whatsapp_message: fillTemplate(templates[t.tpl] || "", baseVars),
       status: "pending",
-    });
-  }
-  if (sale.warranty_expiry) {
-    reminders.push({
-      sale_id: sale.id,
-      customer_name: sale.customer_name,
-      phone: sale.phone,
-      whatsapp: sale.whatsapp || sale.phone,
-      item_name: sale.item_name,
-      purchase_date: sale.sale_date,
-      warranty_expiry: sale.warranty_expiry,
-      reminder_type: "pre_expiry",
-      scheduled_date: addDays(sale.warranty_expiry, -30),
-      whatsapp_message: fillTemplate(templates["warranty_pre_expiry"] || "", baseVars),
-      status: "pending",
-    });
-  }
-  if (sale.customer_dob) {
-    const dob = new Date(sale.customer_dob);
-    const next = new Date();
-    next.setMonth(dob.getMonth());
-    next.setDate(dob.getDate());
-    if (next < new Date()) next.setFullYear(next.getFullYear() + 1);
-    reminders.push({
-      sale_id: sale.id,
-      customer_name: sale.customer_name,
-      phone: sale.phone,
-      whatsapp: sale.whatsapp || sale.phone,
-      item_name: sale.item_name,
-      purchase_date: sale.sale_date,
-      warranty_expiry: sale.warranty_expiry,
-      reminder_type: "birthday",
-      scheduled_date: next.toISOString().slice(0, 10),
-      whatsapp_message: fillTemplate(templates["birthday"] || "", baseVars),
-      status: "pending",
+      message_sent: false,
     });
   }
   if (reminders.length) await supabase.from("crm_warranty_reminders").insert(reminders);
@@ -174,11 +154,12 @@ export default function CrmSales() {
   const [viewing, setViewing] = useState<any>(null);
   const [catalogue, setCatalogue] = useState<any[]>([]);
   const [shopInfo, setShopInfo] = useState<Record<string, string>>({});
+  const paymentModes = useAdminSetting<string[]>("sale_payment_modes", ["Cash", "UPI", "Card", "EMI", "Credit", "NEFT"]);
 
   const load = async () => {
     setLoading(true);
     const [salesRes, catRes, settRes] = await Promise.all([
-      supabase.from("crm_sales").select("*").order("created_at", { ascending: false }),
+      supabase.from("crm_sales").select("*").eq("is_deleted", false).order("created_at", { ascending: false }),
       supabase.from("crm_catalogue").select("id, brand, model, sale_price, stock_qty"),
       supabase.from("crm_settings").select("key, value"),
     ]);
@@ -293,12 +274,33 @@ export default function CrmSales() {
     load();
   };
 
+  const handleDelete = async (s: any) => {
+    if (!confirm(`Delete sale ${s.invoice_no}? Stock will be restored.`)) return;
+    const { error } = await supabase.from("crm_sales").update({ is_deleted: true }).eq("id", s.id);
+    if (error) return toast.error(error.message);
+    // Restore stock if linked to catalogue
+    if (s.item_id) {
+      const { data } = await supabase.from("crm_catalogue").select("stock_qty, brand, model").eq("id", s.item_id).maybeSingle();
+      if (data) {
+        const newQty = (data.stock_qty || 0) + Number(s.qty || 0);
+        await supabase.from("crm_catalogue").update({ stock_qty: newQty }).eq("id", s.item_id);
+        toast.success(`Sale deleted. Stock restored: ${data.brand} ${data.model} now has ${newQty} units`);
+      } else {
+        toast.success("Sale deleted");
+      }
+    } else {
+      toast.success("Sale deleted (no catalogue link, stock unchanged)");
+    }
+    load();
+  };
+
   const sendReceipt = (s: any) => {
     const msg = `Hi ${s.customer_name}, thank you for your purchase!\nInvoice: ${s.invoice_no}\nItem: ${s.item_name}\nAmount: ${formatINR(s.total_amount)}\nWarranty till: ${formatDate(s.warranty_expiry)}\n— ${shopInfo.shop_name || "The Computer Solutions"}`;
     const phone = (s.whatsapp || s.phone || "").replace(/\D/g, "");
     const cc = phone.startsWith("91") ? phone : "91" + phone;
     window.open(`https://wa.me/${cc}?text=${encodeURIComponent(msg)}`, "_blank");
   };
+
 
   return (
     <div className="space-y-4">
@@ -372,6 +374,7 @@ export default function CrmSales() {
                       <button onClick={() => setViewing(r)} title="View invoice" className="p-1.5 text-slate-300 hover:bg-slate-700 rounded"><Eye size={14} /></button>
                       <button onClick={() => sendReceipt(r)} title="WhatsApp receipt" className="p-1.5 text-green-400 hover:bg-green-600/20 rounded"><MessageCircle size={14} /></button>
                       <button onClick={() => openEdit(r)} title="Edit" className="p-1.5 text-blue-400 hover:bg-blue-600/20 rounded"><Edit2 size={14} /></button>
+                      <button onClick={() => handleDelete(r)} title="Delete (restores stock)" className="p-1.5 text-red-400 hover:bg-red-600/20 rounded"><Trash2 size={14} /></button>
                     </div>
                   </td>
                 </tr>
@@ -391,7 +394,9 @@ export default function CrmSales() {
               <Field label="Sale Date"><input type="date" value={form.sale_date} onChange={(e) => setForm(recalc({ ...form, sale_date: e.target.value, warranty_expiry: addMonths(e.target.value, Number(form.warranty_months || 0)) }))} className={fInput} /></Field>
               <Field label="Payment Mode">
                 <select value={form.payment_mode} onChange={(e) => setForm({ ...form, payment_mode: e.target.value })} className={fInput}>
-                  <option value="cash">Cash</option><option value="upi">UPI</option><option value="card">Card</option><option value="credit">Credit</option><option value="emi">EMI</option>
+                  {(paymentModes || []).map((m: string) => (
+                    <option key={m} value={m.toLowerCase()}>{m}</option>
+                  ))}
                 </select>
               </Field>
               <Field label="Customer Name *"><input required value={form.customer_name} onChange={(e) => setForm({ ...form, customer_name: e.target.value })} className={fInput} /></Field>

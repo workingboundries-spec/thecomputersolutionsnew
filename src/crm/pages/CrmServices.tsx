@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatINR, formatDate, todayISO, waLink } from "@/crm/lib/format";
 import { toast } from "sonner";
 import { Plus, Search, Edit2, MessageCircle, X, Wrench } from "lucide-react";
+import { useAdminSetting } from "@/crm/hooks/useAdminSettings";
 
 const STATUSES = ["received", "diagnosing", "in_repair", "ready", "delivered"] as const;
 type Status = typeof STATUSES[number];
@@ -55,6 +56,7 @@ export default function CrmServices() {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<any>(empty);
+  const serviceStatuses = useAdminSetting<string[]>("service_statuses", []);
 
   const load = async () => {
     setLoading(true);
@@ -265,7 +267,10 @@ export default function CrmServices() {
                 <Field label="Job Card No"><input value={form.job_card_no} onChange={e => setForm({ ...form, job_card_no: e.target.value })} className={inp} /></Field>
                 <Field label="Status">
                   <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })} className={inp}>
-                    {STATUSES.map(s => <option key={s} value={s}>{STATUS_META[s].label}</option>)}
+                    {(serviceStatuses && serviceStatuses.length
+                      ? serviceStatuses.map((s: string) => ({ key: s.toLowerCase().replace(/\s+/g, "_"), label: s }))
+                      : STATUSES.map(s => ({ key: s, label: STATUS_META[s].label }))
+                    ).map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
                   </select>
                 </Field>
                 <Field label="Customer Name *"><input value={form.customer_name} onChange={e => setForm({ ...form, customer_name: e.target.value })} className={inp} /></Field>

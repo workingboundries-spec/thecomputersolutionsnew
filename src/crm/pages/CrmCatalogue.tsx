@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Share2, Grid3x3, List, Search, X, Copy } from "lucide-react";
 import { formatINR, todayISO, addDays, waLink } from "@/crm/lib/format";
+import { useAdminSetting } from "@/crm/hooks/useAdminSettings";
 
 type Item = {
   id: string;
@@ -48,6 +49,8 @@ export default function CrmCatalogue() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Partial<Item> | null>(null);
   const [shareItem, setShareItem] = useState<Item | null>(null);
+  const adminCategories = useAdminSetting<string[]>("enquiry_categories", []);
+  const dynamicCats = (adminCategories && adminCategories.length ? adminCategories.map((c: string) => c.toLowerCase()) : CATEGORIES);
 
   const load = async () => {
     setLoading(true);
@@ -112,7 +115,7 @@ export default function CrmCatalogue() {
         </div>
         <select value={filterCat} onChange={(e) => setFilterCat(e.target.value)} className="px-3 py-2 bg-slate-900 border border-slate-800 rounded text-sm text-white">
           <option value="">All categories</option>
-          {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          {dynamicCats.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
       </div>
 
@@ -204,7 +207,7 @@ export default function CrmCatalogue() {
               <Field label="Model *"><input value={editing.model || ""} onChange={(e) => setEditing({ ...editing, model: e.target.value })} className={inputCls} /></Field>
               <Field label="Category">
                 <select value={editing.category || "laptop"} onChange={(e) => setEditing({ ...editing, category: e.target.value })} className={inputCls}>
-                  {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  {dynamicCats.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </Field>
               <Field label="Stock Qty"><input type="number" value={editing.stock_qty ?? 0} onChange={(e) => setEditing({ ...editing, stock_qty: +e.target.value })} className={inputCls} /></Field>

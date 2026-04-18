@@ -31,13 +31,15 @@ const emptyForm = () => ({
   _from_template_id: null as string | null,
 });
 
-function calcTotals(items: QItem[], gstPct: number) {
+function calcTotals(items: QItem[], gstPct: number, extraDiscount: number = 0) {
   const subtotal = items.reduce((s, it) => s + (Number(it.qty || 0) * Number(it.price || 0)), 0);
-  const discount = items.reduce((s, it) => s + (Number(it.qty || 0) * Number(it.price || 0) * Number(it.discount_pct || 0) / 100), 0);
-  const taxable = subtotal - discount;
+  const lineDiscount = items.reduce((s, it) => s + (Number(it.qty || 0) * Number(it.price || 0) * Number(it.discount_pct || 0) / 100), 0);
+  const extra = Math.max(0, Number(extraDiscount || 0));
+  const discount = lineDiscount + extra;
+  const taxable = Math.max(0, subtotal - discount);
   const gst_amount = taxable * Number(gstPct || 0) / 100;
   const total_amount = taxable + gst_amount;
-  return { subtotal, discount, gst_amount, total_amount };
+  return { subtotal, discount, lineDiscount, extraDiscount: extra, gst_amount, total_amount };
 }
 
 async function nextQuoteNo(prefix: string) {

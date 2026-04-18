@@ -267,7 +267,10 @@ export default function CrmServices() {
                 <Field label="Job Card No"><input value={form.job_card_no} onChange={e => setForm({ ...form, job_card_no: e.target.value })} className={inp} /></Field>
                 <Field label="Status">
                   <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })} className={inp}>
-                    {STATUSES.map(s => <option key={s} value={s}>{STATUS_META[s].label}</option>)}
+                    {(serviceStatuses && serviceStatuses.length
+                      ? serviceStatuses.map((s: string) => ({ key: s.toLowerCase().replace(/\s+/g, "_"), label: s }))
+                      : STATUSES.map(s => ({ key: s, label: STATUS_META[s].label }))
+                    ).map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
                   </select>
                 </Field>
                 <Field label="Customer Name *"><input value={form.customer_name} onChange={e => setForm({ ...form, customer_name: e.target.value })} className={inp} /></Field>

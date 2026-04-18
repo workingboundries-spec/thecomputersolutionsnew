@@ -138,7 +138,7 @@ export default function CrmQuotations() {
   const save = async (asStatus?: string) => {
     if (!form.customer_name || !form.phone) return toast.error("Customer name and phone required");
     if (form.items.length === 0) return toast.error("Add at least one item");
-    const t = calcTotals(form.items, form.gst_percent);
+    const t = calcTotals(form.items, form.gst_percent, form.extra_discount);
     const payload: any = {
       quote_no: form.quote_no,
       enquiry_id: form.enquiry_id || null,

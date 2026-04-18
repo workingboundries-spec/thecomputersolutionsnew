@@ -438,24 +438,39 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
   };
 
   const captureCanvas = async (): Promise<HTMLCanvasElement> => {
-    const el = document.getElementById("quotation-preview") as HTMLElement | null;
-    if (!el) throw new Error("Preview not ready");
+    const original = document.getElementById("quotation-preview") as HTMLElement | null;
+    if (!original) throw new Error("Preview not ready");
 
-    // Render off-screen at full A4 width so capture is identical on mobile + desktop.
-    const prev = {
-      position: el.style.position, left: el.style.left, top: el.style.top,
-      transform: el.style.transform, width: el.style.width, zIndex: el.style.zIndex,
-    };
-    el.style.position = "fixed";
-    el.style.left = "0";
-    el.style.top = "0";
-    el.style.transform = "translate(-10000px, 0)";
-    el.style.width = "794px";
-    el.style.zIndex = "-1";
+    // Clone the live preview into a dedicated off-screen host. We never mutate
+    // the visible node (transforms + z-index hacks were causing blank captures
+    // on some browsers/mobile viewports).
+    const host = document.createElement("div");
+    host.style.cssText = [
+      "position:fixed",
+      "left:0",
+      "top:0",
+      "width:794px",
+      "background:#ffffff",
+      // Keep it visually hidden but fully laid out + painted.
+      "opacity:0",
+      "pointer-events:none",
+      "z-index:0",
+    ].join(";");
+
+    const clone = original.cloneNode(true) as HTMLElement;
+    clone.id = "quotation-preview-capture";
+    clone.style.width = "794px";
+    clone.style.transform = "none";
+    clone.style.position = "static";
+    host.appendChild(clone);
+    document.body.appendChild(host);
 
     try {
-      await inlineImages(el);
-      return await html2canvas(el, {
+      await inlineImages(clone);
+      // Let layout/paint settle after image swaps.
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+      return await html2canvas(clone, {
         scale: 2,
         useCORS: true,
         allowTaint: true,
@@ -465,7 +480,7 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
         logging: false,
       });
     } finally {
-      Object.assign(el.style, prev);
+      host.remove();
     }
   };
 

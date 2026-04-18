@@ -76,13 +76,15 @@ export default function SendQuotationPanel({
 
     const url = `${window.location.origin}/q/quote/${quotation.id}`;
 
-    // If WhatsApp is selected, ALWAYS download the JPEG first so the user
-    // has the image ready to attach (otherwise WA opens with no image and
-    // looks blank to the recipient).
+    // If WhatsApp/JPEG is selected, generate the image once: download it AND
+    // upload it so we can include the public link in the WA message.
+    let imgUrl: string | null = null;
     if (via.wa || via.jpeg) {
       try {
-        await onJpegRequest();
-        toast.success("Quotation image saved to your device");
+        toast.message("Generating quotation image…");
+        imgUrl = await onJpegRequest();
+        if (imgUrl) toast.success("Image ready — link will be included in WhatsApp");
+        else toast.success("Image saved to your device — please attach it manually");
       } catch (e: any) {
         toast.error("Could not generate image: " + (e?.message || ""));
       }
@@ -93,25 +95,37 @@ export default function SendQuotationPanel({
       if (!r.name && !r.phone && !r.email) continue;
 
       if (via.wa && (r.whatsapp || r.phone)) {
-        const msg =
-          `Dear ${r.name || "Customer"},\n\n` +
-          `Please find attached your quotation *${quotation.quote_no}*.\n` +
-          `Total: ₹${Number(quotation.total_amount).toLocaleString("en-IN")}\n` +
-          (quotation.validity_date ? `Valid till: ${quotation.validity_date}\n` : "") +
-          `\nView online: ${url}\n\n` +
-          `(Image saved to your device — please attach it in this chat.)`;
-        window.open(waLink(r.whatsapp || r.phone, msg), "_blank");
+        const lines = [
+          `Dear ${r.name || "Customer"},`,
+          ``,
+          `Please find your quotation *${quotation.quote_no}*.`,
+          `Total: ₹${Number(quotation.total_amount).toLocaleString("en-IN")}`,
+          quotation.validity_date ? `Valid till: ${quotation.validity_date}` : "",
+          ``,
+          imgUrl ? `🖼 View image: ${imgUrl}` : `(Image saved to your device — please attach it in this chat.)`,
+          `🔗 View online: ${url}`,
+        ].filter(Boolean);
+        window.open(waLink(r.whatsapp || r.phone, lines.join("\n")), "_blank");
         await logSend(r, "whatsapp");
         if (i < recipients.length - 1) {
           await new Promise((res) => setTimeout(res, 800));
-          toast.message(`Opened WhatsApp for ${r.name || r.phone}. Attach image, click Send, then continue.`);
+          toast.message(`Opened WhatsApp for ${r.name || r.phone}. Send, then continue.`);
         }
       }
 
       if (via.email && r.email) {
         const subject = encodeURIComponent(`Quotation ${quotation.quote_no}`);
-        const body = encodeURIComponent(`Dear ${r.name || "Customer"},\n\nPlease find your quotation ${quotation.quote_no}.\nTotal: ₹${Number(quotation.total_amount).toLocaleString("en-IN")}\nValid till: ${quotation.validity_date || ""}\n\nView online: ${url}`);
-        window.open(`mailto:${r.email}?subject=${subject}&body=${body}`);
+        const bodyLines = [
+          `Dear ${r.name || "Customer"},`,
+          ``,
+          `Please find your quotation ${quotation.quote_no}.`,
+          `Total: ₹${Number(quotation.total_amount).toLocaleString("en-IN")}`,
+          quotation.validity_date ? `Valid till: ${quotation.validity_date}` : "",
+          ``,
+          imgUrl ? `View image: ${imgUrl}` : "",
+          `View online: ${url}`,
+        ].filter(Boolean);
+        window.open(`mailto:${r.email}?subject=${subject}&body=${encodeURIComponent(bodyLines.join("\n"))}`);
         await logSend(r, "email");
       }
     }

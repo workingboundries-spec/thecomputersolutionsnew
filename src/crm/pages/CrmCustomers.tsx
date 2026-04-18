@@ -17,6 +17,7 @@ function Avatar({ name, photo, size = 32 }: { name: string; photo?: string | nul
 export default function CrmCustomers() {
   const [rows, setRows] = useState<any[]>([]);
   const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"all" | "Purchase" | "Service" | "Both">("all");
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);

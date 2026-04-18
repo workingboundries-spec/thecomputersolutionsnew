@@ -159,7 +159,7 @@ export default function CrmSales() {
   const load = async () => {
     setLoading(true);
     const [salesRes, catRes, settRes] = await Promise.all([
-      supabase.from("crm_sales").select("*").order("created_at", { ascending: false }),
+      supabase.from("crm_sales").select("*").eq("is_deleted", false).order("created_at", { ascending: false }),
       supabase.from("crm_catalogue").select("id, brand, model, sale_price, stock_qty"),
       supabase.from("crm_settings").select("key, value"),
     ]);

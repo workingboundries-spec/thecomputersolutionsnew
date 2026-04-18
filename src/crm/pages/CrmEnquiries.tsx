@@ -62,6 +62,12 @@ export default function CrmEnquiries() {
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Guard: prevent manually marking as "converted" — must go through Convert flow which creates the sale row
+    const prevStatus = editing?.status;
+    if (form.status === "converted" && prevStatus !== "converted") {
+      toast.error("Use the green Convert arrow to create a sale. Status will auto-update after the sale is saved.");
+      return;
+    }
     const payload = {
       ...form,
       budget: form.budget === "" ? null : Number(form.budget),

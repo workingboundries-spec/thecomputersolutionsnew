@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { invalidateAdminSettings } from "@/crm/hooks/useAdminSettings";
+import { brandingFromMap } from "@/crm/lib/quotationBranding";
+import { QuotationHeaderPreview, QuotationPreview } from "@/crm/components/QuotationPreview";
 import { toast } from "sonner";
-import { Save, X, Plus, Download } from "lucide-react";
+import { Save, X, Plus, Download, Upload, Eye } from "lucide-react";
 
-const TABS = ["Shop Info", "Dropdowns", "WhatsApp Templates", "Quotation", "Stock", "Data Export"] as const;
+const TABS = ["Shop Info", "Branding & Quotation Style", "Dropdowns", "WhatsApp Templates", "Quotation", "Stock", "Data Export"] as const;
 
 const TEMPLATE_KEYS = [
   { key: "whatsapp_week_template", label: "After 1 Week" },

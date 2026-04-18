@@ -512,11 +512,12 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
     } catch { return null; }
   };
 
-  const exportAsJpeg = async (): Promise<Blob> => {
+  const exportAsJpeg = async (): Promise<{ blob: Blob; url: string | null }> => {
     const canvas = await captureCanvas();
     const blob = await canvasToBlob(canvas);
     downloadBlob(blob);
-    return blob;
+    const url = await uploadAndGetUrl(blob);
+    return { blob, url };
   };
 
   const handleJpegOnly = async () => {
@@ -525,31 +526,38 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
 
   const shareJpegWA = async () => {
     try {
+      toast.message("Generating image…");
       const canvas = await captureCanvas();
       const blob = await canvasToBlob(canvas);
-      downloadBlob(blob);
 
       const phone = (q.whatsapp || q.phone || "").replace(/\D/g, "");
       const cc = !phone ? "" : phone.startsWith("91") || phone.length > 10 ? phone : "91" + phone;
       const file = new File([blob], `Quotation-${q.quote_no}.jpg`, { type: "image/jpeg" });
 
-      // Mobile: native share sheet attaches image directly into WhatsApp.
+      // Mobile / supported browsers: native share sheet attaches the image
+      // directly into WhatsApp (this is the ONLY way to auto-attach a file).
       const navAny = navigator as any;
-      if (navAny.canShare && navAny.canShare({ files: [file] })) {
+      const canShareFiles = !!(navAny.canShare && navAny.canShare({ files: [file] }) && navAny.share);
+      if (canShareFiles) {
         try {
           await navAny.share({
             files: [file],
             title: `Quotation ${q.quote_no}`,
             text: `Quotation ${q.quote_no} — Total ₹${Number(q.total_amount).toLocaleString("en-IN")}`,
           });
-          toast.success("Share sheet opened");
+          toast.success("Pick WhatsApp from the share sheet");
           return;
-        } catch { /* user cancelled — fall through */ }
+        } catch (err: any) {
+          // User cancelled or share failed — fall through to URL flow.
+          if (err?.name !== "AbortError") console.warn("Native share failed:", err);
+        }
       }
 
-      // Desktop fallback: upload image, send public URL inside the WhatsApp text
-      // so the recipient gets a real image preview (no blank message).
-      toast.message("Uploading image…");
+      // Desktop / fallback: ALWAYS download the JPEG so user has it ready,
+      // upload to Storage so the WhatsApp message contains a clickable image
+      // link that previews inline in WhatsApp.
+      downloadBlob(blob);
+      toast.message("Uploading image for WhatsApp preview…");
       const imgUrl = await uploadAndGetUrl(blob);
       const onlineUrl = `${window.location.origin}/q/quote/${q.id}`;
       const lines = [
@@ -557,13 +565,22 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
         `Total: ₹${Number(q.total_amount).toLocaleString("en-IN")}`,
         q.validity_date ? `Valid till: ${q.validity_date}` : "",
         "",
-        imgUrl ? `📎 Image: ${imgUrl}` : "(Image saved to your device — please attach it.)",
+        imgUrl ? `🖼 View image: ${imgUrl}` : "(Image saved to your downloads — please attach it manually.)",
         `🔗 View online: ${onlineUrl}`,
       ].filter(Boolean);
       const msg = lines.join("\n");
-      window.open(cc ? `https://wa.me/${cc}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
-      toast.success(imgUrl ? "WhatsApp opened with image link" : "Image downloaded — attach it in WhatsApp");
-    } catch (e: any) { toast.error("Failed: " + (e?.message || "Unknown error")); }
+      window.open(
+        cc ? `https://wa.me/${cc}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`,
+        "_blank"
+      );
+      if (imgUrl) {
+        toast.success("WhatsApp opened. Image link is in the message + JPEG downloaded — drag it into the chat to attach.", { duration: 8000 });
+      } else {
+        toast.warning("WhatsApp opened. Upload failed — please attach the downloaded JPEG manually.", { duration: 8000 });
+      }
+    } catch (e: any) {
+      toast.error("Failed: " + (e?.message || "Unknown error"));
+    }
   };
 
   return (
@@ -575,7 +592,7 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
           </div>
         </div>
 
-        <SendQuotationPanel quotation={q} onJpegRequest={async () => { await exportAsJpeg(); }} />
+        <SendQuotationPanel quotation={q} onJpegRequest={async () => { const r = await exportAsJpeg(); return r.url; }} />
 
         <div className="px-3 sm:px-6 py-3 border-t bg-slate-100 flex flex-wrap justify-end gap-2 print:hidden">
           <button onClick={onClose} className="px-3 py-2 text-sm bg-slate-200 hover:bg-slate-300 rounded">Close</button>

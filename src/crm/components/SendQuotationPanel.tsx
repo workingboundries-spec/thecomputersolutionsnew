@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { waLink } from "@/crm/lib/format";
 import { toast } from "sonner";
 import { Plus, X, Send, Mail, Image as ImageIcon, Search } from "lucide-react";
+import { useAdminSettings } from "@/crm/hooks/useAdminSettings";
+import { renderQuotationMessage, buildMessageVarsFromQuote, DEFAULT_QUOTATION_MESSAGE_TEMPLATE } from "@/crm/lib/quotationMessage";
 
 type Recipient = { id: string; name: string; phone: string; whatsapp: string; email: string };
 
@@ -23,6 +25,7 @@ export default function SendQuotationPanel({
   const [customers, setCustomers] = useState<any[]>([]);
   const [custSearch, setCustSearch] = useState("");
   const [sending, setSending] = useState(false);
+  const settings = useAdminSettings(["quotation_message_template", "shop_name", "shop_phone", "shop_email"]);
 
   // Initial recipient = quotation customer
   useEffect(() => {
@@ -94,18 +97,20 @@ export default function SendQuotationPanel({
       const r = recipients[i];
       if (!r.name && !r.phone && !r.email) continue;
 
+      const vars = buildMessageVarsFromQuote({
+        quote: quotation,
+        companyName: settings.shop_name || "The Computer Solutions",
+        shopPhone: settings.shop_phone || "",
+        shopEmail: settings.shop_email || "",
+        imageUrl: imgUrl,
+        onlineUrl: url,
+        recipientName: r.name || quotation.customer_name,
+      });
+      const tpl = settings.quotation_message_template || DEFAULT_QUOTATION_MESSAGE_TEMPLATE;
+      const message = renderQuotationMessage(tpl, vars);
+
       if (via.wa && (r.whatsapp || r.phone)) {
-        const lines = [
-          `Dear ${r.name || "Customer"},`,
-          ``,
-          `Please find your quotation *${quotation.quote_no}*.`,
-          `Total: ₹${Number(quotation.total_amount).toLocaleString("en-IN")}`,
-          quotation.validity_date ? `Valid till: ${quotation.validity_date}` : "",
-          ``,
-          imgUrl ? `🖼 View image: ${imgUrl}` : `(Image saved to your device — please attach it in this chat.)`,
-          `🔗 View online: ${url}`,
-        ].filter(Boolean);
-        window.open(waLink(r.whatsapp || r.phone, lines.join("\n")), "_blank");
+        window.open(waLink(r.whatsapp || r.phone, message), "_blank");
         await logSend(r, "whatsapp");
         if (i < recipients.length - 1) {
           await new Promise((res) => setTimeout(res, 800));
@@ -115,17 +120,7 @@ export default function SendQuotationPanel({
 
       if (via.email && r.email) {
         const subject = encodeURIComponent(`Quotation ${quotation.quote_no}`);
-        const bodyLines = [
-          `Dear ${r.name || "Customer"},`,
-          ``,
-          `Please find your quotation ${quotation.quote_no}.`,
-          `Total: ₹${Number(quotation.total_amount).toLocaleString("en-IN")}`,
-          quotation.validity_date ? `Valid till: ${quotation.validity_date}` : "",
-          ``,
-          imgUrl ? `View image: ${imgUrl}` : "",
-          `View online: ${url}`,
-        ].filter(Boolean);
-        window.open(`mailto:${r.email}?subject=${subject}&body=${encodeURIComponent(bodyLines.join("\n"))}`);
+        window.open(`mailto:${r.email}?subject=${subject}&body=${encodeURIComponent(message)}`);
         await logSend(r, "email");
       }
     }

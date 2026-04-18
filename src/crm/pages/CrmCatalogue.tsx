@@ -253,19 +253,110 @@ function QuoteShareModal({ item, onClose }: { item: Item; onClose: () => void })
   const [price, setPrice] = useState<number>(item.sale_price);
   const [validUntil, setValidUntil] = useState(addDays(todayISO(), 7));
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [savedQuote, setSavedQuote] = useState<{ no: string; id: string } | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Try to find an open enquiry for this phone+item; otherwise create one.
+  const ensureEnquiry = async (): Promise<string | null> => {
+    if (!phone) return null;
+    const itemName = `${item.brand} ${item.model}`;
+    const { data: existing } = await supabase
+      .from("crm_enquiries")
+      .select("id")
+      .eq("phone", phone)
+      .eq("item_name", itemName)
+      .eq("is_converted", false)
+      .order("created_at", { ascending: false })
+      .limit(1);
+    if (existing && existing[0]) return existing[0].id;
+    const { data: created, error } = await supabase
+      .from("crm_enquiries")
+      .insert({
+        customer_name: name || "Walk-in",
+        phone,
+        whatsapp: phone,
+        product_category: item.category || "laptop",
+        item_name: itemName,
+        budget: price || null,
+        source: "catalogue",
+        status: "quoted",
+        notes: config || null,
+      })
+      .select("id")
+      .single();
+    if (error) { console.warn("Enquiry create failed:", error.message); return null; }
+    return created?.id || null;
+  };
+
+  const nextQuoteNo = async (): Promise<string> => {
+    const today = new Date();
+    const ymd = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
+    const stem = `QT-${ymd}`;
+    const { data } = await supabase
+      .from("crm_quotations")
+      .select("quote_no")
+      .like("quote_no", `${stem}-%`)
+      .order("quote_no", { ascending: false })
+      .limit(1);
+    let n = 1;
+    if (data && data[0]) {
+      const last = (data[0] as any).quote_no.split("-").pop();
+      n = (parseInt(last || "0", 10) || 0) + 1;
+    }
+    return `${stem}-${String(n).padStart(3, "0")}`;
+  };
+
   const generate = async () => {
+    if (!name || !phone) {
+      toast.error("Customer name and phone are required");
+      return;
+    }
     setSaving(true);
-    const { data, error } = await supabase.from("crm_quote_shares").insert({
+
+    // 1) Public share record (existing flow)
+    const { data: share, error: shareErr } = await supabase.from("crm_quote_shares").insert({
       catalogue_id: item.id, customer_name: name || null, customer_phone: phone || null,
       shared_config: config, shared_price: price, valid_until: validUntil, is_active: true,
     }).select("share_link").single();
+    if (shareErr) { setSaving(false); return toast.error(shareErr.message); }
+
+    // 2) Auto-link/create enquiry
+    const enquiryId = await ensureEnquiry();
+
+    // 3) Auto-save a real quotation in CRM
+    try {
+      const quote_no = await nextQuoteNo();
+      const itemName = `${item.brand} ${item.model}`;
+      const items = [{ name: itemName, qty: 1, price: Number(price || 0), discount_pct: 0 }];
+      const subtotal = Number(price || 0);
+      const total_amount = subtotal;
+      const { data: q, error: qErr } = await supabase.from("crm_quotations").insert({
+        quote_no,
+        enquiry_id: enquiryId,
+        customer_name: name,
+        phone,
+        whatsapp: phone,
+        items,
+        subtotal,
+        discount: 0,
+        gst_percent: 0,
+        gst_amount: 0,
+        total_amount,
+        validity_date: validUntil,
+        validity_days: 7,
+        notes: config || null,
+        status: "sent",
+      }).select("id, quote_no").single();
+      if (qErr) console.warn("Quotation save failed:", qErr.message);
+      if (q) setSavedQuote({ no: q.quote_no, id: q.id });
+    } catch (e) {
+      console.warn(e);
+    }
+
     setSaving(false);
-    if (error) return toast.error(error.message);
-    const url = `${window.location.origin}/q/${data.share_link}`;
+    const url = `${window.location.origin}/q/${share.share_link}`;
     setShareUrl(url);
-    toast.success("Quote link generated");
+    toast.success(enquiryId ? "Quote saved & linked to Enquiry" : "Quote link generated");
   };
 
   const waMsg = shareUrl
@@ -280,13 +371,18 @@ function QuoteShareModal({ item, onClose }: { item: Item; onClose: () => void })
           <button onClick={onClose} className="text-slate-400 hover:text-white"><X size={20} /></button>
         </div>
         <div className="p-4 space-y-3">
-          <Field label="Customer Name"><input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} /></Field>
-          <Field label="Customer Phone"><input value={phone} onChange={(e) => setPhone(e.target.value)} className={inputCls} /></Field>
+          <Field label="Customer Name *"><input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} /></Field>
+          <Field label="Customer Phone *"><input value={phone} onChange={(e) => setPhone(e.target.value)} className={inputCls} /></Field>
           <Field label="Custom Config / Notes"><textarea value={config} onChange={(e) => setConfig(e.target.value)} rows={3} className={inputCls} /></Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Quoted Price"><input type="number" value={price} onChange={(e) => setPrice(+e.target.value)} className={inputCls} /></Field>
             <Field label="Valid Until"><input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} className={inputCls} /></Field>
           </div>
+          {savedQuote && (
+            <div className="text-xs px-2 py-1.5 bg-green-600/20 border border-green-600/40 text-green-200 rounded">
+              ✓ Saved as Quotation <strong>{savedQuote.no}</strong> in Quotations module
+            </div>
+          )}
           {shareUrl && (
             <div className="space-y-2 pt-2 border-t border-slate-800">
               <div className="bg-slate-800 rounded p-2 flex items-center gap-2">
@@ -297,12 +393,15 @@ function QuoteShareModal({ item, onClose }: { item: Item; onClose: () => void })
                 <button onClick={() => { navigator.clipboard.writeText(waMsg); toast.success("Message copied"); }} className="flex-1 px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded text-sm text-slate-300">Copy Message</button>
                 {phone && <a href={waLink(phone, waMsg)} target="_blank" rel="noreferrer" className="flex-1 px-3 py-2 bg-green-600 hover:bg-green-500 rounded text-sm text-white text-center">Send WhatsApp</a>}
               </div>
+              {savedQuote && (
+                <a href={`/crm/quotations`} className="block text-center text-xs text-blue-300 hover:underline pt-1">Open in Quotations →</a>
+              )}
             </div>
           )}
         </div>
         <div className="flex justify-end gap-2 p-4 border-t border-slate-800">
           <button onClick={onClose} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 text-sm">Close</button>
-          {!shareUrl && <button onClick={generate} disabled={saving} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-white text-sm disabled:opacity-50">{saving ? "Generating..." : "Generate Link"}</button>}
+          {!shareUrl && <button onClick={generate} disabled={saving} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-white text-sm disabled:opacity-50">{saving ? "Saving..." : "Generate & Save Quote"}</button>}
         </div>
       </div>
     </div>

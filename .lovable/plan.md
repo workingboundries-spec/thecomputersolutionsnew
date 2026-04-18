@@ -1,36 +1,27 @@
 
-The user wants the Customers list to include people who only came in for services (not just purchases), with a label/badge showing whether they're a Purchase customer, Service customer, or Both.
+The user wants a public-facing customer form that, when filled out, auto-creates a row in the Sales section (`crm_sales`). The form link will be shared via WhatsApp.
 
-Currently `crm_customers` only holds people added manually or via sales. Service customers in `crm_services` aren't auto-added.
+**Plan:**
 
-Plan:
+1. **New public route `/sales-form`** (no auth required) — a clean form for the customer to fill:
+   - Name, Phone, WhatsApp, Address, DOB (optional)
+   - Item purchased (text), Sale price, Payment mode (dropdown), Notes
+   - Submit button
 
-**1. Merge service customers into the Customers list (`CrmCustomers.tsx`)**
-- After loading `crm_customers`, also fetch distinct customers from `crm_services` (group by phone).
-- Merge into the displayed list, deduped by phone:
-  - If phone exists in `crm_customers` → use that record, but compute a `type` flag.
-  - If phone only exists in `crm_services` → create a virtual row (name, phone, whatsapp from latest service; no id from customers table).
-- Compute `customerType` for each row:
-  - `Purchase` → has sales (total_purchases > 0) and no service
-  - `Service` → only in services table
-  - `Both` → has sales AND services
+2. **Database/RLS:**
+   - `crm_sales` currently requires `is_crm_user(auth.uid())` for INSERT. A public customer is anonymous, so we need a way to allow anonymous inserts safely.
+   - Add a new RLS policy: allow `anon` to INSERT into `crm_sales` ONLY when `payment_status = 'pending_review'` (a flag that means "submitted by customer, needs CRM review").
+   - Add `payment_status='pending_review'` so CRM staff can filter and confirm these.
+   - Generate `invoice_no` server-side as `CUST-{timestamp}` placeholder so customer doesn't need to fill it.
 
-**2. Add a "Type" column with colored badges**
-- Purchase → blue badge
-- Service → orange badge  
-- Both → green badge
-- Place between Name and Phone columns.
+3. **CRM Sales page:**
+   - Add a "Share Sale Form" button at top → copies link `https://<site>/sales-form` and opens WhatsApp with prefilled message: "Please fill your purchase details: <link>"
+   - Customer-submitted rows show a yellow "Pending Review" badge so staff can edit/confirm them.
 
-**3. Section heading / filter chips at top**
-- Add filter chips: `All` | `Purchase` | `Service` | `Both` next to the search bar.
-- Counts shown on each chip.
+4. **Files to edit/create:**
+   - NEW: `src/pages/PublicSalesForm.tsx` — the public form
+   - EDIT: `src/App.tsx` — add `/sales-form` route (public)
+   - EDIT: `src/crm/pages/CrmSales.tsx` — add Share button + Pending badge
+   - MIGRATION: add anon INSERT policy on `crm_sales` restricted to `payment_status='pending_review'`
 
-**4. Detail panel already shows Sales + Services + Enquiries, so no change needed there — it works for service-only customers too (queried by phone).**
-
-**5. Edit/Delete behavior for service-only rows**
-- Service-only rows have no `crm_customers.id`, so Edit opens the form pre-filled and saving creates a new `crm_customers` record (promoting them to a managed customer).
-- Delete is hidden for service-only rows (since there's nothing to delete in `crm_customers`).
-
-**Files to edit:** `src/crm/pages/CrmCustomers.tsx` only. No DB changes.
-
-Keeping it minimal and non-disruptive — no changes to other modules.
+No changes to other modules. Minimal and focused.

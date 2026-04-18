@@ -374,6 +374,7 @@ export default function CrmSales() {
                       <button onClick={() => setViewing(r)} title="View invoice" className="p-1.5 text-slate-300 hover:bg-slate-700 rounded"><Eye size={14} /></button>
                       <button onClick={() => sendReceipt(r)} title="WhatsApp receipt" className="p-1.5 text-green-400 hover:bg-green-600/20 rounded"><MessageCircle size={14} /></button>
                       <button onClick={() => openEdit(r)} title="Edit" className="p-1.5 text-blue-400 hover:bg-blue-600/20 rounded"><Edit2 size={14} /></button>
+                      <button onClick={() => handleDelete(r)} title="Delete (restores stock)" className="p-1.5 text-red-400 hover:bg-red-600/20 rounded"><Trash2 size={14} /></button>
                     </div>
                   </td>
                 </tr>

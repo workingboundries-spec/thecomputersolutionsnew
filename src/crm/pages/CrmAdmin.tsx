@@ -88,6 +88,7 @@ export default function CrmAdmin() {
 
         <div className="p-5">
           {tab === "Shop Info" && <ShopInfo get={get} onSave={saveMany} />}
+          {tab === "Branding & Quotation Style" && <Branding get={get} settings={settings} onSave={saveMany} />}
           {tab === "Dropdowns" && <Dropdowns getJson={getJson} onSave={saveMany} />}
           {tab === "WhatsApp Templates" && <Templates get={get} onSave={saveMany} />}
           {tab === "Quotation" && <QuotationSettings get={get} onSave={saveMany} />}

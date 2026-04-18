@@ -114,7 +114,11 @@ export default function CrmQuotations() {
   };
 
   const openEdit = (r: any) => {
-    setForm({ ...emptyForm(), ...r, items: Array.isArray(r.items) ? r.items : [] });
+    const items = Array.isArray(r.items) ? r.items : [];
+    // Recover extra_discount: saved discount = sum(line discounts) + extra_discount
+    const lineDisc = items.reduce((s: number, it: any) => s + (Number(it.qty || 0) * Number(it.price || 0) * Number(it.discount_pct || 0) / 100), 0);
+    const extra = Math.max(0, Number(r.discount || 0) - lineDisc);
+    setForm({ ...emptyForm(), ...r, items, extra_discount: extra });
     setShowForm(true);
   };
 

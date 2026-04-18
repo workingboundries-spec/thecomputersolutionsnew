@@ -219,7 +219,8 @@ export default function CrmEnquiries() {
               <Field label="Status">
                 <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className={fInput}>
                   <option value="new">New</option><option value="follow_up">Follow-up</option>
-                  <option value="converted">Converted</option><option value="lost">Lost</option>
+                  <option value="converted" disabled>Converted (use Convert button)</option>
+                  <option value="lost">Lost</option>
                 </select>
               </Field>
               <Field label="Source">

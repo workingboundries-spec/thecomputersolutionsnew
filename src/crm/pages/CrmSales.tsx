@@ -294,11 +294,13 @@ export default function CrmSales() {
     load();
   };
 
+  const sendReceipt = (s: any) => {
     const msg = `Hi ${s.customer_name}, thank you for your purchase!\nInvoice: ${s.invoice_no}\nItem: ${s.item_name}\nAmount: ${formatINR(s.total_amount)}\nWarranty till: ${formatDate(s.warranty_expiry)}\n— ${shopInfo.shop_name || "The Computer Solutions"}`;
     const phone = (s.whatsapp || s.phone || "").replace(/\D/g, "");
     const cc = phone.startsWith("91") ? phone : "91" + phone;
     window.open(`https://wa.me/${cc}?text=${encodeURIComponent(msg)}`, "_blank");
   };
+
 
   return (
     <div className="space-y-4">

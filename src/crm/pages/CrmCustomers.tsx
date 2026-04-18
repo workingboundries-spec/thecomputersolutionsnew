@@ -201,6 +201,7 @@ export default function CrmCustomers() {
             <tr>
               <th className="text-left px-3 py-2 w-12"></th>
               <th className="text-left px-3 py-2">Name</th>
+              <th className="text-left px-3 py-2">Type</th>
               <th className="text-left px-3 py-2">Phone</th>
               <th className="text-right px-3 py-2">Purchases</th>
               <th className="text-right px-3 py-2">Total Value</th>
@@ -210,25 +211,29 @@ export default function CrmCustomers() {
             </tr>
           </thead>
           <tbody>
-            {loading ? <tr><td colSpan={8} className="text-center py-6 text-slate-500">Loading…</td></tr> :
-              filtered.length === 0 ? <tr><td colSpan={8} className="text-center py-10 text-slate-500">No customers yet</td></tr> :
-              filtered.map((r) => (
+            {loading ? <tr><td colSpan={9} className="text-center py-6 text-slate-500">Loading…</td></tr> :
+              filtered.length === 0 ? <tr><td colSpan={9} className="text-center py-10 text-slate-500">No customers yet</td></tr> :
+              filtered.map((r) => {
+                const badgeColor = r.customerType === "Both" ? "bg-green-600/20 text-green-300 border-green-600/40" : r.customerType === "Service" ? "bg-orange-600/20 text-orange-300 border-orange-600/40" : "bg-blue-600/20 text-blue-300 border-blue-600/40";
+                return (
                 <tr key={r.id} className="border-t border-slate-800 hover:bg-slate-800/30 cursor-pointer" onClick={() => openDetail(r)}>
                   <td className="px-3 py-2"><Avatar name={r.name} photo={r.photo_url} size={32} /></td>
                   <td className="px-3 py-2 text-white">{r.name}</td>
+                  <td className="px-3 py-2"><span className={`px-2 py-0.5 text-[10px] font-semibold rounded border ${badgeColor}`}>{r.customerType}</span></td>
                   <td className="px-3 py-2 text-slate-300">{r.phone}</td>
                   <td className="px-3 py-2 text-right text-slate-300">{r.total_purchases || 0}</td>
                   <td className="px-3 py-2 text-right text-green-400 font-medium">{formatINR(r.total_value)}</td>
-                  <td className="px-3 py-2 text-slate-400 text-xs">{formatDate(r.last_purchase_date)}</td>
+                  <td className="px-3 py-2 text-slate-400 text-xs">{r._virtual ? <span className="italic">svc {formatDate(r._lastService)}</span> : formatDate(r.last_purchase_date)}</td>
                   <td className="px-3 py-2 text-slate-400 text-xs">{r.dob ? formatDate(r.dob) : "—"}</td>
                   <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="flex justify-end gap-1">
-                      <button onClick={() => openEdit(r)} className="p-1.5 text-blue-400 hover:bg-blue-600/20 rounded"><Edit2 size={14} /></button>
-                      <button onClick={() => remove(r.id)} className="p-1.5 text-red-400 hover:bg-red-600/20 rounded"><Trash2 size={14} /></button>
+                      <button onClick={() => openEdit(r)} title={r._virtual ? "Add to customers" : "Edit"} className="p-1.5 text-blue-400 hover:bg-blue-600/20 rounded"><Edit2 size={14} /></button>
+                      {!r._virtual && <button onClick={() => remove(r.id)} className="p-1.5 text-red-400 hover:bg-red-600/20 rounded"><Trash2 size={14} /></button>}
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
           </tbody>
         </table>
       </div>

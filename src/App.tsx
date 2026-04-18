@@ -22,6 +22,7 @@ import CrmServices from "./crm/pages/CrmServices";
 import CrmWarranty from "./crm/pages/CrmWarranty";
 import CrmSettings from "./crm/pages/CrmSettings";
 import QuoteShare from "./pages/QuoteShare";
+import PublicSalesForm from "./pages/PublicSalesForm";
 
 const queryClient = new QueryClient();
 
@@ -52,6 +53,9 @@ const App = () => (
 
           {/* Public quote share */}
           <Route path="/q/:uuid" element={<QuoteShare />} />
+
+          {/* Public customer sales form */}
+          <Route path="/sales-form" element={<PublicSalesForm />} />
 
           <Route path="*" element={<NotFound />} />
         </Routes>

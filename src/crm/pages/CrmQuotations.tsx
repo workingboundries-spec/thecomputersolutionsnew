@@ -512,11 +512,12 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
     } catch { return null; }
   };
 
-  const exportAsJpeg = async (): Promise<Blob> => {
+  const exportAsJpeg = async (): Promise<{ blob: Blob; url: string | null }> => {
     const canvas = await captureCanvas();
     const blob = await canvasToBlob(canvas);
     downloadBlob(blob);
-    return blob;
+    const url = await uploadAndGetUrl(blob);
+    return { blob, url };
   };
 
   const handleJpegOnly = async () => {

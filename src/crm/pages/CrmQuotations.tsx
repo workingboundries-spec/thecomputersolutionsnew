@@ -129,7 +129,7 @@ export default function CrmQuotations() {
     setShowPicker(false);
   };
 
-  const totals = useMemo(() => calcTotals(form.items, form.gst_percent), [form.items, form.gst_percent]);
+  const totals = useMemo(() => calcTotals(form.items, form.gst_percent, form.extra_discount), [form.items, form.gst_percent, form.extra_discount]);
 
   const save = async (asStatus?: string) => {
     if (!form.customer_name || !form.phone) return toast.error("Customer name and phone required");

@@ -25,7 +25,7 @@ const emptyForm = () => ({
   enquiry_id: null as string | null,
   customer_name: "", phone: "", whatsapp: "", email: "", address: "",
   items: [] as QItem[],
-  subtotal: 0, discount: 0, gst_percent: 18, gst_amount: 0, total_amount: 0,
+  subtotal: 0, discount: 0, gst_percent: 0, gst_amount: 0, total_amount: 0,
   validity_days: 7, validity_date: addDays(todayISO(), 7),
   notes: "", terms: "", status: "draft",
   _from_template_id: null as string | null,
@@ -86,7 +86,7 @@ export default function CrmQuotations() {
 
   const openNew = async () => {
     const f = emptyForm();
-    f.gst_percent = Number(settings.default_gst_percent || 18);
+    f.gst_percent = Number(settings.default_gst_percent || 0);
     f.validity_days = Number(settings.default_validity_days || 7);
     f.validity_date = addDays(todayISO(), f.validity_days);
     f.terms = settings.quotation_terms || "";
@@ -97,7 +97,7 @@ export default function CrmQuotations() {
 
   const openFromTemplate = async (t: any) => {
     const f = emptyForm();
-    f.gst_percent = Number(t.gst_percent || settings.default_gst_percent || 18);
+    f.gst_percent = Number(t.gst_percent ?? settings.default_gst_percent ?? 0);
     f.validity_days = Number(settings.default_validity_days || 7);
     f.validity_date = addDays(todayISO(), f.validity_days);
     f.notes = t.notes || "";
@@ -345,7 +345,10 @@ export default function CrmQuotations() {
               <div className="space-y-2">
                 <Field label="Validity (days)"><input type="number" value={form.validity_days} onChange={(e) => { const d = Number(e.target.value || 0); setForm({ ...form, validity_days: d, validity_date: addDays(todayISO(), d) }); }} className={inp} /></Field>
                 <Field label="Validity Date"><input type="date" value={form.validity_date} onChange={(e) => setForm({ ...form, validity_date: e.target.value })} className={inp} /></Field>
-                <Field label="GST %"><input type="number" value={form.gst_percent} onChange={(e) => setForm({ ...form, gst_percent: Number(e.target.value) })} className={inp} /></Field>
+                <Field label="GST %">
+                  <input type="number" min={0} placeholder="0" value={form.gst_percent} onChange={(e) => setForm({ ...form, gst_percent: e.target.value === "" ? 0 : Number(e.target.value) })} className={inp} />
+                  <span className="text-[11px] text-slate-500 mt-1 block">Leave 0 if GST not applicable</span>
+                </Field>
                 <Field label="Status">
                   <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className={inp}>
                     <option value="draft">Draft</option><option value="sent">Sent</option>
@@ -356,7 +359,9 @@ export default function CrmQuotations() {
               <div className="bg-slate-800/40 rounded p-3 space-y-1.5 text-sm">
                 <Row label="Subtotal" value={formatINR(totals.subtotal)} />
                 <Row label="Discount" value={`- ${formatINR(totals.discount)}`} />
-                <Row label={`GST ${form.gst_percent}%`} value={formatINR(totals.gst_amount)} />
+                {Number(form.gst_percent) > 0 && (
+                  <Row label={`GST ${form.gst_percent}%`} value={formatINR(totals.gst_amount)} />
+                )}
                 <div className="border-t border-slate-700 pt-2 mt-2"><Row label={<span className="font-semibold">Grand Total</span>} value={<span className="text-lg text-green-400 font-bold">{formatINR(totals.total_amount)}</span>} /></div>
               </div>
             </div>

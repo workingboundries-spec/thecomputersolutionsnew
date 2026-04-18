@@ -114,7 +114,9 @@ export function QuotationPreview({ q, b }: { q: QuotePreviewData; b: QuotationBr
         <div style={{ width: 300, fontSize: 13, color: b.font }}>
           <Row k="Subtotal" v={formatINR(q.subtotal)} />
           {q.discount > 0 && <Row k="Discount" v={`- ${formatINR(q.discount)}`} />}
-          <Row k={`GST (${q.gst_percent}%)`} v={formatINR(q.gst_amount)} />
+          {Number(q.gst_percent) > 0 && (
+            <Row k={`GST (${q.gst_percent}%)`} v={formatINR(q.gst_amount)} />
+          )}
           <div style={{ marginTop: 8, background: b.accent, color: onDarkText, padding: "10px 14px", borderRadius: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontSize: 14, fontWeight: 600 }}>GRAND TOTAL</span>
             <span style={{ fontSize: 18, fontWeight: 700 }}>{formatINR(q.total_amount)}</span>

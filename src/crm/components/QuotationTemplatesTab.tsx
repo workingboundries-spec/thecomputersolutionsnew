@@ -23,7 +23,7 @@ const empty = (): Omit<Template, "id" | "used_count"> => ({
   items: [],
   notes: "",
   terms: "",
-  gst_percent: 18,
+  gst_percent: 0,
   is_active: true,
 });
 
@@ -54,7 +54,7 @@ export default function QuotationTemplatesTab({ onUseTemplate }: { onUseTemplate
   const openNew = () => {
     setEditing(null);
     const f = empty();
-    f.gst_percent = Number(settings.default_gst_percent || 18);
+    f.gst_percent = Number(settings.default_gst_percent || 0);
     f.terms = settings.quotation_terms || "";
     setForm(f);
     setShowForm(true);
@@ -63,7 +63,7 @@ export default function QuotationTemplatesTab({ onUseTemplate }: { onUseTemplate
     setEditing(t);
     setForm({
       template_name: t.template_name, description: t.description || "", items: t.items || [],
-      notes: t.notes || "", terms: t.terms || "", gst_percent: Number(t.gst_percent || 18), is_active: t.is_active,
+      notes: t.notes || "", terms: t.terms || "", gst_percent: Number(t.gst_percent ?? 0), is_active: t.is_active,
     });
     setShowForm(true);
   };
@@ -152,7 +152,10 @@ export default function QuotationTemplatesTab({ onUseTemplate }: { onUseTemplate
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Field label="Template Name *"><input value={form.template_name} onChange={(e) => setForm({ ...form, template_name: e.target.value })} className={inp} placeholder="e.g. Basic Laptop Setup" /></Field>
               <Field label="Description"><input value={form.description || ""} onChange={(e) => setForm({ ...form, description: e.target.value })} className={inp} /></Field>
-              <Field label="Default GST %"><input type="number" value={form.gst_percent} onChange={(e) => setForm({ ...form, gst_percent: Number(e.target.value) })} className={inp} /></Field>
+              <Field label="Default GST %">
+                <input type="number" min={0} placeholder="0" value={form.gst_percent} onChange={(e) => setForm({ ...form, gst_percent: e.target.value === "" ? 0 : Number(e.target.value) })} className={inp} />
+                <span className="text-[11px] text-slate-500 mt-1 block">Leave 0 if GST not applicable</span>
+              </Field>
               <Field label="Active">
                 <select value={form.is_active ? "1" : "0"} onChange={(e) => setForm({ ...form, is_active: e.target.value === "1" })} className={inp}>
                   <option value="1">Active</option><option value="0">Inactive</option>

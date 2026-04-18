@@ -404,29 +404,44 @@ export default function CrmQuotations() {
 export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: any; onClose: () => void }) {
   const previewRef = useRef<HTMLDivElement>(null);
 
-  // Wait for all images inside the preview to finish loading (or error out) before capture.
-  const waitForImages = async (root: HTMLElement) => {
+  // Inline every <img> inside the preview as a base64 data URI so html2canvas
+  // never has to deal with CORS / cross-origin tainting.
+  const inlineImages = async (root: HTMLElement) => {
     const imgs = Array.from(root.querySelectorAll("img"));
-    await Promise.all(
-      imgs.map((img) =>
-        img.complete && img.naturalWidth > 0
-          ? Promise.resolve()
-          : new Promise<void>((res) => {
-              img.addEventListener("load", () => res(), { once: true });
-              img.addEventListener("error", () => res(), { once: true });
-              // hard timeout so a stuck logo never blocks export
-              setTimeout(() => res(), 4000);
-            })
-      )
-    );
+    await Promise.all(imgs.map(async (img) => {
+      const src = img.src;
+      if (!src || src.startsWith("data:")) return;
+      try {
+        const res = await fetch(src, { mode: "cors", cache: "no-cache" });
+        if (!res.ok) throw new Error("fetch failed");
+        const blob = await res.blob();
+        const dataUrl: string = await new Promise((resolve, reject) => {
+          const r = new FileReader();
+          r.onload = () => resolve(r.result as string);
+          r.onerror = reject;
+          r.readAsDataURL(blob);
+        });
+        img.removeAttribute("crossorigin");
+        img.src = dataUrl;
+        // wait for the new src to load
+        await new Promise<void>((res2) => {
+          if (img.complete && img.naturalWidth > 0) return res2();
+          img.addEventListener("load", () => res2(), { once: true });
+          img.addEventListener("error", () => res2(), { once: true });
+          setTimeout(() => res2(), 2000);
+        });
+      } catch {
+        // can't inline — hide the image so it doesn't break the export
+        img.style.visibility = "hidden";
+      }
+    }));
   };
 
-  const exportAsJpeg = async (): Promise<Blob> => {
+  const captureCanvas = async (): Promise<HTMLCanvasElement> => {
     const el = document.getElementById("quotation-preview") as HTMLElement | null;
     if (!el) throw new Error("Preview not ready");
 
-    // Force the element to be on-screen and at full A4 width so html2canvas
-    // captures the full layout regardless of mobile viewport / scroll position.
+    // Render off-screen at full A4 width so capture is identical on mobile + desktop.
     const prev = {
       position: el.style.position, left: el.style.left, top: el.style.top,
       transform: el.style.transform, width: el.style.width, zIndex: el.style.zIndex,
@@ -434,42 +449,30 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
     el.style.position = "fixed";
     el.style.left = "0";
     el.style.top = "0";
-    el.style.transform = "translate(-10000px, 0)"; // off-screen but rendered at real size
+    el.style.transform = "translate(-10000px, 0)";
     el.style.width = "794px";
     el.style.zIndex = "-1";
 
-    await waitForImages(el);
-
-    let canvas: HTMLCanvasElement;
     try {
-      canvas = await html2canvas(el, {
+      await inlineImages(el);
+      return await html2canvas(el, {
         scale: 2,
         useCORS: true,
-        allowTaint: false,
+        allowTaint: true,
         backgroundColor: "#ffffff",
         width: 794,
         windowWidth: 794,
         logging: false,
       });
-    } catch (err) {
-      // Likely CORS-tainted by external logo — retry without the logo image.
-      const logos = Array.from(el.querySelectorAll("img"));
-      logos.forEach((i) => (i.style.visibility = "hidden"));
-      canvas = await html2canvas(el, {
-        scale: 2, useCORS: true, allowTaint: true,
-        backgroundColor: "#ffffff", width: 794, windowWidth: 794, logging: false,
-      });
-      logos.forEach((i) => (i.style.visibility = ""));
     } finally {
-      // restore styles
       Object.assign(el.style, prev);
     }
+  };
 
-    const blob: Blob = await new Promise((res, rej) =>
-      canvas.toBlob((b) => (b ? res(b) : rej(new Error("Blob conversion failed"))), "image/jpeg", 0.92)
-    );
+  const canvasToBlob = (canvas: HTMLCanvasElement): Promise<Blob> =>
+    new Promise((res, rej) => canvas.toBlob((b) => (b ? res(b) : rej(new Error("Blob conversion failed"))), "image/jpeg", 0.92));
 
-    // Trigger download
+  const downloadBlob = (blob: Blob) => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.download = `Quotation-${q.quote_no}.jpg`;
@@ -478,7 +481,26 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
     link.click();
     document.body.removeChild(link);
     setTimeout(() => URL.revokeObjectURL(url), 5000);
+  };
 
+  // Upload to Supabase Storage so we can include a real image URL in WhatsApp
+  // (recipient sees a clickable image preview instead of plain text).
+  const uploadAndGetUrl = async (blob: Blob): Promise<string | null> => {
+    try {
+      const path = `quotations/${q.id || q.quote_no}-${Date.now()}.jpg`;
+      const { error } = await supabase.storage.from("shop-assets").upload(path, blob, {
+        contentType: "image/jpeg", upsert: true, cacheControl: "3600",
+      });
+      if (error) return null;
+      const { data } = supabase.storage.from("shop-assets").getPublicUrl(path);
+      return data?.publicUrl || null;
+    } catch { return null; }
+  };
+
+  const exportAsJpeg = async (): Promise<Blob> => {
+    const canvas = await captureCanvas();
+    const blob = await canvasToBlob(canvas);
+    downloadBlob(blob);
     return blob;
   };
 
@@ -488,24 +510,44 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
 
   const shareJpegWA = async () => {
     try {
-      const blob = await exportAsJpeg();
+      const canvas = await captureCanvas();
+      const blob = await canvasToBlob(canvas);
+      downloadBlob(blob);
+
       const phone = (q.whatsapp || q.phone || "").replace(/\D/g, "");
       const cc = !phone ? "" : phone.startsWith("91") || phone.length > 10 ? phone : "91" + phone;
       const file = new File([blob], `Quotation-${q.quote_no}.jpg`, { type: "image/jpeg" });
 
-      // Prefer native share (mobile) — sends image directly into WhatsApp picker.
+      // Mobile: native share sheet attaches image directly into WhatsApp.
       const navAny = navigator as any;
       if (navAny.canShare && navAny.canShare({ files: [file] })) {
         try {
-          await navAny.share({ files: [file], title: `Quotation ${q.quote_no}`, text: `Quotation ${q.quote_no}` });
+          await navAny.share({
+            files: [file],
+            title: `Quotation ${q.quote_no}`,
+            text: `Quotation ${q.quote_no} — Total ₹${Number(q.total_amount).toLocaleString("en-IN")}`,
+          });
           toast.success("Share sheet opened");
           return;
         } catch { /* user cancelled — fall through */ }
       }
 
-      toast.success("Image downloaded — now attach it in WhatsApp");
-      const msg = `Quotation ${q.quote_no} — please see the attached image.`;
+      // Desktop fallback: upload image, send public URL inside the WhatsApp text
+      // so the recipient gets a real image preview (no blank message).
+      toast.message("Uploading image…");
+      const imgUrl = await uploadAndGetUrl(blob);
+      const onlineUrl = `${window.location.origin}/q/quote/${q.id}`;
+      const lines = [
+        `Hello${q.customer_name ? ` ${q.customer_name}` : ""}, here is your quotation *${q.quote_no}*.`,
+        `Total: ₹${Number(q.total_amount).toLocaleString("en-IN")}`,
+        q.validity_date ? `Valid till: ${q.validity_date}` : "",
+        "",
+        imgUrl ? `📎 Image: ${imgUrl}` : "(Image saved to your device — please attach it.)",
+        `🔗 View online: ${onlineUrl}`,
+      ].filter(Boolean);
+      const msg = lines.join("\n");
       window.open(cc ? `https://wa.me/${cc}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
+      toast.success(imgUrl ? "WhatsApp opened with image link" : "Image downloaded — attach it in WhatsApp");
     } catch (e: any) { toast.error("Failed: " + (e?.message || "Unknown error")); }
   };
 

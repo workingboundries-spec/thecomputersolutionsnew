@@ -867,6 +867,92 @@ export type Database = {
         }
         Relationships: []
       }
+      quotation_send_log: {
+        Row: {
+          customer_name: string | null
+          email: string | null
+          id: string
+          phone: string | null
+          quotation_id: string | null
+          send_method: string | null
+          sent_at: string
+          status: string
+          whatsapp: string | null
+        }
+        Insert: {
+          customer_name?: string | null
+          email?: string | null
+          id?: string
+          phone?: string | null
+          quotation_id?: string | null
+          send_method?: string | null
+          sent_at?: string
+          status?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          customer_name?: string | null
+          email?: string | null
+          id?: string
+          phone?: string | null
+          quotation_id?: string | null
+          send_method?: string | null
+          sent_at?: string
+          status?: string
+          whatsapp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_send_log_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "crm_quotations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotation_templates: {
+        Row: {
+          created_at: string
+          description: string | null
+          gst_percent: number
+          id: string
+          is_active: boolean
+          items: Json
+          notes: string | null
+          template_name: string
+          terms: string | null
+          updated_at: string
+          used_count: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          gst_percent?: number
+          id?: string
+          is_active?: boolean
+          items?: Json
+          notes?: string | null
+          template_name: string
+          terms?: string | null
+          updated_at?: string
+          used_count?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          gst_percent?: number
+          id?: string
+          is_active?: boolean
+          items?: Json
+          notes?: string | null
+          template_name?: string
+          terms?: string | null
+          updated_at?: string
+          used_count?: number
+        }
+        Relationships: []
+      }
       services: {
         Row: {
           created_at: string

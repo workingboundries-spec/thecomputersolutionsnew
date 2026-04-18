@@ -423,6 +423,7 @@ export default function CrmQuotations() {
 
 export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: any; onClose: () => void }) {
   const previewRef = useRef<HTMLDivElement>(null);
+  const settings = useAdminSettings(["quotation_message_template", "shop_name", "shop_phone", "shop_email"]);
 
   // Inline every <img> inside the preview as a base64 data URI so html2canvas
   // never has to deal with CORS / cross-origin tainting.
@@ -580,15 +581,17 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
       toast.message("Uploading image for WhatsApp preview…");
       const imgUrl = await uploadAndGetUrl(blob);
       const onlineUrl = `${window.location.origin}/q/quote/${q.id}`;
-      const lines = [
-        `Hello${q.customer_name ? ` ${q.customer_name}` : ""}, here is your quotation *${q.quote_no}*.`,
-        `Total: ₹${Number(q.total_amount).toLocaleString("en-IN")}`,
-        q.validity_date ? `Valid till: ${q.validity_date}` : "",
-        "",
-        imgUrl ? `🖼 View image: ${imgUrl}` : "(Image saved to your downloads — please attach it manually.)",
-        `🔗 View online: ${onlineUrl}`,
-      ].filter(Boolean);
-      const msg = lines.join("\n");
+      const vars = buildMessageVarsFromQuote({
+        quote: q,
+        companyName: settings.shop_name || "The Computer Solutions",
+        shopPhone: settings.shop_phone || "",
+        shopEmail: settings.shop_email || "",
+        imageUrl: imgUrl,
+        onlineUrl,
+        recipientName: q.customer_name,
+      });
+      const tpl = settings.quotation_message_template || DEFAULT_QUOTATION_MESSAGE_TEMPLATE;
+      const msg = renderQuotationMessage(tpl, vars);
       window.open(
         cc ? `https://wa.me/${cc}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`,
         "_blank"

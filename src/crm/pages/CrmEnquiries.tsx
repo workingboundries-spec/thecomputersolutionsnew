@@ -174,11 +174,20 @@ export default function CrmEnquiries() {
                 <td className="px-3 py-2 text-slate-300">{r.phone}</td>
                 <td className="px-3 py-2 text-slate-300">{r.item_name || "—"}</td>
                 <td className="px-3 py-2 text-slate-300">{r.budget ? formatINR(r.budget) : "—"}</td>
-                <td className="px-3 py-2"><span className={`px-2 py-0.5 rounded text-xs ${STATUS_BADGE[r.status]}`}>{r.status}</span></td>
+                <td className="px-3 py-2">
+                  <span className={`px-2 py-0.5 rounded text-xs ${STATUS_BADGE[r.status]}`}>{r.status}</span>
+                  {r.status === "converted" && !linkedSaleIds.has(r.id) && (
+                    <button onClick={() => convertToSale(r)} className="ml-2 text-xs text-amber-400 hover:underline" title="This enquiry is marked converted but has no sale record">
+                      ⚠ No sale linked — Create sale
+                    </button>
+                  )}
+                </td>
                 <td className="px-3 py-2 text-right">
-                  <div className="flex justify-end gap-1">
+                  <div className="flex justify-end gap-1 items-center">
                     {r.status !== "converted" && (
-                      <button onClick={() => convertToSale(r)} title="Convert to Sale" className="p-1.5 text-green-400 hover:bg-green-600/20 rounded"><ArrowRight size={14} /></button>
+                      <button onClick={() => convertToSale(r)} title="Convert to Sale (creates sale entry)" className="px-2 py-1 text-xs bg-green-600/20 hover:bg-green-600/30 text-green-300 rounded flex items-center gap-1">
+                        Convert <ArrowRight size={12} />
+                      </button>
                     )}
                     <button onClick={() => openEdit(r)} title="Edit" className="p-1.5 text-blue-400 hover:bg-blue-600/20 rounded"><Edit2 size={14} /></button>
                     <button onClick={() => remove(r.id)} title="Delete" className="p-1.5 text-red-400 hover:bg-red-600/20 rounded"><Trash2 size={14} /></button>

@@ -364,7 +364,20 @@ export default function CrmQuotations() {
               </div>
               <div className="bg-slate-800/40 rounded p-3 space-y-1.5 text-sm">
                 <Row label="Subtotal" value={formatINR(totals.subtotal)} />
-                <Row label="Discount" value={`- ${formatINR(totals.discount)}`} />
+                {totals.lineDiscount > 0 && (
+                  <Row label="Line Discount" value={`- ${formatINR(totals.lineDiscount)}`} />
+                )}
+                <div className="flex items-center justify-between gap-2 py-1">
+                  <span className="text-slate-300 whitespace-nowrap">Extra Discount (₹)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    placeholder="0"
+                    value={form.extra_discount || ""}
+                    onChange={(e) => setForm({ ...form, extra_discount: e.target.value === "" ? 0 : Number(e.target.value) })}
+                    className={inp + " text-right max-w-[140px] h-8"}
+                  />
+                </div>
                 {Number(form.gst_percent) > 0 && (
                   <Row label={`GST ${form.gst_percent}%`} value={formatINR(totals.gst_amount)} />
                 )}

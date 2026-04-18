@@ -253,3 +253,139 @@ function DataExport() {
 
 const inp = "w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500";
 const Field = ({ label, children }: any) => <label className="block"><span className="text-xs text-slate-400 mb-1 block">{label}</span>{children}</label>;
+
+// ===================== Branding & Quotation Style =====================
+const BRANDING_KEYS = [
+  { key: "quotation_primary_color", label: "Header & Table Background", default: "#1a1a2e" },
+  { key: "quotation_accent_color", label: "Highlight & Total Bar Color", default: "#e94560" },
+  { key: "quotation_font_color", label: "Main Text Color", default: "#1a1a2e" },
+  { key: "quotation_bg_color", label: "Paper Background", default: "#ffffff" },
+];
+
+function Branding({ get, settings, onSave }: any) {
+  const [logoUrl, setLogoUrl] = useState(get("shop_logo_url"));
+  const [colors, setColors] = useState<Record<string, string>>(() =>
+    Object.fromEntries(BRANDING_KEYS.map((b) => [b.key, get(b.key, b.default) || b.default]))
+  );
+  const [footerText, setFooterText] = useState(get("quotation_footer_text", "Thank you for your business!"));
+  const [watermark, setWatermark] = useState(get("quotation_watermark", "QUOTATION"));
+  const [uploading, setUploading] = useState(false);
+  const [showFullPreview, setShowFullPreview] = useState(false);
+
+  const liveBranding = brandingFromMap({
+    shop_logo_url: logoUrl,
+    quotation_primary_color: colors.quotation_primary_color,
+    quotation_accent_color: colors.quotation_accent_color,
+    quotation_font_color: colors.quotation_font_color,
+    quotation_bg_color: colors.quotation_bg_color,
+    quotation_footer_text: footerText,
+    quotation_watermark: watermark,
+    shop_name: get("shop_name", "The Computer Solutions"),
+    shop_address: get("shop_address"),
+    shop_phone: get("shop_phone"),
+    shop_email: get("shop_email"),
+    shop_gst: get("shop_gst"),
+    shop_website: get("shop_website"),
+  });
+
+  const handleUpload = async (file: File) => {
+    if (file.size > 2 * 1024 * 1024) return toast.error("Max 2MB");
+    setUploading(true);
+    const ext = file.name.split(".").pop();
+    const path = `logo-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from("shop-assets").upload(path, file, { upsert: true, cacheControl: "3600" });
+    if (error) { setUploading(false); return toast.error(error.message); }
+    const { data } = supabase.storage.from("shop-assets").getPublicUrl(path);
+    setLogoUrl(data.publicUrl);
+    setUploading(false);
+    toast.success("Logo uploaded — click Save Logo to apply");
+  };
+
+  const sampleQuote = {
+    quote_no: "QT-SAMPLE-001",
+    customer_name: "Sample Customer",
+    phone: "9876543210", whatsapp: "9876543210", email: "customer@example.com",
+    address: "123 Main Street, City",
+    items: [
+      { name: "HP Laptop 15s-eq2143au", qty: 1, price: 49999, discount_pct: 5 },
+      { name: "Laptop Carry Bag", qty: 1, price: 999, discount_pct: 0 },
+    ],
+    subtotal: 50998, discount: 2500, gst_percent: 18, gst_amount: 8729.64, total_amount: 57227.64,
+    validity_date: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
+    created_at: new Date().toISOString(),
+    notes: "Includes 1 year manufacturer warranty.",
+    terms: "Prices valid for 7 days. GST extra. Payment in advance.",
+  };
+
+  return (
+    <div className="space-y-6 max-w-4xl">
+      {/* Section 1: Logo */}
+      <section className="border border-slate-800 rounded-lg p-4">
+        <h3 className="font-semibold text-white mb-3">1. Shop Logo</h3>
+        <div className="flex items-center gap-4 mb-3">
+          <div className="bg-white border border-slate-700 rounded p-2 h-20 w-32 flex items-center justify-center">
+            {logoUrl ? <img src={logoUrl} alt="logo" className="max-h-full max-w-full object-contain" /> : <span className="text-xs text-slate-400">No logo</span>}
+          </div>
+          <div className="flex-1 space-y-2">
+            <label className="block">
+              <span className="text-xs text-slate-400 block mb-1">Upload Logo (PNG/JPG/SVG, max 2MB)</span>
+              <input type="file" accept="image/png,image/jpeg,image/svg+xml" disabled={uploading} onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])} className="block w-full text-xs text-slate-300 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-blue-600 file:text-white file:text-xs hover:file:bg-blue-500" />
+              {uploading && <span className="text-xs text-blue-400">Uploading…</span>}
+            </label>
+            <Field label="…or paste logo URL"><input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://…" className={inp} /></Field>
+          </div>
+        </div>
+        <button onClick={() => onSave([{ key: "shop_logo_url", value: logoUrl }])} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm flex items-center gap-1.5"><Save size={14} />Save Logo</button>
+      </section>
+
+      {/* Section 2: Colors */}
+      <section className="border border-slate-800 rounded-lg p-4">
+        <h3 className="font-semibold text-white mb-3">2. Quotation Colors</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+          {BRANDING_KEYS.map((b) => (
+            <div key={b.key} className="flex items-center gap-3">
+              <input type="color" value={colors[b.key]} onChange={(e) => setColors({ ...colors, [b.key]: e.target.value })} className="w-12 h-10 rounded border border-slate-700 bg-slate-800 cursor-pointer" />
+              <div className="flex-1">
+                <div className="text-xs text-slate-400">{b.label}</div>
+                <input value={colors[b.key]} onChange={(e) => setColors({ ...colors, [b.key]: e.target.value })} className={inp + " font-mono text-xs mt-1"} />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="bg-slate-950 rounded p-3 mb-3">
+          <div className="text-xs text-slate-500 mb-2">Live Preview</div>
+          <QuotationHeaderPreview b={liveBranding} />
+        </div>
+
+        <button onClick={() => onSave(BRANDING_KEYS.map((b) => ({ key: b.key, value: colors[b.key] })))} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm flex items-center gap-1.5"><Save size={14} />Save Colors</button>
+      </section>
+
+      {/* Section 3: Footer & Watermark */}
+      <section className="border border-slate-800 rounded-lg p-4 space-y-3">
+        <h3 className="font-semibold text-white">3. Footer & Watermark</h3>
+        <Field label="Footer text"><input value={footerText} onChange={(e) => setFooterText(e.target.value)} className={inp} /></Field>
+        <Field label="Watermark / Document label"><input value={watermark} onChange={(e) => setWatermark(e.target.value)} className={inp} /></Field>
+        <button onClick={() => onSave([{ key: "quotation_footer_text", value: footerText }, { key: "quotation_watermark", value: watermark }])} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm flex items-center gap-1.5"><Save size={14} />Save</button>
+      </section>
+
+      {/* Section 4: Full Preview */}
+      <section className="border border-slate-800 rounded-lg p-4">
+        <h3 className="font-semibold text-white mb-3">4. Preview Sample Quotation</h3>
+        <button onClick={() => setShowFullPreview(true)} className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded text-sm flex items-center gap-1.5"><Eye size={14} />Preview Sample Quotation</button>
+      </section>
+
+      {showFullPreview && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-start justify-center p-4 overflow-y-auto" onClick={() => setShowFullPreview(false)}>
+          <div className="bg-white rounded-lg my-8 p-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-end mb-2">
+              <button onClick={() => setShowFullPreview(false)} className="text-slate-600 hover:bg-slate-200 rounded p-1"><X size={18} /></button>
+            </div>
+            <QuotationPreview q={sampleQuote as any} b={liveBranding} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+

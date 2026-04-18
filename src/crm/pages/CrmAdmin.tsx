@@ -170,7 +170,7 @@ function Templates({ get, onSave }: any) {
 
 function QuotationSettings({ get, onSave }: any) {
   const [vals, setVals] = useState({
-    default_gst_percent: get("default_gst_percent", "18"),
+    default_gst_percent: get("default_gst_percent", "0"),
     default_validity_days: get("default_validity_days", "7"),
     quotation_terms: get("quotation_terms"),
     quote_prefix: get("quote_prefix", "QT"),
@@ -179,7 +179,7 @@ function QuotationSettings({ get, onSave }: any) {
   return (
     <div className="space-y-3 max-w-2xl">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <Field label="Default GST %"><input type="number" value={vals.default_gst_percent} onChange={(e) => setVals({ ...vals, default_gst_percent: e.target.value })} className={inp} /></Field>
+        <Field label="Default GST %"><input type="number" min={0} placeholder="0" value={vals.default_gst_percent} onChange={(e) => setVals({ ...vals, default_gst_percent: e.target.value })} className={inp} /><span className="text-[11px] text-slate-500 mt-1 block">Leave 0 if GST not applicable</span></Field>
         <Field label="Default Validity Days"><input type="number" value={vals.default_validity_days} onChange={(e) => setVals({ ...vals, default_validity_days: e.target.value })} className={inp} /></Field>
         <Field label="Quote Number Prefix"><input value={vals.quote_prefix} onChange={(e) => setVals({ ...vals, quote_prefix: e.target.value })} className={inp} /></Field>
         <Field label="Invoice Number Prefix"><input value={vals.invoice_prefix} onChange={(e) => setVals({ ...vals, invoice_prefix: e.target.value })} className={inp} /></Field>

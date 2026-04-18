@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Share2, Grid3x3, List, Search, X, Copy } from "lucide-react";
 import { formatINR, todayISO, addDays, waLink } from "@/crm/lib/format";
+import { useAdminSetting } from "@/crm/hooks/useAdminSettings";
 
 type Item = {
   id: string;

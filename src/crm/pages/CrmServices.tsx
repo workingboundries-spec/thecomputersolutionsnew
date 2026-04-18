@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatINR, formatDate, todayISO, waLink } from "@/crm/lib/format";
 import { toast } from "sonner";
 import { Plus, Search, Edit2, MessageCircle, X, Wrench } from "lucide-react";
+import { useAdminSetting } from "@/crm/hooks/useAdminSettings";
 
 const STATUSES = ["received", "diagnosing", "in_repair", "ready", "delivered"] as const;
 type Status = typeof STATUSES[number];

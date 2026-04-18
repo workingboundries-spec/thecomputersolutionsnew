@@ -175,9 +175,46 @@ function QuotationSettings({ get, onSave }: any) {
     quotation_terms: get("quotation_terms"),
     quote_prefix: get("quote_prefix", "QT"),
     invoice_prefix: get("invoice_prefix", "INV"),
+    quotation_message_template: get("quotation_message_template"),
   });
+  // Lazy import the default so the admin page doesn't pull message lib unless needed.
+  const DEFAULT_TPL = `*{{company_name}}*
+Quotation: *{{quote_no}}*
+Date: {{date}}
+
+Dear {{client_name}},
+Thank you for your enquiry. Please find your quotation below.
+
+{{items_table}}
+
+Subtotal : {{subtotal}}
+Discount : {{discount}}
+*GRAND TOTAL : {{grand_total}}*
+
+Valid till: {{validity_date}}
+
+Notes:
+{{notes}}
+
+For any queries, contact us:
+📞 {{shop_phone}}
+✉ {{shop_email}}
+
+🖼 Quotation image: {{image_url}}
+🔗 View online: {{online_url}}
+
+— {{company_name}}`;
+
+  const tplValue = vals.quotation_message_template || "";
+  const placeholders = [
+    "{{company_name}}", "{{client_name}}", "{{quote_no}}", "{{date}}",
+    "{{validity_date}}", "{{items_table}}", "{{subtotal}}", "{{discount}}",
+    "{{grand_total}}", "{{notes}}", "{{shop_phone}}", "{{shop_email}}",
+    "{{image_url}}", "{{online_url}}",
+  ];
+
   return (
-    <div className="space-y-3 max-w-2xl">
+    <div className="space-y-3 max-w-3xl">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <Field label="Default GST %"><input type="number" min={0} placeholder="0" value={vals.default_gst_percent} onChange={(e) => setVals({ ...vals, default_gst_percent: e.target.value })} className={inp} /><span className="text-[11px] text-slate-500 mt-1 block">Leave 0 if GST not applicable</span></Field>
         <Field label="Default Validity Days"><input type="number" value={vals.default_validity_days} onChange={(e) => setVals({ ...vals, default_validity_days: e.target.value })} className={inp} /></Field>
@@ -185,12 +222,38 @@ function QuotationSettings({ get, onSave }: any) {
         <Field label="Invoice Number Prefix"><input value={vals.invoice_prefix} onChange={(e) => setVals({ ...vals, invoice_prefix: e.target.value })} className={inp} /></Field>
       </div>
       <Field label="Default Terms & Conditions"><textarea rows={3} value={vals.quotation_terms} onChange={(e) => setVals({ ...vals, quotation_terms: e.target.value })} className={inp} /></Field>
+
+      <div className="border border-slate-800 rounded p-3 mt-2 bg-slate-950/40">
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="font-semibold text-white text-sm">Quotation Message Template (WhatsApp / Email)</h4>
+          <button
+            type="button"
+            onClick={() => setVals({ ...vals, quotation_message_template: DEFAULT_TPL })}
+            className="text-xs px-2 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded"
+          >Reset to default</button>
+        </div>
+        <textarea
+          rows={14}
+          value={tplValue}
+          placeholder={DEFAULT_TPL}
+          onChange={(e) => setVals({ ...vals, quotation_message_template: e.target.value })}
+          className={inp + " font-mono text-xs"}
+        />
+        <div className="text-xs text-slate-500 mt-2">
+          Available placeholders:&nbsp;
+          {placeholders.map((p) => (
+            <code key={p} className="inline-block bg-slate-800 text-slate-200 px-1.5 py-0.5 rounded mr-1 mb-1">{p}</code>
+          ))}
+        </div>
+      </div>
+
       <button onClick={() => onSave([
         { key: "default_gst_percent", value: vals.default_gst_percent, type: "number" },
         { key: "default_validity_days", value: vals.default_validity_days, type: "number" },
         { key: "quotation_terms", value: vals.quotation_terms },
         { key: "quote_prefix", value: vals.quote_prefix },
         { key: "invoice_prefix", value: vals.invoice_prefix },
+        { key: "quotation_message_template", value: vals.quotation_message_template },
       ])} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm flex items-center gap-1.5"><Save size={14} />Save</button>
     </div>
   );

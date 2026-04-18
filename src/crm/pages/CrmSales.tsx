@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { formatINR, formatDate, todayISO, addMonths, addDays } from "@/crm/lib/format";
 import { toast } from "sonner";
-import { Plus, Search, Eye, Edit2, MessageCircle, Printer } from "lucide-react";
+import { Plus, Search, Eye, Edit2, MessageCircle, Printer, X } from "lucide-react";
 
 const PAY_BADGE: Record<string, string> = {
   paid: "bg-green-500/15 text-green-300",
@@ -158,6 +158,7 @@ export default function CrmSales() {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [itemSearch, setItemSearch] = useState("");
   const [filterPay, setFilterPay] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -206,6 +207,10 @@ export default function CrmSales() {
       const q = search.toLowerCase();
       if (!r.customer_name?.toLowerCase().includes(q) && !r.phone?.includes(q) && !r.invoice_no?.toLowerCase().includes(q)) return false;
     }
+    if (itemSearch) {
+      const q = itemSearch.toLowerCase();
+      if (!r.item_name?.toLowerCase().includes(q)) return false;
+    }
     return true;
   });
 
@@ -241,6 +246,11 @@ export default function CrmSales() {
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Validation: payment_mode, item_name, sale_price required
+    if (!form.payment_mode) return toast.error("Select a payment mode");
+    if (!form.item_name?.trim()) return toast.error("Item name is required");
+    if (!form.sale_price || Number(form.sale_price) <= 0) return toast.error("Sale price must be greater than 0");
+
     const payload = {
       ...form,
       qty: Number(form.qty || 1),
@@ -269,7 +279,7 @@ export default function CrmSales() {
         decrementStock(data.item_id, data.qty),
         payload.enquiry_id ? supabase.from("crm_enquiries").update({ status: "converted" }).eq("id", payload.enquiry_id) : Promise.resolve(),
       ]);
-      toast.success("Sale saved + reminders scheduled");
+      toast.success(payload.enquiry_id ? "Sale created & enquiry marked as converted" : "Sale saved + reminders scheduled");
     }
     setShowForm(false);
     load();
@@ -303,6 +313,15 @@ export default function CrmSales() {
           <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search customer / phone / invoice…" className="w-full pl-8 pr-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-white" />
         </div>
+        <div className="relative flex-1 min-w-[180px]">
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
+          <input value={itemSearch} onChange={(e) => setItemSearch(e.target.value)} placeholder="Search by Item — Laptop, CCTV, etc." className="w-full pl-8 pr-8 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-white" />
+          {itemSearch && (
+            <button type="button" onClick={() => setItemSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white" aria-label="Clear">
+              <X size={14} />
+            </button>
+          )}
+        </div>
         <select value={filterPay} onChange={(e) => setFilterPay(e.target.value)} className="px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-white">
           <option value="">All payments</option>
           <option value="paid">Paid</option><option value="partial">Partial</option><option value="pending">Pending</option>
@@ -330,7 +349,10 @@ export default function CrmSales() {
                   <td className="px-3 py-2 text-slate-400 text-xs">{formatDate(r.sale_date)}</td>
                   <td className="px-3 py-2 text-slate-300 font-mono text-xs">{r.invoice_no}</td>
                   <td className="px-3 py-2 text-white">{r.customer_name}<div className="text-xs text-slate-500">{r.phone}</div></td>
-                  <td className="px-3 py-2 text-slate-300">{r.item_name} <span className="text-xs text-slate-500">×{r.qty}</span></td>
+                  <td className="px-3 py-2 text-slate-300">
+                    {r.item_name} <span className="text-xs text-slate-500">×{r.qty}</span>
+                    {r.enquiry_id && <span className="ml-2 inline-block text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">From Enquiry</span>}
+                  </td>
                   <td className="px-3 py-2 text-right text-green-400 font-medium">{formatINR(r.total_amount)}</td>
                   <td className="px-3 py-2"><span className={`px-2 py-0.5 rounded text-xs ${PAY_BADGE[r.payment_status]}`}>{r.payment_status}</span></td>
                   <td className="px-3 py-2 text-right">

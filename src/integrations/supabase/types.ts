@@ -115,6 +115,7 @@ export type Database = {
           name: string
           notes: string | null
           phone: string
+          photo_url: string | null
           total_purchases: number
           total_value: number
           updated_at: string
@@ -130,6 +131,7 @@ export type Database = {
           name: string
           notes?: string | null
           phone: string
+          photo_url?: string | null
           total_purchases?: number
           total_value?: number
           updated_at?: string
@@ -145,6 +147,7 @@ export type Database = {
           name?: string
           notes?: string | null
           phone?: string
+          photo_url?: string | null
           total_purchases?: number
           total_value?: number
           updated_at?: string

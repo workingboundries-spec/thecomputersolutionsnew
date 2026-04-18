@@ -9,7 +9,15 @@ const PAY_BADGE: Record<string, string> = {
   paid: "bg-green-500/15 text-green-300",
   partial: "bg-yellow-500/15 text-yellow-300",
   pending: "bg-red-500/15 text-red-300",
+  pending_review: "bg-yellow-500/20 text-yellow-200 border border-yellow-500/40",
 };
+
+function shareSalesForm() {
+  const link = `${window.location.origin}/sales-form`;
+  const msg = `Hello! Please fill in your purchase details using the link below — it only takes a minute:\n\n${link}\n\nThank you!`;
+  navigator.clipboard?.writeText(link).catch(() => {});
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
+}
 
 const empty = {
   enquiry_id: null as string | null,
@@ -299,7 +307,10 @@ export default function CrmSales() {
           <h1 className="text-2xl font-bold text-white">Sales</h1>
           <p className="text-sm text-slate-400">{filtered.length} of {rows.length} sales</p>
         </div>
-        <button onClick={() => openNew()} className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm flex items-center gap-1.5"><Plus size={14} />Add Sale</button>
+        <div className="flex gap-2">
+          <button onClick={shareSalesForm} title="Share customer form on WhatsApp" className="px-3 py-2 bg-green-600 hover:bg-green-500 text-white rounded text-sm flex items-center gap-1.5"><MessageCircle size={14} />Share Sale Form</button>
+          <button onClick={() => openNew()} className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm flex items-center gap-1.5"><Plus size={14} />Add Sale</button>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
@@ -325,6 +336,7 @@ export default function CrmSales() {
         <select value={filterPay} onChange={(e) => setFilterPay(e.target.value)} className="px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-white">
           <option value="">All payments</option>
           <option value="paid">Paid</option><option value="partial">Partial</option><option value="pending">Pending</option>
+          <option value="pending_review">Pending Review</option>
         </select>
       </div>
 
@@ -354,7 +366,7 @@ export default function CrmSales() {
                     {r.enquiry_id && <span className="ml-2 inline-block text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">From Enquiry</span>}
                   </td>
                   <td className="px-3 py-2 text-right text-green-400 font-medium">{formatINR(r.total_amount)}</td>
-                  <td className="px-3 py-2"><span className={`px-2 py-0.5 rounded text-xs ${PAY_BADGE[r.payment_status]}`}>{r.payment_status}</span></td>
+                  <td className="px-3 py-2"><span className={`px-2 py-0.5 rounded text-xs ${PAY_BADGE[r.payment_status] || "bg-slate-700 text-slate-200"}`}>{r.payment_status === "pending_review" ? "Pending Review" : r.payment_status}</span></td>
                   <td className="px-3 py-2 text-right">
                     <div className="flex justify-end gap-1">
                       <button onClick={() => setViewing(r)} title="View invoice" className="p-1.5 text-slate-300 hover:bg-slate-700 rounded"><Eye size={14} /></button>

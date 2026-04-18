@@ -394,7 +394,9 @@ export default function CrmSales() {
               <Field label="Sale Date"><input type="date" value={form.sale_date} onChange={(e) => setForm(recalc({ ...form, sale_date: e.target.value, warranty_expiry: addMonths(e.target.value, Number(form.warranty_months || 0)) }))} className={fInput} /></Field>
               <Field label="Payment Mode">
                 <select value={form.payment_mode} onChange={(e) => setForm({ ...form, payment_mode: e.target.value })} className={fInput}>
-                  <option value="cash">Cash</option><option value="upi">UPI</option><option value="card">Card</option><option value="credit">Credit</option><option value="emi">EMI</option>
+                  {(paymentModes || []).map((m: string) => (
+                    <option key={m} value={m.toLowerCase()}>{m}</option>
+                  ))}
                 </select>
               </Field>
               <Field label="Customer Name *"><input required value={form.customer_name} onChange={(e) => setForm({ ...form, customer_name: e.target.value })} className={fInput} /></Field>

@@ -404,41 +404,123 @@ export default function CrmQuotations() {
 export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: any; onClose: () => void }) {
   const previewRef = useRef<HTMLDivElement>(null);
 
-  const exportAsJpeg = async () => {
-    const el = document.getElementById("quotation-preview");
-    if (!el) throw new Error("Preview not found");
-    const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: "#ffffff", width: 794, windowWidth: 794, logging: false });
-    const imgData = canvas.toDataURL("image/jpeg", 0.95);
+  // Wait for all images inside the preview to finish loading (or error out) before capture.
+  const waitForImages = async (root: HTMLElement) => {
+    const imgs = Array.from(root.querySelectorAll("img"));
+    await Promise.all(
+      imgs.map((img) =>
+        img.complete && img.naturalWidth > 0
+          ? Promise.resolve()
+          : new Promise<void>((res) => {
+              img.addEventListener("load", () => res(), { once: true });
+              img.addEventListener("error", () => res(), { once: true });
+              // hard timeout so a stuck logo never blocks export
+              setTimeout(() => res(), 4000);
+            })
+      )
+    );
+  };
+
+  const exportAsJpeg = async (): Promise<Blob> => {
+    const el = document.getElementById("quotation-preview") as HTMLElement | null;
+    if (!el) throw new Error("Preview not ready");
+
+    // Force the element to be on-screen and at full A4 width so html2canvas
+    // captures the full layout regardless of mobile viewport / scroll position.
+    const prev = {
+      position: el.style.position, left: el.style.left, top: el.style.top,
+      transform: el.style.transform, width: el.style.width, zIndex: el.style.zIndex,
+    };
+    el.style.position = "fixed";
+    el.style.left = "0";
+    el.style.top = "0";
+    el.style.transform = "translate(-10000px, 0)"; // off-screen but rendered at real size
+    el.style.width = "794px";
+    el.style.zIndex = "-1";
+
+    await waitForImages(el);
+
+    let canvas: HTMLCanvasElement;
+    try {
+      canvas = await html2canvas(el, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: "#ffffff",
+        width: 794,
+        windowWidth: 794,
+        logging: false,
+      });
+    } catch (err) {
+      // Likely CORS-tainted by external logo — retry without the logo image.
+      const logos = Array.from(el.querySelectorAll("img"));
+      logos.forEach((i) => (i.style.visibility = "hidden"));
+      canvas = await html2canvas(el, {
+        scale: 2, useCORS: true, allowTaint: true,
+        backgroundColor: "#ffffff", width: 794, windowWidth: 794, logging: false,
+      });
+      logos.forEach((i) => (i.style.visibility = ""));
+    } finally {
+      // restore styles
+      Object.assign(el.style, prev);
+    }
+
+    const blob: Blob = await new Promise((res, rej) =>
+      canvas.toBlob((b) => (b ? res(b) : rej(new Error("Blob conversion failed"))), "image/jpeg", 0.92)
+    );
+
+    // Trigger download
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.download = `Quotation-${q.quote_no}.jpg`;
-    link.href = imgData;
+    link.href = url;
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+    return blob;
   };
 
   const handleJpegOnly = async () => {
-    try { await exportAsJpeg(); toast.success("JPEG downloaded"); } catch (e: any) { toast.error("Export failed: " + e.message); }
+    try { await exportAsJpeg(); toast.success("JPEG downloaded"); } catch (e: any) { toast.error("Export failed: " + (e?.message || "Unknown error")); }
   };
 
   const shareJpegWA = async () => {
     try {
-      await exportAsJpeg();
-      toast.success("Image downloaded! Now attach it in WhatsApp");
+      const blob = await exportAsJpeg();
       const phone = (q.whatsapp || q.phone || "").replace(/\D/g, "");
-      const cc = phone.startsWith("91") ? phone : "91" + phone;
-      window.open(`https://wa.me/${cc}`, "_blank");
-    } catch (e: any) { toast.error("Failed: " + e.message); }
+      const cc = !phone ? "" : phone.startsWith("91") || phone.length > 10 ? phone : "91" + phone;
+      const file = new File([blob], `Quotation-${q.quote_no}.jpg`, { type: "image/jpeg" });
+
+      // Prefer native share (mobile) — sends image directly into WhatsApp picker.
+      const navAny = navigator as any;
+      if (navAny.canShare && navAny.canShare({ files: [file] })) {
+        try {
+          await navAny.share({ files: [file], title: `Quotation ${q.quote_no}`, text: `Quotation ${q.quote_no}` });
+          toast.success("Share sheet opened");
+          return;
+        } catch { /* user cancelled — fall through */ }
+      }
+
+      toast.success("Image downloaded — now attach it in WhatsApp");
+      const msg = `Quotation ${q.quote_no} — please see the attached image.`;
+      window.open(cc ? `https://wa.me/${cc}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
+    } catch (e: any) { toast.error("Failed: " + (e?.message || "Unknown error")); }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 flex items-start justify-center p-4 overflow-y-auto print:bg-white print:p-0" onClick={onClose}>
-      <div className="bg-white text-slate-900 rounded-lg w-full max-w-[840px] my-8 print:my-0 print:max-w-none print:rounded-none overflow-hidden" onClick={(e) => e.stopPropagation()}>
-        <div className="p-4 print:p-0 flex justify-center" ref={previewRef}>
-          <QuotationPreview q={q} b={branding} />
+    <div className="fixed inset-0 z-50 bg-black/70 flex items-start justify-center p-2 sm:p-4 overflow-y-auto print:bg-white print:p-0" onClick={onClose}>
+      <div className="bg-white text-slate-900 rounded-lg w-full max-w-[840px] my-4 sm:my-8 print:my-0 print:max-w-none print:rounded-none overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="p-2 sm:p-4 print:p-0 overflow-x-auto" ref={previewRef}>
+          <div className="origin-top-left mx-auto" style={{ width: 794 }}>
+            <QuotationPreview q={q} b={branding} />
+          </div>
         </div>
 
-        <SendQuotationPanel quotation={q} onJpegRequest={exportAsJpeg} />
+        <SendQuotationPanel quotation={q} onJpegRequest={async () => { await exportAsJpeg(); }} />
 
-        <div className="px-6 py-3 border-t bg-slate-100 flex flex-wrap justify-end gap-2 print:hidden">
+        <div className="px-3 sm:px-6 py-3 border-t bg-slate-100 flex flex-wrap justify-end gap-2 print:hidden">
           <button onClick={onClose} className="px-3 py-2 text-sm bg-slate-200 hover:bg-slate-300 rounded">Close</button>
           <button onClick={handleJpegOnly} className="px-3 py-2 text-sm bg-purple-600 hover:bg-purple-500 text-white rounded flex items-center gap-1"><Download size={14} />Download JPEG</button>
           <button onClick={shareJpegWA} className="px-3 py-2 text-sm bg-green-600 hover:bg-green-500 text-white rounded flex items-center gap-1"><Send size={14} />Share JPEG on WhatsApp</button>

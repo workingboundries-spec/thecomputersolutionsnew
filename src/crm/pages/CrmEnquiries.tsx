@@ -20,6 +20,7 @@ const empty = {
 
 export default function CrmEnquiries() {
   const [rows, setRows] = useState<any[]>([]);
+  const [linkedSaleIds, setLinkedSaleIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
@@ -34,6 +35,9 @@ export default function CrmEnquiries() {
     const { data, error } = await supabase.from("crm_enquiries").select("*").order("created_at", { ascending: false });
     if (error) toast.error(error.message);
     setRows(data || []);
+    // Fetch all sales with enquiry_id to know which enquiries are actually linked to a sale
+    const { data: salesData } = await supabase.from("crm_sales").select("enquiry_id").not("enquiry_id", "is", null);
+    setLinkedSaleIds(new Set((salesData || []).map((s: any) => s.enquiry_id)));
     setLoading(false);
   };
 
@@ -58,6 +62,12 @@ export default function CrmEnquiries() {
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Guard: prevent manually marking as "converted" — must go through Convert flow which creates the sale row
+    const prevStatus = editing?.status;
+    if (form.status === "converted" && prevStatus !== "converted") {
+      toast.error("Use the green Convert arrow to create a sale. Status will auto-update after the sale is saved.");
+      return;
+    }
     const payload = {
       ...form,
       budget: form.budget === "" ? null : Number(form.budget),
@@ -164,11 +174,20 @@ export default function CrmEnquiries() {
                 <td className="px-3 py-2 text-slate-300">{r.phone}</td>
                 <td className="px-3 py-2 text-slate-300">{r.item_name || "—"}</td>
                 <td className="px-3 py-2 text-slate-300">{r.budget ? formatINR(r.budget) : "—"}</td>
-                <td className="px-3 py-2"><span className={`px-2 py-0.5 rounded text-xs ${STATUS_BADGE[r.status]}`}>{r.status}</span></td>
+                <td className="px-3 py-2">
+                  <span className={`px-2 py-0.5 rounded text-xs ${STATUS_BADGE[r.status]}`}>{r.status}</span>
+                  {r.status === "converted" && !linkedSaleIds.has(r.id) && (
+                    <button onClick={() => convertToSale(r)} className="ml-2 text-xs text-amber-400 hover:underline" title="This enquiry is marked converted but has no sale record">
+                      ⚠ No sale linked — Create sale
+                    </button>
+                  )}
+                </td>
                 <td className="px-3 py-2 text-right">
-                  <div className="flex justify-end gap-1">
+                  <div className="flex justify-end gap-1 items-center">
                     {r.status !== "converted" && (
-                      <button onClick={() => convertToSale(r)} title="Convert to Sale" className="p-1.5 text-green-400 hover:bg-green-600/20 rounded"><ArrowRight size={14} /></button>
+                      <button onClick={() => convertToSale(r)} title="Convert to Sale (creates sale entry)" className="px-2 py-1 text-xs bg-green-600/20 hover:bg-green-600/30 text-green-300 rounded flex items-center gap-1">
+                        Convert <ArrowRight size={12} />
+                      </button>
                     )}
                     <button onClick={() => openEdit(r)} title="Edit" className="p-1.5 text-blue-400 hover:bg-blue-600/20 rounded"><Edit2 size={14} /></button>
                     <button onClick={() => remove(r.id)} title="Delete" className="p-1.5 text-red-400 hover:bg-red-600/20 rounded"><Trash2 size={14} /></button>
@@ -200,7 +219,8 @@ export default function CrmEnquiries() {
               <Field label="Status">
                 <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className={fInput}>
                   <option value="new">New</option><option value="follow_up">Follow-up</option>
-                  <option value="converted">Converted</option><option value="lost">Lost</option>
+                  <option value="converted" disabled>Converted (use Convert button)</option>
+                  <option value="lost">Lost</option>
                 </select>
               </Field>
               <Field label="Source">

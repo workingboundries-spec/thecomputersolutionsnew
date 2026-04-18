@@ -12,7 +12,9 @@ export default function SendQuotationPanel({
   quotation, onJpegRequest,
 }: {
   quotation: any;
-  onJpegRequest: () => Promise<void>;
+  // Returns the uploaded public image URL (or null if upload failed).
+  // Also ensures the JPEG is downloaded to the user's device.
+  onJpegRequest: () => Promise<string | null>;
 }) {
   const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [via, setVia] = useState({ wa: true, email: false, jpeg: false });

@@ -6,6 +6,7 @@ import { useQuotationBranding } from "@/crm/lib/quotationBranding";
 import { QuotationPreview } from "@/crm/components/QuotationPreview";
 import QuotationTemplatesTab from "@/crm/components/QuotationTemplatesTab";
 import SendQuotationPanel from "@/crm/components/SendQuotationPanel";
+import { renderQuotationMessage, buildMessageVarsFromQuote, DEFAULT_QUOTATION_MESSAGE_TEMPLATE } from "@/crm/lib/quotationMessage";
 import { toast } from "sonner";
 import { Plus, Search, Eye, Edit2, Trash2, Printer, X, FileText, Download, FileStack, ListOrdered, Send } from "lucide-react";
 import html2canvas from "html2canvas";

@@ -25,19 +25,21 @@ const emptyForm = () => ({
   enquiry_id: null as string | null,
   customer_name: "", phone: "", whatsapp: "", email: "", address: "",
   items: [] as QItem[],
-  subtotal: 0, discount: 0, gst_percent: 0, gst_amount: 0, total_amount: 0,
+  subtotal: 0, discount: 0, extra_discount: 0, gst_percent: 0, gst_amount: 0, total_amount: 0,
   validity_days: 7, validity_date: addDays(todayISO(), 7),
   notes: "", terms: "", status: "draft",
   _from_template_id: null as string | null,
 });
 
-function calcTotals(items: QItem[], gstPct: number) {
+function calcTotals(items: QItem[], gstPct: number, extraDiscount: number = 0) {
   const subtotal = items.reduce((s, it) => s + (Number(it.qty || 0) * Number(it.price || 0)), 0);
-  const discount = items.reduce((s, it) => s + (Number(it.qty || 0) * Number(it.price || 0) * Number(it.discount_pct || 0) / 100), 0);
-  const taxable = subtotal - discount;
+  const lineDiscount = items.reduce((s, it) => s + (Number(it.qty || 0) * Number(it.price || 0) * Number(it.discount_pct || 0) / 100), 0);
+  const extra = Math.max(0, Number(extraDiscount || 0));
+  const discount = lineDiscount + extra;
+  const taxable = Math.max(0, subtotal - discount);
   const gst_amount = taxable * Number(gstPct || 0) / 100;
   const total_amount = taxable + gst_amount;
-  return { subtotal, discount, gst_amount, total_amount };
+  return { subtotal, discount, lineDiscount, extraDiscount: extra, gst_amount, total_amount };
 }
 
 async function nextQuoteNo(prefix: string) {
@@ -112,7 +114,11 @@ export default function CrmQuotations() {
   };
 
   const openEdit = (r: any) => {
-    setForm({ ...emptyForm(), ...r, items: Array.isArray(r.items) ? r.items : [] });
+    const items = Array.isArray(r.items) ? r.items : [];
+    // Recover extra_discount: saved discount = sum(line discounts) + extra_discount
+    const lineDisc = items.reduce((s: number, it: any) => s + (Number(it.qty || 0) * Number(it.price || 0) * Number(it.discount_pct || 0) / 100), 0);
+    const extra = Math.max(0, Number(r.discount || 0) - lineDisc);
+    setForm({ ...emptyForm(), ...r, items, extra_discount: extra });
     setShowForm(true);
   };
 
@@ -127,12 +133,12 @@ export default function CrmQuotations() {
     setShowPicker(false);
   };
 
-  const totals = useMemo(() => calcTotals(form.items, form.gst_percent), [form.items, form.gst_percent]);
+  const totals = useMemo(() => calcTotals(form.items, form.gst_percent, form.extra_discount), [form.items, form.gst_percent, form.extra_discount]);
 
   const save = async (asStatus?: string) => {
     if (!form.customer_name || !form.phone) return toast.error("Customer name and phone required");
     if (form.items.length === 0) return toast.error("Add at least one item");
-    const t = calcTotals(form.items, form.gst_percent);
+    const t = calcTotals(form.items, form.gst_percent, form.extra_discount);
     const payload: any = {
       quote_no: form.quote_no,
       enquiry_id: form.enquiry_id || null,
@@ -358,7 +364,20 @@ export default function CrmQuotations() {
               </div>
               <div className="bg-slate-800/40 rounded p-3 space-y-1.5 text-sm">
                 <Row label="Subtotal" value={formatINR(totals.subtotal)} />
-                <Row label="Discount" value={`- ${formatINR(totals.discount)}`} />
+                {totals.lineDiscount > 0 && (
+                  <Row label="Line Discount" value={`- ${formatINR(totals.lineDiscount)}`} />
+                )}
+                <div className="flex items-center justify-between gap-2 py-1">
+                  <span className="text-slate-300 whitespace-nowrap">Extra Discount (₹)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    placeholder="0"
+                    value={form.extra_discount || ""}
+                    onChange={(e) => setForm({ ...form, extra_discount: e.target.value === "" ? 0 : Number(e.target.value) })}
+                    className={inp + " text-right max-w-[140px] h-8"}
+                  />
+                </div>
                 {Number(form.gst_percent) > 0 && (
                   <Row label={`GST ${form.gst_percent}%`} value={formatINR(totals.gst_amount)} />
                 )}

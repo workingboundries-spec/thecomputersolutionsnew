@@ -115,7 +115,7 @@ export default function CrmCatalogue() {
         </div>
         <select value={filterCat} onChange={(e) => setFilterCat(e.target.value)} className="px-3 py-2 bg-slate-900 border border-slate-800 rounded text-sm text-white">
           <option value="">All categories</option>
-          {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          {dynamicCats.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
       </div>
 
@@ -207,7 +207,7 @@ export default function CrmCatalogue() {
               <Field label="Model *"><input value={editing.model || ""} onChange={(e) => setEditing({ ...editing, model: e.target.value })} className={inputCls} /></Field>
               <Field label="Category">
                 <select value={editing.category || "laptop"} onChange={(e) => setEditing({ ...editing, category: e.target.value })} className={inputCls}>
-                  {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  {dynamicCats.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </Field>
               <Field label="Stock Qty"><input type="number" value={editing.stock_qty ?? 0} onChange={(e) => setEditing({ ...editing, stock_qty: +e.target.value })} className={inputCls} /></Field>

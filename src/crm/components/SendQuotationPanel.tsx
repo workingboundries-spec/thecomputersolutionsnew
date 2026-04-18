@@ -74,8 +74,16 @@ export default function SendQuotationPanel({
 
     const url = `${window.location.origin}/q/quote/${quotation.id}`;
 
-    if (via.jpeg) {
-      try { await onJpegRequest(); toast.success("JPEG downloaded — attach in WhatsApp/Email manually"); } catch (e: any) { toast.error("JPEG export failed: " + (e?.message || "")); }
+    // If WhatsApp is selected, ALWAYS download the JPEG first so the user
+    // has the image ready to attach (otherwise WA opens with no image and
+    // looks blank to the recipient).
+    if (via.wa || via.jpeg) {
+      try {
+        await onJpegRequest();
+        toast.success("Quotation image saved to your device");
+      } catch (e: any) {
+        toast.error("Could not generate image: " + (e?.message || ""));
+      }
     }
 
     for (let i = 0; i < recipients.length; i++) {
@@ -83,12 +91,18 @@ export default function SendQuotationPanel({
       if (!r.name && !r.phone && !r.email) continue;
 
       if (via.wa && (r.whatsapp || r.phone)) {
-        const msg = `Dear ${r.name || "Customer"}, please find your quotation ${quotation.quote_no}.\nTotal: ₹${Number(quotation.total_amount).toLocaleString("en-IN")}\nValid till: ${quotation.validity_date || ""}\n\nView online: ${url}`;
+        const msg =
+          `Dear ${r.name || "Customer"},\n\n` +
+          `Please find attached your quotation *${quotation.quote_no}*.\n` +
+          `Total: ₹${Number(quotation.total_amount).toLocaleString("en-IN")}\n` +
+          (quotation.validity_date ? `Valid till: ${quotation.validity_date}\n` : "") +
+          `\nView online: ${url}\n\n` +
+          `(Image saved to your device — please attach it in this chat.)`;
         window.open(waLink(r.whatsapp || r.phone, msg), "_blank");
         await logSend(r, "whatsapp");
         if (i < recipients.length - 1) {
-          await new Promise((res) => setTimeout(res, 600));
-          toast.message(`Opened WhatsApp for ${r.name || r.phone}. Click Send, then continue.`);
+          await new Promise((res) => setTimeout(res, 800));
+          toast.message(`Opened WhatsApp for ${r.name || r.phone}. Attach image, click Send, then continue.`);
         }
       }
 

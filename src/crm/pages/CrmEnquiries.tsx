@@ -20,6 +20,7 @@ const empty = {
 
 export default function CrmEnquiries() {
   const [rows, setRows] = useState<any[]>([]);
+  const [linkedSaleIds, setLinkedSaleIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
@@ -34,6 +35,9 @@ export default function CrmEnquiries() {
     const { data, error } = await supabase.from("crm_enquiries").select("*").order("created_at", { ascending: false });
     if (error) toast.error(error.message);
     setRows(data || []);
+    // Fetch all sales with enquiry_id to know which enquiries are actually linked to a sale
+    const { data: salesData } = await supabase.from("crm_sales").select("enquiry_id").not("enquiry_id", "is", null);
+    setLinkedSaleIds(new Set((salesData || []).map((s: any) => s.enquiry_id)));
     setLoading(false);
   };
 

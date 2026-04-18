@@ -154,6 +154,7 @@ export default function CrmSales() {
   const [viewing, setViewing] = useState<any>(null);
   const [catalogue, setCatalogue] = useState<any[]>([]);
   const [shopInfo, setShopInfo] = useState<Record<string, string>>({});
+  const paymentModes = useAdminSetting<string[]>("sale_payment_modes", ["Cash", "UPI", "Card", "EMI", "Credit", "NEFT"]);
 
   const load = async () => {
     setLoading(true);

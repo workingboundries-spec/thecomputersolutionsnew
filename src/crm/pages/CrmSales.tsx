@@ -274,7 +274,26 @@ export default function CrmSales() {
     load();
   };
 
-  const sendReceipt = (s: any) => {
+  const handleDelete = async (s: any) => {
+    if (!confirm(`Delete sale ${s.invoice_no}? Stock will be restored.`)) return;
+    const { error } = await supabase.from("crm_sales").update({ is_deleted: true }).eq("id", s.id);
+    if (error) return toast.error(error.message);
+    // Restore stock if linked to catalogue
+    if (s.item_id) {
+      const { data } = await supabase.from("crm_catalogue").select("stock_qty, brand, model").eq("id", s.item_id).maybeSingle();
+      if (data) {
+        const newQty = (data.stock_qty || 0) + Number(s.qty || 0);
+        await supabase.from("crm_catalogue").update({ stock_qty: newQty }).eq("id", s.item_id);
+        toast.success(`Sale deleted. Stock restored: ${data.brand} ${data.model} now has ${newQty} units`);
+      } else {
+        toast.success("Sale deleted");
+      }
+    } else {
+      toast.success("Sale deleted (no catalogue link, stock unchanged)");
+    }
+    load();
+  };
+
     const msg = `Hi ${s.customer_name}, thank you for your purchase!\nInvoice: ${s.invoice_no}\nItem: ${s.item_name}\nAmount: ${formatINR(s.total_amount)}\nWarranty till: ${formatDate(s.warranty_expiry)}\n— ${shopInfo.shop_name || "The Computer Solutions"}`;
     const phone = (s.whatsapp || s.phone || "").replace(/\D/g, "");
     const cc = phone.startsWith("91") ? phone : "91" + phone;

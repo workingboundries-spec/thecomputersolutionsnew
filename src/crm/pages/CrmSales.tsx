@@ -158,6 +158,7 @@ export default function CrmSales() {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [itemSearch, setItemSearch] = useState("");
   const [filterPay, setFilterPay] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -206,6 +207,10 @@ export default function CrmSales() {
       const q = search.toLowerCase();
       if (!r.customer_name?.toLowerCase().includes(q) && !r.phone?.includes(q) && !r.invoice_no?.toLowerCase().includes(q)) return false;
     }
+    if (itemSearch) {
+      const q = itemSearch.toLowerCase();
+      if (!r.item_name?.toLowerCase().includes(q)) return false;
+    }
     return true;
   });
 
@@ -241,6 +246,11 @@ export default function CrmSales() {
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Validation: payment_mode, item_name, sale_price required
+    if (!form.payment_mode) return toast.error("Select a payment mode");
+    if (!form.item_name?.trim()) return toast.error("Item name is required");
+    if (!form.sale_price || Number(form.sale_price) <= 0) return toast.error("Sale price must be greater than 0");
+
     const payload = {
       ...form,
       qty: Number(form.qty || 1),
@@ -269,7 +279,7 @@ export default function CrmSales() {
         decrementStock(data.item_id, data.qty),
         payload.enquiry_id ? supabase.from("crm_enquiries").update({ status: "converted" }).eq("id", payload.enquiry_id) : Promise.resolve(),
       ]);
-      toast.success("Sale saved + reminders scheduled");
+      toast.success(payload.enquiry_id ? "Sale created & enquiry marked as converted" : "Sale saved + reminders scheduled");
     }
     setShowForm(false);
     load();

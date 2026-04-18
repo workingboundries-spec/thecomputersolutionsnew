@@ -51,9 +51,13 @@ async function nextInvoiceNo() {
 }
 
 async function loadTemplates() {
-  const { data } = await supabase.from("crm_whatsapp_templates").select("template_name, message_body");
+  // Load message templates from crm_admin_settings (keys like whatsapp_week_template, whatsapp_month_template, etc.)
+  const { data } = await supabase
+    .from("crm_admin_settings")
+    .select("setting_key, setting_value")
+    .like("setting_key", "whatsapp_%_template");
   const map: Record<string, string> = {};
-  (data || []).forEach((t: any) => { map[t.template_name] = t.message_body; });
+  (data || []).forEach((t: any) => { map[t.setting_key] = t.setting_value; });
   return map;
 }
 

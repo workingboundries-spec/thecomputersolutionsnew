@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { formatINR, formatDate } from "@/crm/lib/format";
+import { formatINR, formatDate, waLink } from "@/crm/lib/format";
 import { toast } from "sonner";
-import { Plus, Search, Edit2, Trash2, ArrowRight, Download } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, ArrowRight, Download, MessageCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const STATUS_BADGE: Record<string, string> = {
@@ -28,6 +28,7 @@ export default function CrmEnquiries() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState<any>(empty);
+  const [showConverted, setShowConverted] = useState(false);
   const navigate = useNavigate();
 
   const load = async () => {
@@ -44,6 +45,7 @@ export default function CrmEnquiries() {
   useEffect(() => { load(); }, []);
 
   const filtered = rows.filter((r) => {
+    if (!showConverted && (r.is_converted || r.status === "converted")) return false;
     if (filterStatus && r.status !== filterStatus) return false;
     if (filterCat && r.product_category !== filterCat) return false;
     if (search) {
@@ -52,6 +54,11 @@ export default function CrmEnquiries() {
     }
     return true;
   });
+
+  const sendWA = (r: any) => {
+    const msg = `Hi ${r.customer_name}, regarding your enquiry for ${r.item_name || r.product_category} at The Computer Solutions.${r.notes ? " " + r.notes : ""}`;
+    window.open(waLink(r.whatsapp || r.phone, msg), "_blank");
+  };
 
   const openNew = () => { setEditing(null); setForm(empty); setShowForm(true); };
   const openEdit = (r: any) => {
@@ -144,6 +151,10 @@ export default function CrmEnquiries() {
           <option value="laptop">Laptop</option><option value="cctv">CCTV</option>
           <option value="accessory">Accessory</option><option value="other">Other</option>
         </select>
+        <label className="flex items-center gap-2 px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-slate-300 cursor-pointer">
+          <input type="checkbox" checked={showConverted} onChange={(e) => setShowConverted(e.target.checked)} />
+          Show Converted
+        </label>
       </div>
 
       <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-x-auto">
@@ -167,10 +178,12 @@ export default function CrmEnquiries() {
                 <div>No enquiries found</div>
                 <button onClick={openNew} className="mt-2 text-blue-400 hover:underline text-xs">+ Add the first one</button>
               </td></tr>
-            ) : filtered.map((r) => (
-              <tr key={r.id} className="border-t border-slate-800 hover:bg-slate-800/30">
+            ) : filtered.map((r) => {
+              const isConv = r.is_converted || r.status === "converted";
+              return (
+              <tr key={r.id} className={`border-t border-slate-800 hover:bg-slate-800/30 ${isConv ? "opacity-60" : ""}`}>
                 <td className="px-3 py-2 text-slate-400 text-xs">{formatDate(r.created_at)}</td>
-                <td className="px-3 py-2 text-white">{r.customer_name}</td>
+                <td className={`px-3 py-2 text-white ${isConv ? "line-through decoration-green-500" : ""}`}>{r.customer_name}{isConv && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-300 no-underline">Converted</span>}</td>
                 <td className="px-3 py-2 text-slate-300">{r.phone}</td>
                 <td className="px-3 py-2 text-slate-300">{r.item_name || "—"}</td>
                 <td className="px-3 py-2 text-slate-300">{r.budget ? formatINR(r.budget) : "—"}</td>
@@ -184,7 +197,8 @@ export default function CrmEnquiries() {
                 </td>
                 <td className="px-3 py-2 text-right">
                   <div className="flex justify-end gap-1 items-center">
-                    {r.status !== "converted" && (
+                    <button onClick={() => sendWA(r)} title="WhatsApp" className="p-1.5 text-green-400 hover:bg-green-600/20 rounded"><MessageCircle size={14} /></button>
+                    {!isConv && (
                       <button onClick={() => convertToSale(r)} title="Convert to Sale (creates sale entry)" className="px-2 py-1 text-xs bg-green-600/20 hover:bg-green-600/30 text-green-300 rounded flex items-center gap-1">
                         Convert <ArrowRight size={12} />
                       </button>
@@ -194,7 +208,8 @@ export default function CrmEnquiries() {
                   </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

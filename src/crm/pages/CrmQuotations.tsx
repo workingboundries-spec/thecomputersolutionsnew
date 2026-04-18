@@ -7,7 +7,7 @@ import { QuotationPreview } from "@/crm/components/QuotationPreview";
 import QuotationTemplatesTab from "@/crm/components/QuotationTemplatesTab";
 import SendQuotationPanel from "@/crm/components/SendQuotationPanel";
 import { toast } from "sonner";
-import { Plus, Search, Eye, Edit2, Trash2, Printer, X, FileText, Download, FileStack, ListOrdered } from "lucide-react";
+import { Plus, Search, Eye, Edit2, Trash2, Printer, X, FileText, Download, FileStack, ListOrdered, Send } from "lucide-react";
 import html2canvas from "html2canvas";
 
 const STATUS_BADGE: Record<string, string> = {
@@ -443,8 +443,6 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
     </div>
   );
 }
-
-import { Send } from "lucide-react";
 
 const inp = "w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500";
 const Field = ({ label, children }: any) => <label className="block"><span className="text-xs text-slate-400 mb-1 block">{label}</span>{children}</label>;

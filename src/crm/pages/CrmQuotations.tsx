@@ -25,7 +25,7 @@ const emptyForm = () => ({
   enquiry_id: null as string | null,
   customer_name: "", phone: "", whatsapp: "", email: "", address: "",
   items: [] as QItem[],
-  subtotal: 0, discount: 0, gst_percent: 0, gst_amount: 0, total_amount: 0,
+  subtotal: 0, discount: 0, extra_discount: 0, gst_percent: 0, gst_amount: 0, total_amount: 0,
   validity_days: 7, validity_date: addDays(todayISO(), 7),
   notes: "", terms: "", status: "draft",
   _from_template_id: null as string | null,

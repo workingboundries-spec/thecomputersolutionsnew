@@ -56,6 +56,7 @@ export default function CrmServices() {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<any>(empty);
+  const serviceStatuses = useAdminSetting<string[]>("service_statuses", []);
 
   const load = async () => {
     setLoading(true);

@@ -30,9 +30,62 @@ export default function CrmCustomers() {
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from("crm_customers").select("*").order("last_purchase_date", { ascending: false, nullsFirst: false });
-    if (error) toast.error(error.message);
-    setRows(data || []);
+    const [custRes, svcRes, salesRes] = await Promise.all([
+      supabase.from("crm_customers").select("*").order("last_purchase_date", { ascending: false, nullsFirst: false }),
+      supabase.from("crm_services").select("customer_name, phone, whatsapp, received_date").order("received_date", { ascending: false }),
+      supabase.from("crm_sales").select("phone").limit(5000),
+    ]);
+    if (custRes.error) toast.error(custRes.error.message);
+    const customers = custRes.data || [];
+    const services = svcRes.data || [];
+    const salesPhones = new Set((salesRes.data || []).map((s: any) => s.phone));
+
+    // Group services by phone
+    const svcByPhone = new Map<string, { name: string; phone: string; whatsapp: string | null; last: string }>();
+    for (const s of services) {
+      if (!s.phone) continue;
+      if (!svcByPhone.has(s.phone)) {
+        svcByPhone.set(s.phone, { name: s.customer_name, phone: s.phone, whatsapp: s.whatsapp, last: s.received_date });
+      }
+    }
+
+    const custByPhone = new Map<string, any>();
+    customers.forEach((c: any) => custByPhone.set(c.phone, c));
+
+    const merged: any[] = [];
+    // Existing customers
+    for (const c of customers) {
+      const hasSale = (c.total_purchases && c.total_purchases > 0) || salesPhones.has(c.phone);
+      const hasService = svcByPhone.has(c.phone);
+      let customerType: "Purchase" | "Service" | "Both" = "Purchase";
+      if (hasSale && hasService) customerType = "Both";
+      else if (hasService && !hasSale) customerType = "Service";
+      else customerType = "Purchase";
+      merged.push({ ...c, customerType, _virtual: false });
+    }
+    // Service-only (not in crm_customers)
+    for (const [phone, s] of svcByPhone.entries()) {
+      if (custByPhone.has(phone)) continue;
+      merged.push({
+        id: `virtual-${phone}`,
+        name: s.name,
+        phone: s.phone,
+        whatsapp: s.whatsapp,
+        email: null,
+        address: null,
+        dob: null,
+        notes: null,
+        photo_url: null,
+        total_purchases: 0,
+        total_value: 0,
+        last_purchase_date: null,
+        customerType: "Service" as const,
+        _virtual: true,
+        _lastService: s.last,
+      });
+    }
+
+    setRows(merged);
     setLoading(false);
   };
 

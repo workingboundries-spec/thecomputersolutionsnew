@@ -172,10 +172,26 @@ export default function CrmCustomers() {
         <button onClick={openNew} className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm flex items-center gap-1.5"><Plus size={14} />Add Customer</button>
       </div>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
+      <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 space-y-2">
         <div className="relative">
           <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name or phone…" className="w-full pl-8 pr-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-white" />
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {([
+            ["all", "All", "bg-slate-700"],
+            ["Purchase", "Purchase", "bg-blue-600"],
+            ["Service", "Service", "bg-orange-600"],
+            ["Both", "Both", "bg-green-600"],
+          ] as const).map(([key, label, color]) => (
+            <button
+              key={key}
+              onClick={() => setTypeFilter(key as any)}
+              className={`px-2.5 py-1 text-xs rounded font-medium ${typeFilter === key ? `${color} text-white` : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}
+            >
+              {label} <span className="opacity-70">({counts[key as keyof typeof counts]})</span>
+            </button>
+          ))}
         </div>
       </div>
 

@@ -84,7 +84,12 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ ok: true, scanned: customers?.length || 0, inserted, skipped_existing: existingSet.size - inserted }),
+      JSON.stringify({
+        ok: true,
+        scanned: customers?.length || 0,
+        inserted,
+        config: { bdayLead, annivLead, bdayEnabled, annivEnabled },
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e: any) {

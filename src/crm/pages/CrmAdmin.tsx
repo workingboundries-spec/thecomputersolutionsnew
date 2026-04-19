@@ -7,7 +7,7 @@ import CustomerSettingsTab from "@/crm/components/CustomerSettingsTab";
 import { toast } from "sonner";
 import { Save, X, Plus, Download, Upload, Eye } from "lucide-react";
 
-const TABS = ["Shop Info", "Branding & Quotation Style", "Dropdowns", "WhatsApp Templates", "Quotation", "Customer Settings", "Stock", "Data Export"] as const;
+const TABS = ["Shop Info", "Branding & Quotation Style", "Dropdowns", "WhatsApp Templates", "Quotation", "Customer Settings", "Reminders", "Stock", "Data Export"] as const;
 
 const TEMPLATE_KEYS = [
   { key: "whatsapp_week_template", label: "After 1 Week" },
@@ -94,6 +94,7 @@ export default function CrmAdmin() {
           {tab === "WhatsApp Templates" && <Templates get={get} onSave={saveMany} />}
           {tab === "Quotation" && <QuotationSettings get={get} onSave={saveMany} />}
           {tab === "Customer Settings" && <CustomerSettingsTab />}
+          {tab === "Reminders" && <ReminderSettings />}
           {tab === "Stock" && <StockSettings get={get} onSave={saveMany} />}
           {tab === "Data Export" && <DataExport />}
         </div>

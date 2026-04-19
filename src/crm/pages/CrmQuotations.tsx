@@ -386,7 +386,7 @@ export default function CrmQuotations() {
               </div>
             </div>
 
-            <Field label="Notes"><textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className={inp} /></Field>
+            <Field label="Notes (Private — owner only, not shown to customer)"><textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className={inp} placeholder="Internal notes — never sent to customer or shown in preview/JPEG" /></Field>
             <Field label="Terms & Conditions"><textarea rows={2} value={form.terms} onChange={(e) => setForm({ ...form, terms: e.target.value })} className={inp} /></Field>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">

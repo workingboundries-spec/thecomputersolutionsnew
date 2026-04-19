@@ -212,6 +212,9 @@ export default function CrmReminders() {
           <TabsTrigger value="today">Today ({today.length})</TabsTrigger>
           <TabsTrigger value="tomorrow">Tomorrow ({tomorrow.length})</TabsTrigger>
           <TabsTrigger value="upcoming">Upcoming 14d ({upcoming.length})</TabsTrigger>
+          <TabsTrigger value="history">
+            <History size={12} className="mr-1" /> Sent ({sentLogs.length})
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="today" className="space-y-2 mt-4">
@@ -222,6 +225,45 @@ export default function CrmReminders() {
         </TabsContent>
         <TabsContent value="upcoming" className="space-y-2 mt-4">
           {upcoming.length === 0 ? <div className="text-slate-500 text-sm py-6 text-center">No upcoming events in next 14 days</div> : upcoming.map(renderRow)}
+        </TabsContent>
+        <TabsContent value="history" className="space-y-2 mt-4">
+          {(() => {
+            const s = search.toLowerCase();
+            const rows = sentLogs.filter((l) => {
+              if (!s) return true;
+              const c = l.customer_id ? customerById[l.customer_id] : null;
+              return (c?.name || "").toLowerCase().includes(s) || (c?.phone || "").includes(s);
+            });
+            if (rows.length === 0) return <div className="text-slate-500 text-sm py-6 text-center">No wishes sent yet</div>;
+            return rows.map((l) => {
+              const c = l.customer_id ? customerById[l.customer_id] : null;
+              const Icon = l.event_type === "birthday" ? Cake : Heart;
+              const color = l.event_type === "birthday" ? "text-pink-300 bg-pink-500/15" : "text-purple-300 bg-purple-500/15";
+              return (
+                <div key={l.id} className="flex items-start gap-3 p-3 bg-slate-900 border border-slate-800 rounded">
+                  <div className={`p-2 rounded ${color}`}><Icon size={16} /></div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-white truncate">{c?.name || "(deleted customer)"}</div>
+                      <div className="text-xs text-slate-500 shrink-0">
+                        {l.sent_at ? new Date(l.sent_at).toLocaleString() : new Date(l.event_date).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <div className="text-xs text-slate-400 mb-1">
+                      {l.event_type === "birthday" ? "Birthday" : "Anniversary"}
+                      {l.years_completed ? ` • ${l.years_completed} yr` : ""}
+                      {c?.phone ? ` • ${c.phone}` : ""}
+                    </div>
+                    {l.message_sent && (
+                      <div className="text-xs text-slate-300 bg-slate-950 border border-slate-800 rounded px-2 py-1.5 line-clamp-2">
+                        {l.message_sent}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            });
+          })()}
         </TabsContent>
       </Tabs>
     </div>

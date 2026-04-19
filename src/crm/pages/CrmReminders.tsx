@@ -42,17 +42,23 @@ export default function CrmReminders() {
   const [tplAnniv, setTplAnniv] = useState("Dear {{customer_name}}, congratulations on completing {{years_count}} year(s) with us! — The Computer Solutions");
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState("today");
+  const [sentLogs, setSentLogs] = useState<SentLog[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
     setLoading(true);
-    const [custRes, queueRes, tplRes] = await Promise.all([
+    const [custRes, queueRes, tplRes, logsRes] = await Promise.all([
       supabase.from("crm_customers").select("id, name, phone, whatsapp, dob, anniversary_date, rank"),
       supabase.from("reminders_queue" as any).select("*").order("event_date", { ascending: true }),
       supabase.from("admin_reminder_settings" as any).select("*"),
+      supabase.from("customer_event_logs" as any)
+        .select("id, customer_id, event_type, event_date, message_sent, years_completed, sent_at")
+        .order("sent_at", { ascending: false })
+        .limit(200),
     ]);
     setCustomers((custRes.data || []) as any);
     setQueue((queueRes.data || []) as any);
+    setSentLogs((logsRes.data || []) as any);
     const tplMap: Record<string, string> = {};
     (tplRes.data || []).forEach((r: any) => { tplMap[r.setting_key] = r.setting_value; });
     if (tplMap.birthday_template) setTplBday(tplMap.birthday_template);

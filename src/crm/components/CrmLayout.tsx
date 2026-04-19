@@ -1,5 +1,5 @@
 import { NavLink, useNavigate, Outlet } from "react-router-dom";
-import { LayoutDashboard, Users, ShoppingCart, MessageSquare, Package, BarChart3, Wrench, Bell, Settings, LogOut, Menu, X, FileText, PieChart, Cake } from "lucide-react";
+import { LayoutDashboard, Users, ShoppingCart, MessageSquare, Package, BarChart3, Wrench, Bell, Settings, LogOut, Menu, X, FileText, PieChart, Cake, Send } from "lucide-react";
 import { useEffect, useState } from "react";
 import { crmSignOut } from "@/crm/lib/auth";
 import { toast } from "sonner";
@@ -18,6 +18,7 @@ const links = [
   { to: "/crm/reminders", label: "Reminders", icon: Cake },
   { to: "/crm/customers", label: "Customers", icon: Users },
   { to: "/crm/customers/reports", label: "Customer Reports", icon: PieChart },
+  { to: "/crm/campaigns", label: "Campaigns", icon: Send },
 ];
 
 export default function CrmLayout() {

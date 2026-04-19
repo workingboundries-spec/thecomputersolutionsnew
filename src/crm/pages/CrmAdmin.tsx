@@ -3,10 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { invalidateAdminSettings } from "@/crm/hooks/useAdminSettings";
 import { brandingFromMap } from "@/crm/lib/quotationBranding";
 import { QuotationHeaderPreview, QuotationPreview } from "@/crm/components/QuotationPreview";
+import CustomerSettingsTab from "@/crm/components/CustomerSettingsTab";
 import { toast } from "sonner";
 import { Save, X, Plus, Download, Upload, Eye } from "lucide-react";
 
-const TABS = ["Shop Info", "Branding & Quotation Style", "Dropdowns", "WhatsApp Templates", "Quotation", "Stock", "Data Export"] as const;
+const TABS = ["Shop Info", "Branding & Quotation Style", "Dropdowns", "WhatsApp Templates", "Quotation", "Customer Settings", "Stock", "Data Export"] as const;
 
 const TEMPLATE_KEYS = [
   { key: "whatsapp_week_template", label: "After 1 Week" },
@@ -92,6 +93,7 @@ export default function CrmAdmin() {
           {tab === "Dropdowns" && <Dropdowns getJson={getJson} onSave={saveMany} />}
           {tab === "WhatsApp Templates" && <Templates get={get} onSave={saveMany} />}
           {tab === "Quotation" && <QuotationSettings get={get} onSave={saveMany} />}
+          {tab === "Customer Settings" && <CustomerSettingsTab />}
           {tab === "Stock" && <StockSettings get={get} onSave={saveMany} />}
           {tab === "Data Export" && <DataExport />}
         </div>

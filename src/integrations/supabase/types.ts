@@ -14,6 +14,186 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_customer_settings: {
+        Row: {
+          colour: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          setting_type: string
+          sort_order: number
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          colour?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          setting_type: string
+          sort_order?: number
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          colour?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          setting_type?: string
+          sort_order?: number
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
+      admin_reminder_settings: {
+        Row: {
+          created_at: string
+          id: string
+          setting_key: string
+          setting_value: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          setting_key: string
+          setting_value?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          setting_key?: string
+          setting_value?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      campaign_recipients: {
+        Row: {
+          campaign_id: string | null
+          created_at: string
+          customer_id: string | null
+          id: string
+          personalised_message: string | null
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          campaign_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          personalised_message?: string | null
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          campaign_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          personalised_message?: string | null
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_recipients_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_recipients_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "crm_customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_templates: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          message_body: string
+          name: string
+          placeholders_used: string | null
+          type: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          message_body: string
+          name: string
+          placeholders_used?: string | null
+          type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          message_body?: string
+          name?: string
+          placeholders_used?: string | null
+          type?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      campaigns: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          filters_snapshot: Json | null
+          id: string
+          message_body: string
+          name: string
+          sent_count: number
+          skipped_count: number
+          status: string
+          total_targeted: number
+          type: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          filters_snapshot?: Json | null
+          id?: string
+          message_body: string
+          name: string
+          sent_count?: number
+          skipped_count?: number
+          status?: string
+          total_targeted?: number
+          type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          filters_snapshot?: Json | null
+          id?: string
+          message_body?: string
+          name?: string
+          sent_count?: number
+          skipped_count?: number
+          status?: string
+          total_targeted?: number
+          type?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cctv_products: {
         Row: {
           category: string
@@ -134,6 +314,8 @@ export type Database = {
       crm_customers: {
         Row: {
           address: string | null
+          anniversary_date: string | null
+          city: string | null
           created_at: string
           dob: string | null
           email: string | null
@@ -141,8 +323,11 @@ export type Database = {
           last_purchase_date: string | null
           name: string
           notes: string | null
+          occupation: string | null
           phone: string
           photo_url: string | null
+          rank: string | null
+          source_mode: string | null
           total_purchases: number
           total_value: number
           updated_at: string
@@ -150,6 +335,8 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          anniversary_date?: string | null
+          city?: string | null
           created_at?: string
           dob?: string | null
           email?: string | null
@@ -157,8 +344,11 @@ export type Database = {
           last_purchase_date?: string | null
           name: string
           notes?: string | null
+          occupation?: string | null
           phone: string
           photo_url?: string | null
+          rank?: string | null
+          source_mode?: string | null
           total_purchases?: number
           total_value?: number
           updated_at?: string
@@ -166,6 +356,8 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          anniversary_date?: string | null
+          city?: string | null
           created_at?: string
           dob?: string | null
           email?: string | null
@@ -173,8 +365,11 @@ export type Database = {
           last_purchase_date?: string | null
           name?: string
           notes?: string | null
+          occupation?: string | null
           phone?: string
           photo_url?: string | null
+          rank?: string | null
+          source_mode?: string | null
           total_purchases?: number
           total_value?: number
           updated_at?: string
@@ -696,36 +891,51 @@ export type Database = {
       }
       crm_whatsapp_log: {
         Row: {
+          campaign_id: string | null
           created_at: string
+          customer_id: string | null
           customer_name: string | null
           id: string
+          message_hint: string | null
           message_text: string | null
           message_type: string | null
           phone: string | null
           sale_id: string | null
           sent_at: string
+          sent_by: string | null
+          sent_from_section: string | null
           status: string
         }
         Insert: {
+          campaign_id?: string | null
           created_at?: string
+          customer_id?: string | null
           customer_name?: string | null
           id?: string
+          message_hint?: string | null
           message_text?: string | null
           message_type?: string | null
           phone?: string | null
           sale_id?: string | null
           sent_at?: string
+          sent_by?: string | null
+          sent_from_section?: string | null
           status?: string
         }
         Update: {
+          campaign_id?: string | null
           created_at?: string
+          customer_id?: string | null
           customer_name?: string | null
           id?: string
+          message_hint?: string | null
           message_text?: string | null
           message_type?: string | null
           phone?: string | null
           sale_id?: string | null
           sent_at?: string
+          sent_by?: string | null
+          sent_from_section?: string | null
           status?: string
         }
         Relationships: [
@@ -764,6 +974,50 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      customer_event_logs: {
+        Row: {
+          created_at: string
+          customer_id: string | null
+          event_date: string
+          event_type: string
+          id: string
+          message_sent: string | null
+          sent_at: string | null
+          sent_by: string | null
+          years_completed: number | null
+        }
+        Insert: {
+          created_at?: string
+          customer_id?: string | null
+          event_date: string
+          event_type: string
+          id?: string
+          message_sent?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          years_completed?: number | null
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string | null
+          event_date?: string
+          event_type?: string
+          id?: string
+          message_sent?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          years_completed?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_event_logs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "crm_customers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       daily_deals: {
         Row: {
@@ -952,6 +1206,53 @@ export type Database = {
           used_count?: number
         }
         Relationships: []
+      }
+      reminders_queue: {
+        Row: {
+          created_at: string
+          customer_id: string | null
+          days_before: number | null
+          event_date: string
+          event_type: string
+          event_year: number
+          id: string
+          sent_at: string | null
+          sent_by: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id?: string | null
+          days_before?: number | null
+          event_date: string
+          event_type: string
+          event_year: number
+          id?: string
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string | null
+          days_before?: number | null
+          event_date?: string
+          event_type?: string
+          event_year?: number
+          id?: string
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminders_queue_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "crm_customers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       services: {
         Row: {

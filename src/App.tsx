@@ -18,6 +18,7 @@ import CrmEnquiries from "./crm/pages/CrmEnquiries";
 import CrmQuotations from "./crm/pages/CrmQuotations";
 import CrmSales from "./crm/pages/CrmSales";
 import CrmCustomers from "./crm/pages/CrmCustomers";
+import CrmCustomerReports from "./crm/pages/CrmCustomerReports";
 import CrmCatalogue from "./crm/pages/CrmCatalogue";
 import CrmStock from "./crm/pages/CrmStock";
 import CrmServices from "./crm/pages/CrmServices";
@@ -52,6 +53,7 @@ const App = () => (
             <Route path="/crm/services" element={<CrmServices />} />
             <Route path="/crm/warranty" element={<CrmWarranty />} />
             <Route path="/crm/customers" element={<CrmCustomers />} />
+            <Route path="/crm/customers/reports" element={<CrmCustomerReports />} />
             <Route path="/crm/admin" element={<CrmAdminProtected><CrmAdmin /></CrmAdminProtected>} />
           </Route>
 

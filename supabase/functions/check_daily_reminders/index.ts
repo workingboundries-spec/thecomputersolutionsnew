@@ -25,6 +25,13 @@ Deno.serve(async (req) => {
     (settings || []).forEach((r: any) => { settingMap[r.setting_key] = r.setting_value; });
     const bdayLead = parseInt(settingMap.birthday_lead_days || "0", 10);
     const annivLead = parseInt(settingMap.anniversary_lead_days || "0", 10);
+    const isTrue = (v: string | undefined) => {
+      if (v === undefined || v === null || v === "") return true; // default ON
+      const s = String(v).toLowerCase().trim();
+      return s === "true" || s === "1" || s === "yes" || s === "on";
+    };
+    const bdayEnabled = isTrue(settingMap.birthday_enabled);
+    const annivEnabled = isTrue(settingMap.anniversary_enabled);
 
     const today = new Date(); today.setHours(0, 0, 0, 0);
 
@@ -65,8 +72,8 @@ Deno.serve(async (req) => {
     };
 
     (customers || []).forEach((c: any) => {
-      evalEvent(c.id, c.dob, "birthday", bdayLead);
-      evalEvent(c.id, c.anniversary_date, "anniversary", annivLead);
+      if (bdayEnabled) evalEvent(c.id, c.dob, "birthday", bdayLead);
+      if (annivEnabled) evalEvent(c.id, c.anniversary_date, "anniversary", annivLead);
     });
 
     let inserted = 0;
@@ -77,7 +84,12 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ ok: true, scanned: customers?.length || 0, inserted, skipped_existing: existingSet.size - inserted }),
+      JSON.stringify({
+        ok: true,
+        scanned: customers?.length || 0,
+        inserted,
+        config: { bdayLead, annivLead, bdayEnabled, annivEnabled },
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e: any) {

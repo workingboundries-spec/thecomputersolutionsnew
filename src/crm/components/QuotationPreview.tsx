@@ -24,7 +24,7 @@ export type QuotePreviewData = {
  * Pure render-from-props quotation. NO data fetching, NO server calls.
  * Container is fixed 794px wide (A4) with id="quotation-preview" for html2canvas.
  */
-export function QuotationPreview({ q, b }: { q: QuotePreviewData; b: QuotationBranding }) {
+export function QuotationPreview({ q, b, showNotes = false }: { q: QuotePreviewData; b: QuotationBranding; showNotes?: boolean }) {
   const onDarkText = "#ffffff";
   const altRowBg = "#f8f9fa";
 
@@ -124,12 +124,12 @@ export function QuotationPreview({ q, b }: { q: QuotePreviewData; b: QuotationBr
         </div>
       </div>
 
-      {/* Notes / Terms */}
-      {(q.notes || q.terms) && (
+      {/* Terms (Notes are private — owner only, not shown to customer) */}
+      {((showNotes && q.notes) || q.terms) && (
         <div style={{ padding: "0 28px 16px", borderTop: "1px solid #e5e7eb", paddingTop: 14 }}>
-          {q.notes && (
+          {showNotes && q.notes && (
             <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280", marginBottom: 2 }}>Notes</div>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#6b7280", marginBottom: 2 }}>Internal Notes (Private)</div>
               <div style={{ fontSize: 12, color: b.font, whiteSpace: "pre-wrap" }}>{q.notes}</div>
             </div>
           )}

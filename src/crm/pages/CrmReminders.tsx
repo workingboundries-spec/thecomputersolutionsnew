@@ -16,6 +16,12 @@ type QueueRow = {
   sent_at: string | null; days_before: number | null;
 };
 
+type SentLog = {
+  id: string; customer_id: string | null; event_type: string;
+  event_date: string; message_sent: string | null; years_completed: number | null;
+  sent_at: string | null;
+};
+
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const addDays = (n: number) => {
   const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10);

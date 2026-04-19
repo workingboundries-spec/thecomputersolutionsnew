@@ -209,8 +209,8 @@ export default function CrmCustomers() {
 
   const sendQuickWish = async (c: any, type: "birthday" | "anniversary") => {
     const tplKey = type === "birthday" ? "birthday_template" : "anniversary_template";
-    const { data } = await supabase.from("admin_reminder_settings" as any).select("setting_value").eq("setting_key", tplKey).maybeSingle();
-    const tpl = data?.setting_value || `Dear {{customer_name}}, wishing you a happy ${type}! - Team {{business_name}}`;
+    const { data } = await (supabase as any).from("admin_reminder_settings").select("setting_value").eq("setting_key", tplKey).maybeSingle();
+    const tpl = (data as any)?.setting_value || `Dear {{customer_name}}, wishing you a happy ${type}! - Team {{business_name}}`;
     const years = type === "anniversary" ? yearsCompleted(c.anniversary_date) ?? "" : "";
     const message = renderTemplate(tpl, {
       customer_name: c.name, rank: c.rank || "", business_name: businessName,
@@ -224,7 +224,7 @@ export default function CrmCustomers() {
       message_type: type, sent_from_section: type === "birthday" ? "birthday_quick" : "anniversary_quick",
       sent_by: user?.id || null,
     });
-    await supabase.from("customer_event_logs" as any).insert({
+    await (supabase as any).from("customer_event_logs").insert({
       customer_id: c.id, event_type: type, event_date: new Date().toISOString().slice(0, 10),
       years_completed: typeof years === "number" ? years : null, message_sent: message, sent_by: user?.id || null,
     });

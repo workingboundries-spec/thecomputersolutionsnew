@@ -53,7 +53,7 @@ function ManagerSection({ title, type, helper, showColour }: { title: string; ty
 
   const add = async () => {
     if (!draft.value.trim()) return;
-    const { error } = await supabase.from("admin_customer_settings" as any).insert({
+    const { error } = await (supabase as any).from("admin_customer_settings").insert({
       setting_type: type,
       value: draft.value.trim(),
       colour: showColour ? draft.colour : null,
@@ -66,7 +66,7 @@ function ManagerSection({ title, type, helper, showColour }: { title: string; ty
   };
 
   const update = async (row: CustomerSettingRow, patch: Partial<CustomerSettingRow>) => {
-    const { error } = await supabase.from("admin_customer_settings" as any).update(patch).eq("id", row.id);
+    const { error } = await (supabase as any).from("admin_customer_settings").update(patch).eq("id", row.id);
     if (error) return toast.error(error.message);
     toast.success("Updated");
     setEditing(null);
@@ -75,7 +75,7 @@ function ManagerSection({ title, type, helper, showColour }: { title: string; ty
 
   const remove = async (row: CustomerSettingRow) => {
     if (!confirm(`Delete "${row.value}"?`)) return;
-    const { error } = await supabase.from("admin_customer_settings" as any).delete().eq("id", row.id);
+    const { error } = await (supabase as any).from("admin_customer_settings").delete().eq("id", row.id);
     if (error) return toast.error(error.message);
     toast.success("Deleted");
     invalidateCustomerSettings();
@@ -135,7 +135,7 @@ function ReminderSettings() {
 
   const load = async () => {
     setLoading(true);
-    const { data } = await supabase.from("admin_reminder_settings" as any).select("setting_key, setting_value");
+    const { data } = await (supabase as any).from("admin_reminder_settings").select("setting_key, setting_value");
     const m: Record<string, string> = {};
     (data || []).forEach((r: any) => { m[r.setting_key] = r.setting_value; });
     REMINDER_KEYS.forEach((k) => { if (m[k.key] === undefined) m[k.key] = k.default; });
@@ -148,11 +148,11 @@ function ReminderSettings() {
   const saveAll = async () => {
     for (const k of REMINDER_KEYS) {
       const value = vals[k.key] ?? k.default;
-      const { data: existing } = await supabase.from("admin_reminder_settings" as any).select("id").eq("setting_key", k.key).maybeSingle();
+      const { data: existing } = await (supabase as any).from("admin_reminder_settings").select("id").eq("setting_key", k.key).maybeSingle();
       if (existing) {
-        await supabase.from("admin_reminder_settings" as any).update({ setting_value: value }).eq("setting_key", k.key);
+        await (supabase as any).from("admin_reminder_settings").update({ setting_value: value }).eq("setting_key", k.key);
       } else {
-        await supabase.from("admin_reminder_settings" as any).insert({ setting_key: k.key, setting_value: value });
+        await (supabase as any).from("admin_reminder_settings").insert({ setting_key: k.key, setting_value: value });
       }
     }
     toast.success("Reminder settings saved");
@@ -194,7 +194,7 @@ function TemplateEditors() {
 
   const load = async () => {
     setLoading(true);
-    const { data } = await supabase.from("admin_reminder_settings" as any).select("setting_key, setting_value").in("setting_key", ["birthday_template", "anniversary_template"]);
+    const { data } = await (supabase as any).from("admin_reminder_settings").select("setting_key, setting_value").in("setting_key", ["birthday_template", "anniversary_template"]);
     (data || []).forEach((r: any) => {
       if (r.setting_key === "birthday_template") setBirthday(r.setting_value);
       if (r.setting_key === "anniversary_template") setAnniv(r.setting_value);
@@ -206,11 +206,11 @@ function TemplateEditors() {
   const render = (tpl: string) => tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => (sample as any)[k] || `{{${k}}}`);
 
   const saveOne = async (key: string, value: string) => {
-    const { data: existing } = await supabase.from("admin_reminder_settings" as any).select("id").eq("setting_key", key).maybeSingle();
+    const { data: existing } = await (supabase as any).from("admin_reminder_settings").select("id").eq("setting_key", key).maybeSingle();
     if (existing) {
-      await supabase.from("admin_reminder_settings" as any).update({ setting_value: value }).eq("setting_key", key);
+      await (supabase as any).from("admin_reminder_settings").update({ setting_value: value }).eq("setting_key", key);
     } else {
-      await supabase.from("admin_reminder_settings" as any).insert({ setting_key: key, setting_value: value });
+      await (supabase as any).from("admin_reminder_settings").insert({ setting_key: key, setting_value: value });
     }
   };
 

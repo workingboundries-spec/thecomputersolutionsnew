@@ -23,9 +23,6 @@ Discount : {{discount}}
 
 Valid till: {{validity_date}}
 
-Notes:
-{{notes}}
-
 For any queries, contact us:
 📞 {{shop_phone}}
 ✉ {{shop_email}}
@@ -130,7 +127,7 @@ export function buildMessageVarsFromQuote(opts: {
     grand_total: fmt(quote.total_amount),
     subtotal: fmt(quote.subtotal),
     discount: fmt(quote.discount),
-    notes: quote.notes || "—",
+    notes: "",
     items_table: buildItemsTable(items),
     shop_phone: shopPhone || "",
     shop_email: shopEmail || "",

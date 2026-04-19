@@ -446,7 +446,7 @@ function CustomerDetailDialog({ customer, onClose, allSettings, onSendWish, onEd
       const [sales, wa, events] = await Promise.all([
         supabase.from("crm_sales").select("*").eq("phone", customer.phone).order("sale_date", { ascending: false }),
         supabase.from("crm_whatsapp_log").select("*").or(`customer_id.eq.${customer.id},phone.eq.${customer.phone}`).order("sent_at", { ascending: false }).limit(200),
-        supabase.from("customer_event_logs" as any).select("*").eq("customer_id", customer.id).order("sent_at", { ascending: false }),
+        (supabase as any).from("customer_event_logs").select("*").eq("customer_id", customer.id).order("sent_at", { ascending: false }),
       ]);
       setData({ sales: sales.data || [], wa: wa.data || [], events: (events.data as any) || [] });
     })();

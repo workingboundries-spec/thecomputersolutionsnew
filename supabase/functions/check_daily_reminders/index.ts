@@ -72,8 +72,8 @@ Deno.serve(async (req) => {
     };
 
     (customers || []).forEach((c: any) => {
-      evalEvent(c.id, c.dob, "birthday", bdayLead);
-      evalEvent(c.id, c.anniversary_date, "anniversary", annivLead);
+      if (bdayEnabled) evalEvent(c.id, c.dob, "birthday", bdayLead);
+      if (annivEnabled) evalEvent(c.id, c.anniversary_date, "anniversary", annivLead);
     });
 
     let inserted = 0;

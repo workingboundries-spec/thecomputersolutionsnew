@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Cake, Heart, MessageCircle, RefreshCw, Search, Check } from "lucide-react";
+import { Cake, Heart, MessageCircle, RefreshCw, Search, Check, History } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { renderTemplate, whatsappLink, messageHint, yearsCompleted } from "@/crm/lib/customerHelpers";

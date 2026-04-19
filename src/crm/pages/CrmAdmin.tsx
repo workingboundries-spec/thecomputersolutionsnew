@@ -7,7 +7,7 @@ import CustomerSettingsTab from "@/crm/components/CustomerSettingsTab";
 import { toast } from "sonner";
 import { Save, X, Plus, Download, Upload, Eye } from "lucide-react";
 
-const TABS = ["Shop Info", "Branding & Quotation Style", "Dropdowns", "WhatsApp Templates", "Quotation", "Customer Settings", "Stock", "Data Export"] as const;
+const TABS = ["Shop Info", "Branding & Quotation Style", "Dropdowns", "WhatsApp Templates", "Quotation", "Customer Settings", "Reminders", "Stock", "Data Export"] as const;
 
 const TEMPLATE_KEYS = [
   { key: "whatsapp_week_template", label: "After 1 Week" },
@@ -94,6 +94,7 @@ export default function CrmAdmin() {
           {tab === "WhatsApp Templates" && <Templates get={get} onSave={saveMany} />}
           {tab === "Quotation" && <QuotationSettings get={get} onSave={saveMany} />}
           {tab === "Customer Settings" && <CustomerSettingsTab />}
+          {tab === "Reminders" && <ReminderSettings />}
           {tab === "Stock" && <StockSettings get={get} onSave={saveMany} />}
           {tab === "Data Export" && <DataExport />}
         </div>
@@ -454,3 +455,85 @@ function Branding({ get, settings, onSave }: any) {
   );
 }
 
+// ===================== Reminder Settings =====================
+const REMINDER_FIELDS = [
+  { key: "birthday_lead_days", label: "Birthday Lead Days", default: "1", type: "number", hint: "Insert into queue this many days before birthday" },
+  { key: "anniversary_lead_days", label: "Anniversary Lead Days", default: "1", type: "number", hint: "Insert into queue this many days before anniversary" },
+  { key: "birthday_enabled", label: "Birthday Reminders Enabled", default: "true", type: "boolean", hint: "" },
+  { key: "anniversary_enabled", label: "Anniversary Reminders Enabled", default: "true", type: "boolean", hint: "" },
+];
+
+const REMINDER_TEMPLATES = [
+  { key: "birthday_template", label: "Birthday Wish Template", default: "Dear {{customer_name}}, wishing you a very Happy Birthday from The Computer Solutions! 🎂" },
+  { key: "anniversary_template", label: "Anniversary Wish Template", default: "Dear {{customer_name}}, congratulations on your anniversary! Best wishes from The Computer Solutions. 💐" },
+];
+
+function ReminderSettings() {
+  const [vals, setVals] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await supabase.from("admin_reminder_settings").select("setting_key, setting_value");
+    const m: Record<string, string> = {};
+    [...REMINDER_FIELDS, ...REMINDER_TEMPLATES].forEach((f) => { m[f.key] = f.default; });
+    (data || []).forEach((r: any) => { m[r.setting_key] = r.setting_value ?? ""; });
+    setVals(m);
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
+
+  const save = async (entries: { key: string; value: string }[]) => {
+    for (const e of entries) {
+      const { data: existing } = await supabase.from("admin_reminder_settings").select("id").eq("setting_key", e.key).maybeSingle();
+      const op = existing
+        ? await supabase.from("admin_reminder_settings").update({ setting_value: e.value }).eq("setting_key", e.key)
+        : await supabase.from("admin_reminder_settings").insert({ setting_key: e.key, setting_value: e.value });
+      if (op.error) { toast.error(op.error.message); return; }
+    }
+    toast.success("Reminder settings saved");
+    load();
+  };
+
+  if (loading) return <div className="text-slate-400">Loading…</div>;
+
+  const sample = { customer_name: "Ramesh", rank: "Gold", years_count: "5", phone: "9876543210" };
+  const render = (tpl: string) => (tpl || "").replace(/\{\{(\w+)\}\}/g, (_, k) => (sample as any)[k] ?? `{{${k}}}`);
+
+  return (
+    <div className="space-y-6 max-w-3xl">
+      <section className="border border-slate-800 rounded-lg p-4 space-y-3">
+        <h3 className="font-semibold text-white">Schedule & Toggles</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {REMINDER_FIELDS.map((f) => (
+            <Field key={f.key} label={f.label}>
+              {f.type === "boolean" ? (
+                <select value={vals[f.key]} onChange={(e) => setVals({ ...vals, [f.key]: e.target.value })} className={inp}>
+                  <option value="true">Enabled</option>
+                  <option value="false">Disabled</option>
+                </select>
+              ) : (
+                <input type="number" min={0} value={vals[f.key]} onChange={(e) => setVals({ ...vals, [f.key]: e.target.value })} className={inp} />
+              )}
+              {f.hint && <span className="text-[11px] text-slate-500 mt-1 block">{f.hint}</span>}
+            </Field>
+          ))}
+        </div>
+        <button onClick={() => save(REMINDER_FIELDS.map((f) => ({ key: f.key, value: vals[f.key] || f.default })))} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm flex items-center gap-1.5"><Save size={14} />Save Schedule</button>
+      </section>
+
+      <section className="border border-slate-800 rounded-lg p-4 space-y-4">
+        <h3 className="font-semibold text-white">Wish Message Templates</h3>
+        {REMINDER_TEMPLATES.map((t) => (
+          <div key={t.key} className="border border-slate-800 rounded p-3">
+            <label className="text-sm font-semibold text-white mb-1 block">{t.label}</label>
+            <textarea rows={3} value={vals[t.key] || ""} onChange={(e) => setVals({ ...vals, [t.key]: e.target.value })} className={inp} />
+            <div className="text-xs text-slate-500 mt-1">Available: {"{{customer_name}} {{rank}} {{years_count}} {{phone}}"}</div>
+            <div className="text-xs text-slate-300 mt-2 p-2 bg-slate-950 border border-slate-800 rounded"><span className="text-slate-500">Preview:</span> {render(vals[t.key] || "")}</div>
+          </div>
+        ))}
+        <button onClick={() => save(REMINDER_TEMPLATES.map((t) => ({ key: t.key, value: vals[t.key] || t.default })))} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm flex items-center gap-1.5"><Save size={14} />Save Templates</button>
+      </section>
+    </div>
+  );
+}

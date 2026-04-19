@@ -6,6 +6,7 @@ import {
   ShoppingCart, MessageSquare, Wrench, Bell, AlertTriangle, IndianRupee,
   MessageCircle, Cake, Package, ClipboardList, FileClock,
 } from "lucide-react";
+import ReminderAlertWidget from "@/crm/components/ReminderAlertWidget";
 
 const STATUS_BADGE: Record<string, string> = {
   new: "bg-blue-500/15 text-blue-300",
@@ -146,6 +147,8 @@ export default function CrmDashboard() {
         <h1 className="text-2xl font-bold text-white">Dashboard</h1>
         <p className="text-sm text-slate-400">Owner snapshot — today and this month</p>
       </div>
+
+      <ReminderAlertWidget />
 
       {/* ROW 1 — Today's Snapshot */}
       <section>

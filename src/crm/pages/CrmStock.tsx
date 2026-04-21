@@ -1,30 +1,38 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Package, AlertTriangle, XCircle, IndianRupee, Download, Save, ChevronDown, ChevronRight } from "lucide-react";
+import { Package, AlertTriangle, XCircle, IndianRupee, Plus, Minus, ClipboardCheck, FileText } from "lucide-react";
 import { formatINR } from "@/crm/lib/format";
-import { useAdminSetting } from "@/crm/hooks/useAdminSettings";
+import AddStockModal from "@/crm/components/inventory/AddStockModal";
+import DamageModal from "@/crm/components/inventory/DamageModal";
+import MonthEndAuditWizard from "@/crm/components/inventory/MonthEndAuditWizard";
+import InventoryReports from "@/crm/components/inventory/InventoryReports";
 
 type Item = {
-  id: string; brand: string; model: string; category: string;
-  stock_qty: number; nlc_price: number; sale_price: number;
+  id: string;
+  brand: string;
+  model: string;
+  category: string;
+  opening_stock: number;
+  current_stock: number;
+  stock_qty: number;
+  reorder_level: number;
+  nlc_price: number;
+  sale_price: number;
 };
 
-const TABS = ["Live Stock", "Monthly Audit", "Audit History"] as const;
+const TABS = ["Live Stock", "Reports", "Audit History"] as const;
 type Tab = typeof TABS[number];
-
-function currentMonth() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
 
 export default function CrmStock() {
   const [tab, setTab] = useState<Tab>("Live Stock");
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold text-white">Stock</h1>
-        <p className="text-sm text-slate-400">Live stock, monthly physical audits, and audit history</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Stock</h1>
+          <p className="text-sm text-slate-400">Perpetual inventory with movements, audits, and reports</p>
+        </div>
       </div>
       <div className="flex border-b border-slate-800">
         {TABS.map((t) => (
@@ -32,87 +40,127 @@ export default function CrmStock() {
         ))}
       </div>
       {tab === "Live Stock" && <LiveStock />}
-      {tab === "Monthly Audit" && <MonthlyAudit />}
+      {tab === "Reports" && <InventoryReports />}
       {tab === "Audit History" && <AuditHistory />}
     </div>
   );
 }
 
 function LiveStock() {
-  const lowThreshold = useAdminSetting<number>("low_stock_threshold", 3);
   const [items, setItems] = useState<Item[]>([]);
+  const [movementsByItem, setMovementsByItem] = useState<Record<string, { received: number; sold: number; damaged: number }>>({});
   const [loading, setLoading] = useState(true);
   const [filterCat, setFilterCat] = useState("");
   const [filterBrand, setFilterBrand] = useState("");
+  const [search, setSearch] = useState("");
+  const [addItem, setAddItem] = useState<Item | null>(null);
+  const [damageItem, setDamageItem] = useState<Item | null>(null);
+  const [showAudit, setShowAudit] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      const { data, error } = await supabase.from("crm_catalogue").select("id,brand,model,category,stock_qty,nlc_price,sale_price").order("brand");
-      if (error) toast.error(error.message); else setItems((data || []) as Item[]);
-      setLoading(false);
-    })();
-  }, []);
+  const load = async () => {
+    setLoading(true);
+    const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+    const [c, t] = await Promise.all([
+      supabase.from("crm_catalogue").select("id,brand,model,category,opening_stock,current_stock,stock_qty,reorder_level,nlc_price,sale_price").order("brand"),
+      supabase.from("inventory_transactions" as any).select("item_id, movement_type, qty").gte("transaction_date", monthStart.toISOString()),
+    ]);
+    if (c.error) toast.error(c.error.message);
+    setItems((c.data || []) as Item[]);
+    const map: Record<string, { received: number; sold: number; damaged: number }> = {};
+    ((t.data || []) as any[]).forEach((tx) => {
+      const k = tx.item_id;
+      if (!map[k]) map[k] = { received: 0, sold: 0, damaged: 0 };
+      if (tx.movement_type === "manual_entry" || tx.movement_type === "opening_stock") map[k].received += Math.abs(tx.qty);
+      else if (tx.movement_type === "sale") map[k].sold += Math.abs(tx.qty);
+      else if (tx.movement_type === "sale_reversal") map[k].sold -= Math.abs(tx.qty);
+      else if (tx.movement_type === "damage" || tx.movement_type === "write_off") map[k].damaged += Math.abs(tx.qty);
+    });
+    setMovementsByItem(map);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
 
   const brands = useMemo(() => Array.from(new Set(items.map((i) => i.brand))).sort(), [items]);
   const cats = useMemo(() => Array.from(new Set(items.map((i) => i.category))).sort(), [items]);
-  const filtered = items.filter((i) => (!filterCat || i.category === filterCat) && (!filterBrand || i.brand === filterBrand));
-  const totals = useMemo(() => ({
-    totalSkus: filtered.length,
-    totalValueNlc: filtered.reduce((s, i) => s + (i.stock_qty * i.nlc_price), 0),
-    totalValueSale: filtered.reduce((s, i) => s + (i.stock_qty * i.sale_price), 0),
-    lowStock: filtered.filter((i) => i.stock_qty > 0 && i.stock_qty < lowThreshold).length,
-    outOfStock: filtered.filter((i) => i.stock_qty === 0).length,
-  }), [filtered, lowThreshold]);
+  const filtered = items.filter((i) =>
+    (!filterCat || i.category === filterCat) &&
+    (!filterBrand || i.brand === filterBrand) &&
+    (!search || `${i.brand} ${i.model}`.toLowerCase().includes(search.toLowerCase()))
+  );
+  const totals = useMemo(() => {
+    return {
+      totalSkus: filtered.length,
+      totalValueNlc: filtered.reduce((s, i) => s + (i.current_stock * i.nlc_price), 0),
+      lowStock: filtered.filter((i) => i.current_stock > 0 && i.reorder_level > 0 && i.current_stock <= i.reorder_level).length,
+      outOfStock: filtered.filter((i) => i.current_stock === 0).length,
+    };
+  }, [filtered]);
 
-  const exportCsv = () => {
-    const rows = [
-      ["Brand", "Model", "Category", "Stock", "NLC", "Sale", "Stock Value (NLC)", "Margin %"],
-      ...filtered.map((i) => [i.brand, i.model, i.category, i.stock_qty, i.nlc_price, i.sale_price, i.stock_qty * i.nlc_price, i.sale_price ? (((i.sale_price - i.nlc_price) / i.sale_price) * 100).toFixed(1) : "0"]),
-    ];
-    const csv = rows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `stock-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
-  };
+  const itemForModal = (i: Item) => ({ id: i.id, brand: i.brand, model: i.model, current_stock: i.current_stock });
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Stat icon={<Package />} label="Total SKUs" value={totals.totalSkus} color="blue" />
         <Stat icon={<IndianRupee />} label="Stock Value (NLC)" value={formatINR(totals.totalValueNlc)} color="green" />
-        <Stat icon={<IndianRupee />} label="Stock Value (Sale)" value={formatINR(totals.totalValueSale)} color="purple" />
         <Stat icon={<AlertTriangle />} label="Low Stock" value={totals.lowStock} color="orange" />
         <Stat icon={<XCircle />} label="Out of Stock" value={totals.outOfStock} color="red" />
       </div>
-      <div className="flex flex-wrap gap-2">
+
+      <div className="flex flex-wrap gap-2 items-center">
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" className="px-3 py-2 bg-slate-900 border border-slate-800 rounded text-sm text-white" />
         <select value={filterCat} onChange={(e) => setFilterCat(e.target.value)} className="px-3 py-2 bg-slate-900 border border-slate-800 rounded text-sm text-white">
           <option value="">All categories</option>{cats.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
         <select value={filterBrand} onChange={(e) => setFilterBrand(e.target.value)} className="px-3 py-2 bg-slate-900 border border-slate-800 rounded text-sm text-white">
           <option value="">All brands</option>{brands.map((b) => <option key={b} value={b}>{b}</option>)}
         </select>
-        <button onClick={exportCsv} className="ml-auto flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded text-white text-sm"><Download size={14} />Export CSV</button>
+        <button onClick={() => setShowAudit(true)} className="ml-auto flex items-center gap-2 px-3 py-2 bg-purple-600 hover:bg-purple-500 rounded text-white text-sm">
+          <ClipboardCheck size={14} />Run Month-end Audit
+        </button>
       </div>
+
       {loading ? <div className="text-center py-12 text-slate-400">Loading...</div> :
         filtered.length === 0 ? <div className="text-center py-12 bg-slate-900 border border-slate-800 rounded text-slate-400">No items in catalogue</div> :
         <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-800/50 text-xs uppercase text-slate-400">
-              <tr><th className="text-left p-3">Brand</th><th className="text-left p-3">Model</th><th className="text-left p-3">Category</th><th className="text-right p-3">Stock</th><th className="text-right p-3">NLC</th><th className="text-right p-3">Sale</th><th className="text-right p-3">Stock Value</th><th className="text-right p-3">Margin %</th></tr>
+              <tr>
+                <th className="text-left p-3">Item</th>
+                <th className="text-left p-3">SKU</th>
+                <th className="text-left p-3">Category</th>
+                <th className="text-right p-3">Opening</th>
+                <th className="text-right p-3">Received</th>
+                <th className="text-right p-3">Sold</th>
+                <th className="text-right p-3">Damaged</th>
+                <th className="text-right p-3">Current</th>
+                <th className="text-right p-3">Reorder</th>
+                <th className="text-right p-3">Actions</th>
+              </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
               {filtered.map((i) => {
-                const out = i.stock_qty === 0; const low = i.stock_qty > 0 && i.stock_qty < lowThreshold;
-                const m = i.sale_price ? ((i.sale_price - i.nlc_price) / i.sale_price) * 100 : 0;
+                const m = movementsByItem[i.id] || { received: 0, sold: 0, damaged: 0 };
+                const out = i.current_stock === 0;
+                const low = i.current_stock > 0 && i.reorder_level > 0 && i.current_stock <= i.reorder_level;
                 return (
                   <tr key={i.id} className={`${out ? "bg-red-900/20" : low ? "bg-yellow-900/15" : ""} hover:bg-slate-800/30`}>
-                    <td className="p-3 text-white font-medium">{i.brand}</td>
-                    <td className="p-3 text-slate-300">{i.model}</td>
+                    <td className="p-3 text-white font-medium">{i.brand} {i.model}</td>
+                    <td className="p-3 text-slate-400 font-mono text-xs">{i.id.slice(0, 8)}</td>
                     <td className="p-3 text-slate-400 capitalize">{i.category}</td>
-                    <td className="p-3 text-right"><span className={out ? "text-red-300" : low ? "text-orange-300" : "text-green-300"}>{i.stock_qty}</span></td>
-                    <td className="p-3 text-right text-slate-300">{formatINR(i.nlc_price)}</td>
-                    <td className="p-3 text-right text-white">{formatINR(i.sale_price)}</td>
-                    <td className="p-3 text-right text-slate-300">{formatINR(i.stock_qty * i.nlc_price)}</td>
-                    <td className="p-3 text-right text-green-400">{m.toFixed(1)}%</td>
+                    <td className="p-3 text-right text-slate-300">{i.opening_stock}</td>
+                    <td className="p-3 text-right text-green-300">{m.received}</td>
+                    <td className="p-3 text-right text-blue-300">{m.sold}</td>
+                    <td className="p-3 text-right text-orange-300">{m.damaged}</td>
+                    <td className="p-3 text-right"><span className={out ? "text-red-300 font-bold" : low ? "text-orange-300 font-bold" : "text-white font-medium"}>{i.current_stock}</span></td>
+                    <td className="p-3 text-right text-slate-400">{i.reorder_level}</td>
+                    <td className="p-3 text-right">
+                      <div className="flex justify-end gap-1">
+                        <button onClick={() => setAddItem(i)} title="Add Stock" className="p-1.5 text-green-400 hover:bg-green-600/20 rounded"><Plus size={14} /></button>
+                        <button onClick={() => setDamageItem(i)} title="Damage / Write-off" className="p-1.5 text-red-400 hover:bg-red-600/20 rounded"><Minus size={14} /></button>
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
@@ -120,180 +168,94 @@ function LiveStock() {
           </table>
         </div>
       }
-    </div>
-  );
-}
 
-function MonthlyAudit() {
-  const [items, setItems] = useState<any[]>([]);
-  const [physicalCounts, setPhysicalCounts] = useState<Record<string, number>>({});
-  const [notes, setNotes] = useState<Record<string, string>>({});
-  const [savedThisMonth, setSavedThisMonth] = useState(false);
-  const [viewMonth, setViewMonth] = useState(currentMonth());
-  const [pastAudit, setPastAudit] = useState<any[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const month = currentMonth();
-
-  const load = async () => {
-    setLoading(true);
-    const [catRes, auditRes] = await Promise.all([
-      supabase.from("crm_catalogue").select("id, brand, model, category, stock_qty, nlc_price").eq("is_active", true).order("brand"),
-      supabase.from("crm_stock_audit_log").select("id").eq("audit_month", month).limit(1),
-    ]);
-    setItems(catRes.data || []);
-    setSavedThisMonth(((auditRes.data || []).length > 0));
-    setLoading(false);
-  };
-  useEffect(() => { load(); }, []);
-
-  useEffect(() => {
-    if (viewMonth === month) { setPastAudit(null); return; }
-    supabase.from("crm_stock_audit_log").select("*").eq("audit_month", viewMonth).order("brand").then(({ data }) => setPastAudit(data || []));
-  }, [viewMonth, month]);
-
-  const save = async () => {
-    if (savedThisMonth) return toast.error("Audit for this month already saved");
-    const rows = items.map((i) => {
-      const physical = Number(physicalCounts[i.id] ?? i.stock_qty);
-      return {
-        audit_month: month, audit_date: new Date().toISOString().slice(0, 10),
-        catalogue_id: i.id, item_name: `${i.brand} ${i.model}`, brand: i.brand, model: i.model,
-        opening_stock: i.stock_qty, sold_qty: 0, physical_count: physical,
-        variance: physical - i.stock_qty, notes: notes[i.id] || null,
-      };
-    });
-    const { error } = await supabase.from("crm_stock_audit_log").insert(rows);
-    if (error) return toast.error(error.message);
-    toast.success(`Audit for ${month} saved (${rows.length} items)`);
-    setSavedThisMonth(true);
-  };
-
-  const exportCurrent = () => {
-    const rows = [["Item", "Brand", "Model", "System Stock", "Physical Count", "Variance", "Notes"]];
-    items.forEach((i) => {
-      const physical = Number(physicalCounts[i.id] ?? i.stock_qty);
-      rows.push([`${i.brand} ${i.model}`, i.brand, i.model, String(i.stock_qty), String(physical), String(physical - i.stock_qty), notes[i.id] || ""]);
-    });
-    const csv = rows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `audit-${month}.csv`; a.click();
-  };
-
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-white font-semibold">Physical Stock Audit</h3>
-        <select value={viewMonth} onChange={(e) => setViewMonth(e.target.value)} className="px-3 py-2 bg-slate-900 border border-slate-800 rounded text-sm text-white">
-          <option value={month}>{month} (current)</option>
-          {Array.from({ length: 11 }).map((_, i) => {
-            const d = new Date(); d.setMonth(d.getMonth() - (i + 1));
-            const v = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-            return <option key={v} value={v}>{v}</option>;
-          })}
-        </select>
-        {viewMonth === month && (
-          <>
-            <button onClick={exportCurrent} className="ml-auto px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded text-sm flex items-center gap-1.5"><Download size={14} />Export CSV</button>
-            <button onClick={save} disabled={savedThisMonth} className="px-3 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded text-sm flex items-center gap-1.5"><Save size={14} />{savedThisMonth ? "Already Saved" : `Save Audit for ${month}`}</button>
-          </>
-        )}
-      </div>
-
-      {loading ? <div className="text-slate-400">Loading…</div> :
-        viewMonth !== month ? (
-          pastAudit === null ? <div className="text-slate-400">Loading…</div> :
-          pastAudit.length === 0 ? <div className="text-slate-500 text-center py-8 bg-slate-900 border border-slate-800 rounded">No audit recorded for {viewMonth}</div> :
-          <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-800/50 text-xs uppercase text-slate-400"><tr><th className="text-left p-3">Item</th><th className="text-right p-3">System</th><th className="text-right p-3">Physical</th><th className="text-right p-3">Variance</th><th className="text-left p-3">Notes</th></tr></thead>
-              <tbody className="divide-y divide-slate-800">
-                {pastAudit.map((r: any) => (
-                  <tr key={r.id}><td className="p-3 text-white">{r.item_name}</td><td className="p-3 text-right text-slate-300">{r.opening_stock}</td><td className="p-3 text-right text-slate-300">{r.physical_count}</td><td className={`p-3 text-right font-medium ${r.variance < 0 ? "text-red-400" : r.variance > 0 ? "text-green-400" : "text-slate-400"}`}>{r.variance > 0 ? "+" : ""}{r.variance}</td><td className="p-3 text-slate-400 text-xs">{r.notes || "—"}</td></tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="px-3 py-2 text-xs text-slate-500 bg-slate-800/30">Read-only snapshot — past audits cannot be edited.</div>
-          </div>
-        ) : (
-          <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-x-auto">
-            {savedThisMonth && <div className="px-3 py-2 text-xs bg-yellow-500/10 text-yellow-300 border-b border-yellow-500/20">⚠ Audit for {month} already saved. Form is read-only.</div>}
-            <table className="w-full text-sm">
-              <thead className="bg-slate-800/50 text-xs uppercase text-slate-400"><tr><th className="text-left p-3">Item</th><th className="text-right p-3">System Stock</th><th className="text-right p-3 w-32">Physical Count</th><th className="text-right p-3">Variance</th><th className="text-left p-3 w-40">Notes</th></tr></thead>
-              <tbody className="divide-y divide-slate-800">
-                {items.map((i) => {
-                  const physical = physicalCounts[i.id] ?? i.stock_qty;
-                  const v = Number(physical) - i.stock_qty;
-                  return (
-                    <tr key={i.id}>
-                      <td className="p-3 text-white">{i.brand} {i.model}</td>
-                      <td className="p-3 text-right text-slate-300">{i.stock_qty}</td>
-                      <td className="p-3 text-right"><input disabled={savedThisMonth} type="number" value={physical} onChange={(e) => setPhysicalCounts({ ...physicalCounts, [i.id]: Number(e.target.value) })} className="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-right text-white text-sm" /></td>
-                      <td className={`p-3 text-right font-medium ${v < 0 ? "text-red-400" : v > 0 ? "text-green-400" : "text-slate-400"}`}>{v > 0 ? "+" : ""}{v}</td>
-                      <td className="p-3"><input disabled={savedThisMonth} value={notes[i.id] || ""} onChange={(e) => setNotes({ ...notes, [i.id]: e.target.value })} placeholder="—" className="w-full px-2 py-1 bg-slate-800 border border-slate-700 rounded text-white text-xs" /></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )
-      }
+      {addItem && <AddStockModal item={itemForModal(addItem)} onClose={() => setAddItem(null)} onSaved={load} />}
+      {damageItem && <DamageModal item={itemForModal(damageItem)} onClose={() => setDamageItem(null)} onSaved={load} />}
+      {showAudit && <MonthEndAuditWizard onClose={() => setShowAudit(false)} onSaved={load} />}
     </div>
   );
 }
 
 function AuditHistory() {
-  const [byMonth, setByMonth] = useState<Record<string, any[]>>({});
-  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [audits, setAudits] = useState<any[]>([]);
+  const [items, setItems] = useState<Record<string, { brand: string; model: string }>>({});
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
-    supabase.from("crm_stock_audit_log").select("*").order("audit_month", { ascending: false }).then(({ data }) => {
-      const m: Record<string, any[]> = {};
-      (data || []).forEach((r: any) => { (m[r.audit_month] = m[r.audit_month] || []).push(r); });
-      setByMonth(m);
-    });
+    (async () => {
+      const [a, c] = await Promise.all([
+        supabase.from("inventory_audits" as any).select("*").order("audit_year", { ascending: false }).order("audit_month", { ascending: false }).order("created_at", { ascending: false }),
+        supabase.from("crm_catalogue").select("id, brand, model"),
+      ]);
+      setAudits((a.data || []) as any);
+      const map: Record<string, { brand: string; model: string }> = {};
+      ((c.data || []) as any[]).forEach((it) => { map[it.id] = { brand: it.brand, model: it.model }; });
+      setItems(map);
+      setLoading(false);
+    })();
   }, []);
-  const exportMonth = (mo: string, rows: any[]) => {
-    const lines = [["Item", "System", "Physical", "Variance", "Notes"], ...rows.map((r) => [r.item_name, r.opening_stock, r.physical_count, r.variance, r.notes || ""])];
-    const csv = lines.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `audit-${mo}.csv`; a.click();
-  };
-  const months = Object.keys(byMonth);
-  if (months.length === 0) return <div className="text-slate-500 text-center py-8 bg-slate-900 border border-slate-800 rounded">No audits saved yet</div>;
+
+  const grouped = useMemo(() => {
+    const m: Record<string, any[]> = {};
+    audits.forEach((r: any) => {
+      const k = `${r.audit_year}-${String(r.audit_month).padStart(2, "0")}`;
+      (m[k] = m[k] || []).push(r);
+    });
+    return m;
+  }, [audits]);
+
+  if (loading) return <div className="text-center py-8 text-slate-400">Loading…</div>;
+  const months = Object.keys(grouped).sort().reverse();
+  if (months.length === 0) return <div className="text-slate-500 text-center py-8 bg-slate-900 border border-slate-800 rounded"><FileText size={28} className="mx-auto mb-2 opacity-40" />No audits saved yet</div>;
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {months.map((mo) => {
-        const rows = byMonth[mo];
-        const isOpen = !!open[mo];
-        const negCount = rows.filter((r: any) => r.variance < 0).length;
-        const totalVar = rows.reduce((s: number, r: any) => s + r.variance, 0);
+        const rows = grouped[mo];
+        const totalVar = rows.reduce((s: number, r: any) => s + (r.variance || 0), 0);
+        const action = rows[0]?.action_taken || "—";
         return (
           <div key={mo} className="bg-slate-900 border border-slate-800 rounded">
-            <button onClick={() => setOpen({ ...open, [mo]: !isOpen })} className="w-full flex items-center justify-between px-4 py-3 text-left">
-              <div className="flex items-center gap-2 text-white font-semibold">{isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />} {mo}</div>
-              <div className="flex items-center gap-3 text-xs">
-                <span className="text-slate-400">{rows.length} items</span>
-                <span className={`px-2 py-0.5 rounded ${totalVar < 0 ? "bg-red-500/20 text-red-300" : "bg-slate-800 text-slate-300"}`}>Var: {totalVar > 0 ? "+" : ""}{totalVar}</span>
-                {negCount > 0 && <span className="px-2 py-0.5 rounded bg-red-500/20 text-red-300">{negCount} negative</span>}
-                <button onClick={(e) => { e.stopPropagation(); exportMonth(mo, rows); }} className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-white rounded flex items-center gap-1"><Download size={12} />CSV</button>
-              </div>
-            </button>
-            {isOpen && (
-              <div className="overflow-x-auto border-t border-slate-800">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-800/40 text-xs uppercase text-slate-400"><tr><th className="text-left p-2">Item</th><th className="text-right p-2">System</th><th className="text-right p-2">Physical</th><th className="text-right p-2">Variance</th><th className="text-left p-2">Notes</th></tr></thead>
-                  <tbody className="divide-y divide-slate-800">
-                    {rows.map((r: any) => (
-                      <tr key={r.id} className={r.variance < 0 ? "bg-red-900/20" : ""}>
-                        <td className="p-2 text-white">{r.item_name}</td><td className="p-2 text-right text-slate-300">{r.opening_stock}</td><td className="p-2 text-right text-slate-300">{r.physical_count}</td>
+            <div className="px-4 py-3 border-b border-slate-800 flex flex-wrap items-center gap-3">
+              <div className="text-white font-semibold">{mo}</div>
+              <span className="text-xs text-slate-400">{rows.length} items</span>
+              <span className={`text-xs px-2 py-0.5 rounded ${totalVar < 0 ? "bg-red-500/20 text-red-300" : totalVar > 0 ? "bg-green-500/20 text-green-300" : "bg-slate-800 text-slate-300"}`}>Net var: {totalVar > 0 ? "+" : ""}{totalVar}</span>
+              <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-300">{action === "reset" ? "Reset to Physical" : action === "carry_forward" ? "Carried Forward" : action}</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-800/30 text-xs uppercase text-slate-400">
+                  <tr>
+                    <th className="text-left p-2">Item</th>
+                    <th className="text-right p-2">Opening</th>
+                    <th className="text-right p-2">Received</th>
+                    <th className="text-right p-2">Sold</th>
+                    <th className="text-right p-2">Damaged</th>
+                    <th className="text-right p-2">System</th>
+                    <th className="text-right p-2">Physical</th>
+                    <th className="text-right p-2">Variance</th>
+                    <th className="text-left p-2">Notes</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800">
+                  {rows.map((r: any) => {
+                    const it = items[r.item_id];
+                    return (
+                      <tr key={r.id} className={r.variance < 0 ? "bg-red-900/15" : r.variance > 0 ? "bg-green-900/10" : ""}>
+                        <td className="p-2 text-white">{it ? `${it.brand} ${it.model}` : "(deleted)"}</td>
+                        <td className="p-2 text-right text-slate-300">{r.opening_stock}</td>
+                        <td className="p-2 text-right text-green-300">{r.received_qty}</td>
+                        <td className="p-2 text-right text-blue-300">{r.sold_qty}</td>
+                        <td className="p-2 text-right text-orange-300">{r.damaged_qty}</td>
+                        <td className="p-2 text-right text-slate-300">{r.closing_system_stock}</td>
+                        <td className="p-2 text-right text-slate-300">{r.physical_count}</td>
                         <td className={`p-2 text-right font-medium ${r.variance < 0 ? "text-red-400" : r.variance > 0 ? "text-green-400" : "text-slate-400"}`}>{r.variance > 0 ? "+" : ""}{r.variance}</td>
                         <td className="p-2 text-slate-400 text-xs">{r.notes || "—"}</td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         );
       })}

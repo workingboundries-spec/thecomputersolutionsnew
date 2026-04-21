@@ -10,6 +10,7 @@ import { renderQuotationMessage, buildMessageVarsFromQuote, DEFAULT_QUOTATION_ME
 import { toast } from "sonner";
 import { Plus, Search, Eye, Edit2, Trash2, Printer, X, FileText, Download, FileStack, ListOrdered, Send } from "lucide-react";
 import html2canvas from "html2canvas";
+import CatalogueDrawer from "@/crm/components/CatalogueDrawer";
 
 const STATUS_BADGE: Record<string, string> = {
   draft: "bg-slate-500/15 text-slate-300",

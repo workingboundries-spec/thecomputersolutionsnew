@@ -4,6 +4,7 @@ import { invalidateAdminSettings } from "@/crm/hooks/useAdminSettings";
 import { brandingFromMap } from "@/crm/lib/quotationBranding";
 import { QuotationHeaderPreview, QuotationPreview } from "@/crm/components/QuotationPreview";
 import CustomerSettingsTab from "@/crm/components/CustomerSettingsTab";
+import { clearTemplateCache } from "@/crm/lib/whatsapp";
 import { toast } from "sonner";
 import { Save, X, Plus, Download, Upload, Eye } from "lucide-react";
 

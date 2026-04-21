@@ -208,9 +208,12 @@ export default function CrmCustomers() {
     // 1. Find all sales for this customer (by phone) so we can clean their tied reminders & WA logs.
     const { data: salesRows } = await supabase
       .from("crm_sales")
-      .select("id")
+      .select("id, enquiry_id")
       .eq("phone", c.phone);
     const saleIds = (salesRows || []).map((s: any) => s.id);
+    const enquiryIdsFromSales = (salesRows || [])
+      .map((s: any) => s.enquiry_id)
+      .filter((x: any): x is string => !!x);
 
     const tasks: Promise<any>[] = [
       ...(saleIds.length
@@ -231,6 +234,11 @@ export default function CrmCustomers() {
     if (saleIds.length) {
       await supabase.from("crm_sales").delete().in("id", saleIds);
     }
+    // Delete enquiries belonging to this customer (by linked sale enquiry_id OR by phone match).
+    if (enquiryIdsFromSales.length) {
+      await supabase.from("crm_enquiries").delete().in("id", enquiryIdsFromSales);
+    }
+    await supabase.from("crm_enquiries").delete().eq("phone", c.phone);
     const { error } = await supabase.from("crm_customers").delete().eq("id", c.id);
     setDeleting(false);
     if (error) return toast.error(error.message);

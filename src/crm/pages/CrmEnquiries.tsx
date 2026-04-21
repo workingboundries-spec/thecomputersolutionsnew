@@ -45,7 +45,8 @@ export default function CrmEnquiries() {
   useEffect(() => { load(); }, []);
 
   const filtered = rows.filter((r) => {
-    if (!showConverted && (r.is_converted || r.status === "converted")) return false;
+    const isConvertedDerived = r.is_converted || r.status === "converted" || linkedSaleIds.has(r.id);
+    if (!showConverted && isConvertedDerived) return false;
     if (filterStatus && r.status !== filterStatus) return false;
     if (filterCat && r.product_category !== filterCat) return false;
     if (search) {

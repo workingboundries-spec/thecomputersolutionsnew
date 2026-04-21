@@ -10,6 +10,7 @@ import { renderQuotationMessage, buildMessageVarsFromQuote, DEFAULT_QUOTATION_ME
 import { toast } from "sonner";
 import { Plus, Search, Eye, Edit2, Trash2, Printer, X, FileText, Download, FileStack, ListOrdered, Send } from "lucide-react";
 import html2canvas from "html2canvas";
+import CatalogueDrawer from "@/crm/components/CatalogueDrawer";
 
 const STATUS_BADGE: Record<string, string> = {
   draft: "bg-slate-500/15 text-slate-300",
@@ -70,6 +71,13 @@ export default function CrmQuotations() {
   const [showPicker, setShowPicker] = useState(false);
   const [catalogue, setCatalogue] = useState<any[]>([]);
   const [enquiries, setEnquiries] = useState<any[]>([]);
+  const [drawerForIdx, setDrawerForIdx] = useState<number | null>(null);
+
+  const isInCatalogue = (name: string) => {
+    const n = (name || "").trim().toLowerCase();
+    if (!n) return true;
+    return catalogue.some((c) => `${c.brand} ${c.model}`.toLowerCase() === n);
+  };
 
   const load = async () => {
     setLoading(true);
@@ -332,9 +340,19 @@ export default function CrmQuotations() {
                       <tr><td colSpan={6} className="text-center py-4 text-slate-500 text-xs">No items yet</td></tr>
                     ) : form.items.map((it, idx) => {
                       const rowTotal = Number(it.qty || 0) * Number(it.price || 0) * (1 - Number(it.discount_pct || 0) / 100);
+                      const inCat = isInCatalogue(it.name);
                       return (
                         <tr key={idx} className="border-t border-slate-800">
-                          <td className="px-2 py-1"><input value={it.name} onChange={(e) => updateItem(idx, { name: e.target.value })} className={inp} /></td>
+                          <td className="px-2 py-1">
+                            <input value={it.name} onChange={(e) => updateItem(idx, { name: e.target.value })} className={inp} />
+                            {!inCat && (
+                              <div className="mt-1 text-[11px] text-slate-400 flex flex-wrap items-center gap-2">
+                                <span>'{it.name}' not found in catalogue.</span>
+                                <button type="button" className="text-slate-300 underline hover:text-white">Use as one-time item</button>
+                                <button type="button" onClick={() => setDrawerForIdx(idx)} className="text-blue-400 underline hover:text-blue-300">Add to Catalogue</button>
+                              </div>
+                            )}
+                          </td>
                           <td className="px-2 py-1"><input type="number" value={it.qty} onChange={(e) => updateItem(idx, { qty: Number(e.target.value) })} className={inp + " text-right"} /></td>
                           <td className="px-2 py-1"><input type="number" value={it.price} onChange={(e) => updateItem(idx, { price: Number(e.target.value) })} className={inp + " text-right"} /></td>
                           <td className="px-2 py-1"><input type="number" value={it.discount_pct} onChange={(e) => updateItem(idx, { discount_pct: Number(e.target.value) })} className={inp + " text-right"} /></td>
@@ -417,6 +435,24 @@ export default function CrmQuotations() {
       )}
 
       {previewQ && <QuotePreviewModal q={previewQ} branding={branding} onClose={() => setPreviewQ(null)} />}
+
+      <CatalogueDrawer
+        open={drawerForIdx !== null}
+        prefillName={drawerForIdx !== null ? form.items[drawerForIdx]?.name || "" : ""}
+        onClose={() => setDrawerForIdx(null)}
+        onCreated={(item) => {
+          if (drawerForIdx !== null) {
+            const items = form.items.map((it, i) =>
+              i === drawerForIdx
+                ? { ...it, name: `${item.brand} ${item.model}`, price: Number(item.sale_price || it.price) }
+                : it
+            );
+            setForm({ ...form, items });
+          }
+          // Refresh catalogue so the suggestion disappears
+          load();
+        }}
+      />
     </div>
   );
 }

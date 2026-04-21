@@ -7,6 +7,7 @@ import { useAdminSetting } from "@/crm/hooks/useAdminSettings";
 import { useCrmAuth } from "@/crm/hooks/useCrmAuth";
 import { toast } from "sonner";
 import { Plus, Search, Edit2, Trash2, X, Upload, Link as LinkIcon, MessageCircle, Cake, Heart, Save, FileText } from "lucide-react";
+import ConfirmDialog from "@/crm/components/ConfirmDialog";
 
 const empty = {
   name: "", phone: "", whatsapp: "", email: "", address: "", city: "",
@@ -65,6 +66,8 @@ export default function CrmCustomers() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [detail, setDetail] = useState<any>(null);
+  const [confirmDelete, setConfirmDelete] = useState<any>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -200,11 +203,27 @@ export default function CrmCustomers() {
     setShowForm(false); load();
   };
 
-  const remove = async (id: string) => {
-    if (!confirm("Delete this customer?")) return;
-    const { error } = await supabase.from("crm_customers").delete().eq("id", id);
+  const performCascadeDelete = async (c: any) => {
+    setDeleting(true);
+    // App-level cleanup. FK cascade handles reminders_queue, customer_event_logs, campaign_recipients.
+    // crm_whatsapp_log: no FK -> delete by customer_id (and by phone for legacy rows).
+    // crm_warranty_reminders: no customer_id at all -> delete by phone match.
+    const tasks: Promise<any>[] = [
+      supabase.from("crm_whatsapp_log").delete().eq("customer_id", c.id),
+      supabase.from("crm_whatsapp_log").delete().eq("phone", c.phone),
+      supabase.from("crm_warranty_reminders").delete().eq("phone", c.phone),
+      // Belt-and-suspenders: also explicitly delete from FK-cascading tables in case cascade missed.
+      (supabase as any).from("reminders_queue").delete().eq("customer_id", c.id),
+      (supabase as any).from("customer_event_logs").delete().eq("customer_id", c.id),
+      (supabase as any).from("campaign_recipients").delete().eq("customer_id", c.id),
+    ];
+    await Promise.all(tasks);
+    const { error } = await supabase.from("crm_customers").delete().eq("id", c.id);
+    setDeleting(false);
     if (error) return toast.error(error.message);
-    toast.success("Deleted"); load();
+    toast.success(`${c.name} and all linked records deleted`);
+    setConfirmDelete(null);
+    load();
   };
 
   const sendQuickWish = async (c: any, type: "birthday" | "anniversary") => {
@@ -335,7 +354,7 @@ export default function CrmCustomers() {
                   <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="flex justify-end gap-1">
                       <button onClick={() => openEdit(r)} className="p-1.5 text-blue-400 hover:bg-blue-600/20 rounded"><Edit2 size={14} /></button>
-                      <button onClick={() => remove(r.id)} className="p-1.5 text-red-400 hover:bg-red-600/20 rounded"><Trash2 size={14} /></button>
+                      <button onClick={() => setConfirmDelete(r)} className="p-1.5 text-red-400 hover:bg-red-600/20 rounded"><Trash2 size={14} /></button>
                     </div>
                   </td>
                 </tr>
@@ -363,6 +382,29 @@ export default function CrmCustomers() {
           onEdit={() => { setDetail(null); openEdit(detail); }}
         />
       )}
+
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title="Delete customer permanently?"
+        tone="danger"
+        confirmLabel="Yes, Delete Permanently"
+        cancelLabel="Cancel"
+        busy={deleting}
+        description={
+          <>
+            Are you sure you want to permanently delete <strong className="text-white">{confirmDelete?.name}</strong>?
+            {"\n\n"}This will also delete all linked:
+            {"\n"} • Reminders
+            {"\n"} • Warranty records
+            {"\n"} • WhatsApp logs
+            {"\n"} • Event logs
+            {"\n"} • Campaign entries
+            {"\n\n"}This cannot be undone.
+          </>
+        }
+        onConfirm={() => confirmDelete && performCascadeDelete(confirmDelete)}
+        onCancel={() => !deleting && setConfirmDelete(null)}
+      />
     </div>
   );
 }

@@ -5,6 +5,8 @@ import { formatINR, formatDate, todayISO, addMonths, addDays } from "@/crm/lib/f
 import { toast } from "sonner";
 import { Plus, Search, Eye, Edit2, MessageCircle, Printer, X, Trash2 } from "lucide-react";
 import { useAdminSetting } from "@/crm/hooks/useAdminSettings";
+import { applyMovement } from "@/crm/lib/inventory";
+import { useCrmAuth } from "@/crm/hooks/useCrmAuth";
 
 const PAY_BADGE: Record<string, string> = {
   paid: "bg-green-500/15 text-green-300",
@@ -133,15 +135,21 @@ async function upsertCustomer(sale: any) {
   }
 }
 
-async function decrementStock(item_id: string | null, qty: number) {
-  if (!item_id) return;
-  const { data } = await supabase.from("crm_catalogue").select("stock_qty").eq("id", item_id).maybeSingle();
-  if (data) {
-    await supabase.from("crm_catalogue").update({ stock_qty: Math.max(0, (data.stock_qty || 0) - qty) }).eq("id", item_id);
-  }
+async function decrementStock(item_id: string | null, qty: number, saleId: string, userId: string | null) {
+  if (!item_id || !qty) return;
+  await applyMovement({
+    itemId: item_id,
+    movementType: "sale",
+    qty: -Math.abs(qty),
+    referenceId: saleId,
+    referenceType: "crm_sales",
+    notes: `Sale ${saleId.slice(0, 8)}`,
+    createdBy: userId,
+  });
 }
 
 export default function CrmSales() {
+  const { user } = useCrmAuth();
   const [params, setParams] = useSearchParams();
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -265,7 +273,7 @@ export default function CrmSales() {
       await Promise.all([
         createWarrantyReminders(data, templates),
         upsertCustomer(data),
-        decrementStock(data.item_id, data.qty),
+        decrementStock(data.item_id, data.qty, data.id, user?.id ?? null),
         payload.enquiry_id ? supabase.from("crm_enquiries").update({ status: "converted" }).eq("id", payload.enquiry_id) : Promise.resolve(),
       ]);
       toast.success(payload.enquiry_id ? "Sale created & enquiry marked as converted" : "Sale saved + reminders scheduled");
@@ -278,18 +286,20 @@ export default function CrmSales() {
     if (!confirm(`Delete sale ${s.invoice_no}? Stock will be restored.`)) return;
     const { error } = await supabase.from("crm_sales").update({ is_deleted: true }).eq("id", s.id);
     if (error) return toast.error(error.message);
-    // Restore stock if linked to catalogue
-    if (s.item_id) {
-      const { data } = await supabase.from("crm_catalogue").select("stock_qty, brand, model").eq("id", s.item_id).maybeSingle();
-      if (data) {
-        const newQty = (data.stock_qty || 0) + Number(s.qty || 0);
-        await supabase.from("crm_catalogue").update({ stock_qty: newQty }).eq("id", s.item_id);
-        toast.success(`Sale deleted. Stock restored: ${data.brand} ${data.model} now has ${newQty} units`);
-      } else {
-        toast.success("Sale deleted");
-      }
+    if (s.item_id && Number(s.qty || 0) > 0) {
+      const res = await applyMovement({
+        itemId: s.item_id,
+        movementType: "sale_reversal",
+        qty: Math.abs(Number(s.qty || 0)),
+        referenceId: s.id,
+        referenceType: "crm_sales",
+        reason: `Reversed sale ${s.invoice_no}`,
+        createdBy: user?.id ?? null,
+      });
+      if (res.ok) toast.success(`Sale deleted. Stock restored to ${res.balanceAfter}.`);
+      else toast.success("Sale deleted (stock restore failed: " + (res.error || "unknown") + ")");
     } else {
-      toast.success("Sale deleted (no catalogue link, stock unchanged)");
+      toast.success("Sale deleted");
     }
     load();
   };

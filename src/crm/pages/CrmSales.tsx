@@ -274,7 +274,7 @@ export default function CrmSales() {
         createWarrantyReminders(data, templates),
         upsertCustomer(data),
         decrementStock(data.item_id, data.qty, data.id, user?.id ?? null),
-        payload.enquiry_id ? supabase.from("crm_enquiries").update({ status: "converted" }).eq("id", payload.enquiry_id) : Promise.resolve(),
+        payload.enquiry_id ? supabase.from("crm_enquiries").update({ status: "converted", is_converted: true }).eq("id", payload.enquiry_id) : Promise.resolve(),
       ]);
       toast.success(payload.enquiry_id ? "Sale created & enquiry marked as converted" : "Sale saved + reminders scheduled");
     }
@@ -291,6 +291,18 @@ export default function CrmSales() {
       supabase.from("crm_warranty_reminders").delete().eq("sale_id", s.id),
       supabase.from("crm_whatsapp_log").delete().eq("sale_id", s.id),
     ]);
+    // If this sale was linked to an enquiry and no other active sale references it, reopen the enquiry.
+    if (s.enquiry_id) {
+      const { data: otherSales } = await supabase
+        .from("crm_sales")
+        .select("id")
+        .eq("enquiry_id", s.enquiry_id)
+        .eq("is_deleted", false)
+        .neq("id", s.id);
+      if (!otherSales || otherSales.length === 0) {
+        await supabase.from("crm_enquiries").update({ status: "follow_up", is_converted: false }).eq("id", s.enquiry_id);
+      }
+    }
     if (s.item_id && Number(s.qty || 0) > 0) {
       const res = await applyMovement({
         itemId: s.item_id,

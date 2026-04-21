@@ -84,7 +84,11 @@ export default function CrmQuotations() {
     const [qRes, cRes, eRes] = await Promise.all([
       supabase.from("crm_quotations").select("*").order("created_at", { ascending: false }),
       supabase.from("crm_catalogue").select("id, brand, model, sale_price, stock_qty").eq("is_active", true),
-      supabase.from("crm_enquiries").select("id, customer_name, phone, item_name").eq("is_converted", false),
+      supabase
+        .from("crm_enquiries")
+        .select("id, customer_name, phone, item_name")
+        .eq("is_converted", false)
+        .not("status", "in", "(converted,lost)"),
     ]);
     if (qRes.error) toast.error(qRes.error.message);
     setRows(qRes.data || []);

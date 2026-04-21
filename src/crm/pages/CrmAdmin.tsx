@@ -318,7 +318,129 @@ function DataExport() {
   );
 }
 
-const inp = "w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500";
+// ===================== Danger Zone =====================
+// Tables wiped (in safe FK order). Settings, templates and user roles are preserved.
+const WIPE_TABLES: string[] = [
+  "campaign_recipients",
+  "campaigns",
+  "quotation_send_log",
+  "crm_warranty_reminders",
+  "reminders_queue",
+  "customer_event_logs",
+  "crm_whatsapp_log",
+  "inventory_audits",
+  "inventory_transactions",
+  "crm_stock_audit_log",
+  "crm_quote_shares",
+  "crm_quotations",
+  "crm_sales",
+  "crm_services",
+  "crm_enquiries",
+  "crm_customers",
+  "crm_catalogue",
+];
+
+function DangerZone() {
+  const [confirmText, setConfirmText] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [opened, setOpened] = useState(false);
+
+  const canDelete = confirmText === "DELETE ALL" && password.length > 0 && !busy;
+
+  const handleDelete = async () => {
+    if (!canDelete) return;
+    setBusy(true);
+    try {
+      // 1. Re-verify password against current user
+      const { data: sessData } = await supabase.auth.getSession();
+      const email = sessData.session?.user?.email;
+      if (!email) { toast.error("Not signed in"); setBusy(false); return; }
+      const { error: authErr } = await supabase.auth.signInWithPassword({ email, password });
+      if (authErr) { toast.error("Incorrect password"); setBusy(false); return; }
+
+      // 2. Wipe tables in order
+      const failed: string[] = [];
+      for (const t of WIPE_TABLES) {
+        const { error } = await supabase.from(t as any).delete().neq("id", "00000000-0000-0000-0000-000000000000");
+        if (error) failed.push(`${t}: ${error.message}`);
+      }
+      if (failed.length) {
+        toast.error(`Some tables failed: ${failed[0]}`);
+        console.error("Wipe failures:", failed);
+      } else {
+        toast.success("All operational data deleted");
+      }
+      setConfirmText(""); setPassword(""); setOpened(false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="max-w-2xl space-y-4">
+      <div className="border border-red-500/40 bg-red-500/5 rounded p-4">
+        <h3 className="text-base font-bold text-red-300">⚠ Delete All Data</h3>
+        <p className="text-sm text-slate-300 mt-2">
+          This permanently deletes <strong>all</strong> customers, enquiries, sales, services, quotations,
+          catalogue items, stock movements, audits, reminders and WhatsApp logs.
+        </p>
+        <ul className="text-xs text-slate-400 mt-2 list-disc pl-5 space-y-0.5">
+          <li>Shop info, branding, dropdowns, WhatsApp templates and admin settings are <strong>kept</strong>.</li>
+          <li>User accounts and roles are <strong>kept</strong>.</li>
+          <li>This action <strong>cannot be undone</strong>. Export your data first if needed.</li>
+        </ul>
+
+        {!opened ? (
+          <button
+            onClick={() => setOpened(true)}
+            className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded text-sm font-semibold"
+          >
+            Delete All Data…
+          </button>
+        ) : (
+          <div className="mt-4 space-y-3">
+            <div>
+              <label className="text-xs text-slate-400 block mb-1">Type <code className="text-red-300">DELETE ALL</code> to confirm</label>
+              <input
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+                placeholder="DELETE ALL"
+                className={inp}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 block mb-1">Your account password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                className={inp}
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleDelete}
+                disabled={!canDelete}
+                className="px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded text-sm font-semibold"
+              >
+                {busy ? "Deleting…" : "Permanently Delete Everything"}
+              </button>
+              <button
+                onClick={() => { setOpened(false); setConfirmText(""); setPassword(""); }}
+                disabled={busy}
+                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 const Field = ({ label, children }: any) => <label className="block"><span className="text-xs text-slate-400 mb-1 block">{label}</span>{children}</label>;
 
 // ===================== Branding & Quotation Style =====================

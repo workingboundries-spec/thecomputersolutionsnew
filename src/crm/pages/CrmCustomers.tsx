@@ -354,7 +354,7 @@ export default function CrmCustomers() {
                   <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="flex justify-end gap-1">
                       <button onClick={() => openEdit(r)} className="p-1.5 text-blue-400 hover:bg-blue-600/20 rounded"><Edit2 size={14} /></button>
-                      <button onClick={() => remove(r.id)} className="p-1.5 text-red-400 hover:bg-red-600/20 rounded"><Trash2 size={14} /></button>
+                      <button onClick={() => setConfirmDelete(r)} className="p-1.5 text-red-400 hover:bg-red-600/20 rounded"><Trash2 size={14} /></button>
                     </div>
                   </td>
                 </tr>
@@ -382,6 +382,29 @@ export default function CrmCustomers() {
           onEdit={() => { setDetail(null); openEdit(detail); }}
         />
       )}
+
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title="Delete customer permanently?"
+        tone="danger"
+        confirmLabel="Yes, Delete Permanently"
+        cancelLabel="Cancel"
+        busy={deleting}
+        description={
+          <>
+            Are you sure you want to permanently delete <strong className="text-white">{confirmDelete?.name}</strong>?
+            {"\n\n"}This will also delete all linked:
+            {"\n"} • Reminders
+            {"\n"} • Warranty records
+            {"\n"} • WhatsApp logs
+            {"\n"} • Event logs
+            {"\n"} • Campaign entries
+            {"\n\n"}This cannot be undone.
+          </>
+        }
+        onConfirm={() => confirmDelete && performCascadeDelete(confirmDelete)}
+        onCancel={() => !deleting && setConfirmDelete(null)}
+      />
     </div>
   );
 }

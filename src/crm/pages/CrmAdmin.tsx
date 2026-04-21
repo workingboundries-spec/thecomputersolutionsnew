@@ -441,6 +441,7 @@ function DangerZone() {
     </div>
   );
 }
+const inp = "w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500";
 const Field = ({ label, children }: any) => <label className="block"><span className="text-xs text-slate-400 mb-1 block">{label}</span>{children}</label>;
 
 // ===================== Branding & Quotation Style =====================

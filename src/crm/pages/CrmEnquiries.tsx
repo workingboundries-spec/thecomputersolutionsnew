@@ -29,7 +29,16 @@ export default function CrmEnquiries() {
   const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState<any>(empty);
   const [showConverted, setShowConverted] = useState(false);
+  const [catalogue, setCatalogue] = useState<any[]>([]);
+  const [itemPickerOpen, setItemPickerOpen] = useState(false);
   const navigate = useNavigate();
+
+  const findCatalogueSpecs = (itemName?: string): string => {
+    const n = (itemName || "").trim().toLowerCase();
+    if (!n) return "";
+    const c = catalogue.find((x) => `${x.brand} ${x.model}`.toLowerCase() === n);
+    return (c?.specs || "").trim();
+  };
 
   const load = async () => {
     setLoading(true);
@@ -39,6 +48,12 @@ export default function CrmEnquiries() {
     // Fetch all sales with enquiry_id to know which enquiries are actually linked to a sale
     const { data: salesData } = await supabase.from("crm_sales").select("enquiry_id").not("enquiry_id", "is", null);
     setLinkedSaleIds(new Set((salesData || []).map((s: any) => s.enquiry_id)));
+    // Load active catalogue for item picker + specs lookup
+    const { data: catData } = await supabase
+      .from("crm_catalogue")
+      .select("id, item_code, brand, model, specs")
+      .eq("is_active", true);
+    setCatalogue(catData || []);
     setLoading(false);
   };
 
@@ -57,7 +72,10 @@ export default function CrmEnquiries() {
   });
 
   const sendWA = (r: any) => {
-    const msg = `Hi ${r.customer_name}, regarding your enquiry for ${r.item_name || r.product_category} at The Computer Solutions.${r.notes ? " " + r.notes : ""}`;
+    const specs = findCatalogueSpecs(r.item_name);
+    let msg = `Hi ${r.customer_name}, regarding your enquiry for ${r.item_name || r.product_category} at The Computer Solutions.`;
+    if (specs) msg += `\n\nSpecifications:\n${specs}`;
+    if (r.notes) msg += `\n\n${r.notes}`;
     window.open(waLink(r.whatsapp || r.phone, msg), "_blank");
   };
 
@@ -186,7 +204,13 @@ export default function CrmEnquiries() {
                 <td className="px-3 py-2 text-slate-400 text-xs">{formatDate(r.created_at)}</td>
                 <td className={`px-3 py-2 text-white ${isConv ? "line-through decoration-green-500" : ""}`}>{r.customer_name}{isConv && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-300 no-underline">Converted</span>}</td>
                 <td className="px-3 py-2 text-slate-300">{r.phone}</td>
-                <td className="px-3 py-2 text-slate-300">{r.item_name || "—"}</td>
+                <td className="px-3 py-2 text-slate-300">
+                  {r.item_name || "—"}
+                  {(() => {
+                    const sp = findCatalogueSpecs(r.item_name);
+                    return sp ? <div className="text-[11px] text-slate-500 mt-0.5 whitespace-pre-wrap">{sp}</div> : null;
+                  })()}
+                </td>
                 <td className="px-3 py-2 text-slate-300">{r.budget ? formatINR(r.budget) : "—"}</td>
                 <td className="px-3 py-2">
                   <span className={`px-2 py-0.5 rounded text-xs ${STATUS_BADGE[r.status]}`}>{r.status}</span>
@@ -230,7 +254,55 @@ export default function CrmEnquiries() {
                   <option value="accessory">Accessory</option><option value="other">Other</option>
                 </select>
               </Field>
-              <Field label="Item Name"><input value={form.item_name} onChange={(e) => setForm({ ...form, item_name: e.target.value })} className={fInput} /></Field>
+              <Field label="Item Name">
+                <div className="relative">
+                  <input
+                    value={form.item_name}
+                    onChange={(e) => { setForm({ ...form, item_name: e.target.value }); setItemPickerOpen(true); }}
+                    onFocus={() => setItemPickerOpen(true)}
+                    onBlur={() => setTimeout(() => setItemPickerOpen(false), 200)}
+                    placeholder="Type or pick from catalogue"
+                    className={fInput}
+                  />
+                  {itemPickerOpen && (() => {
+                    const q = (form.item_name || "").trim().toLowerCase();
+                    const list = catalogue
+                      .filter((c) => {
+                        if (!q) return true;
+                        return `${c.brand} ${c.model}`.toLowerCase().includes(q)
+                          || (c.item_code || "").toLowerCase().includes(q);
+                      })
+                      .slice(0, 8);
+                    if (list.length === 0) return null;
+                    return (
+                      <div className="absolute z-10 left-0 right-0 mt-1 bg-slate-800 border border-slate-700 rounded shadow-lg max-h-64 overflow-y-auto">
+                        {list.map((c) => (
+                          <button
+                            type="button"
+                            key={c.id}
+                            onMouseDown={(ev) => { ev.preventDefault(); setForm({ ...form, item_name: `${c.brand} ${c.model}` }); setItemPickerOpen(false); }}
+                            className="w-full text-left px-3 py-2 hover:bg-slate-700 text-sm text-white"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-[10px] text-blue-300 px-1.5 py-0.5 bg-slate-900 rounded">{c.item_code}</span>
+                              <span>{c.brand} {c.model}</span>
+                            </div>
+                            {c.specs && <div className="text-[11px] text-slate-400 mt-0.5 whitespace-pre-wrap">{c.specs}</div>}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+                {(() => {
+                  const sp = findCatalogueSpecs(form.item_name);
+                  return sp ? (
+                    <div className="mt-1 text-[11px] text-slate-400 whitespace-pre-wrap">
+                      <span className="text-slate-500">Specs: </span>{sp}
+                    </div>
+                  ) : null;
+                })()}
+              </Field>
               <Field label="Budget (₹)"><input type="number" value={form.budget} onChange={(e) => setForm({ ...form, budget: e.target.value })} className={fInput} /></Field>
               <Field label="Status">
                 <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className={fInput}>

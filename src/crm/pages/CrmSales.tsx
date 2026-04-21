@@ -162,13 +162,31 @@ export default function CrmSales() {
   const [viewing, setViewing] = useState<any>(null);
   const [catalogue, setCatalogue] = useState<any[]>([]);
   const [shopInfo, setShopInfo] = useState<Record<string, string>>({});
+  const [codeInput, setCodeInput] = useState("");
+  const [codeError, setCodeError] = useState("");
   const paymentModes = useAdminSetting<string[]>("sale_payment_modes", ["Cash", "UPI", "Card", "EMI", "Credit", "NEFT"]);
+
+  const lookupItemCode = (raw: string) => {
+    const code = raw.trim();
+    if (!code) { setCodeError(""); return; }
+    const c = catalogue.find((x) => (x.item_code || "").toLowerCase() === code.toLowerCase());
+    if (!c) { setCodeError(`No item matches code ${code}`); return; }
+    setCodeError("");
+    setForm((f: any) => ({
+      ...f,
+      item_id: c.id,
+      item_name: `${c.brand} ${c.model}`,
+      sale_price: Number(c.sale_price || 0),
+      total_amount: Math.max(0, Number(f.qty || 1) * Number(c.sale_price || 0) - Number(f.discount || 0)),
+    }));
+    toast.success(`Loaded ${c.brand} ${c.model}`);
+  };
 
   const load = async () => {
     setLoading(true);
     const [salesRes, catRes, settRes] = await Promise.all([
       supabase.from("crm_sales").select("*").eq("is_deleted", false).order("created_at", { ascending: false }),
-      supabase.from("crm_catalogue").select("id, brand, model, sale_price, stock_qty"),
+      supabase.from("crm_catalogue").select("id, item_code, brand, model, sale_price, stock_qty"),
       supabase.from("crm_settings").select("key, value"),
     ]);
     if (salesRes.error) toast.error(salesRes.error.message);
@@ -227,6 +245,8 @@ export default function CrmSales() {
 
   const openNew = async (prefill?: any) => {
     setEditing(null);
+    setCodeInput("");
+    setCodeError("");
     const inv = await nextInvoiceNo();
     const base = { ...empty, ...(prefill || {}), invoice_no: inv };
     base.warranty_expiry = addMonths(base.sale_date, base.warranty_months);
@@ -234,7 +254,14 @@ export default function CrmSales() {
     setShowForm(true);
   };
 
-  const openEdit = (r: any) => { setEditing(r); setForm({ ...empty, ...r }); setShowForm(true); };
+  const openEdit = (r: any) => {
+    setEditing(r);
+    setForm({ ...empty, ...r });
+    const c = catalogue.find((x) => x.id === r.item_id);
+    setCodeInput(c?.item_code || "");
+    setCodeError("");
+    setShowForm(true);
+  };
 
   const recalc = (f: any) => {
     const t = Math.max(0, Number(f.qty || 0) * Number(f.sale_price || 0) - Number(f.discount || 0));
@@ -431,14 +458,25 @@ export default function CrmSales() {
               <Field label="WhatsApp"><input value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} className={fInput} /></Field>
               <Field label="Address"><input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className={fInput} /></Field>
               <Field label="Customer DOB (for birthday)"><input type="date" value={form.customer_dob || ""} onChange={(e) => setForm({ ...form, customer_dob: e.target.value })} className={fInput} /></Field>
+              <Field label="Item Code (quick entry)">
+                <input
+                  value={codeInput}
+                  onChange={(e) => { setCodeInput(e.target.value); setCodeError(""); }}
+                  onBlur={(e) => lookupItemCode(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); lookupItemCode((e.target as HTMLInputElement).value); } }}
+                  placeholder="e.g. ITM-0001"
+                  className={fInput}
+                />
+                {codeError && <span className="text-[11px] text-red-400 mt-1 block">{codeError}</span>}
+              </Field>
               <Field label="Pick from Catalogue (optional)">
                 <select value={form.item_id || ""} onChange={(e) => {
                   const c = catalogue.find((x) => x.id === e.target.value);
-                  if (c) setForm(recalc({ ...form, item_id: c.id, item_name: `${c.brand} ${c.model}`, sale_price: c.sale_price }));
+                  if (c) { setForm(recalc({ ...form, item_id: c.id, item_name: `${c.brand} ${c.model}`, sale_price: c.sale_price })); setCodeInput(c.item_code || ""); setCodeError(""); }
                   else setForm({ ...form, item_id: null });
                 }} className={fInput}>
                   <option value="">— Manual entry —</option>
-                  {catalogue.map((c) => <option key={c.id} value={c.id}>{c.brand} {c.model} (stock {c.stock_qty})</option>)}
+                  {catalogue.map((c) => <option key={c.id} value={c.id}>{c.item_code ? `[${c.item_code}] ` : ""}{c.brand} {c.model} (stock {c.stock_qty})</option>)}
                 </select>
               </Field>
               <Field label="Item Name *"><input required value={form.item_name} onChange={(e) => setForm({ ...form, item_name: e.target.value })} className={fInput} /></Field>

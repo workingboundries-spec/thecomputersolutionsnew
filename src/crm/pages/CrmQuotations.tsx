@@ -19,7 +19,7 @@ const STATUS_BADGE: Record<string, string> = {
   rejected: "bg-red-500/15 text-red-300",
 };
 
-type QItem = { name: string; qty: number; price: number; discount_pct: number };
+type QItem = { name: string; qty: number; price: number; discount_pct: number; code?: string; codeError?: string };
 
 const emptyForm = () => ({
   id: null as string | null,
@@ -83,7 +83,7 @@ export default function CrmQuotations() {
     setLoading(true);
     const [qRes, cRes, eRes] = await Promise.all([
       supabase.from("crm_quotations").select("*").order("created_at", { ascending: false }),
-      supabase.from("crm_catalogue").select("id, brand, model, sale_price, stock_qty").eq("is_active", true),
+      supabase.from("crm_catalogue").select("id, item_code, brand, model, sale_price, stock_qty").eq("is_active", true),
       supabase
         .from("crm_enquiries")
         .select("id, customer_name, phone, item_name")
@@ -140,11 +140,33 @@ export default function CrmQuotations() {
     setForm({ ...form, items });
   };
   const removeItem = (idx: number) => setForm({ ...form, items: form.items.filter((_, i) => i !== idx) });
-  const addItem = () => setForm({ ...form, items: [...form.items, { name: "", qty: 1, price: 0, discount_pct: 0 }] });
+  const addItem = () => setForm({ ...form, items: [...form.items, { name: "", qty: 1, price: 0, discount_pct: 0, code: "" }] });
   const addFromCatalogue = (it: any) => {
-    setForm({ ...form, items: [...form.items, { name: `${it.brand} ${it.model}`, qty: 1, price: Number(it.sale_price || 0), discount_pct: 0 }] });
+    setForm({ ...form, items: [...form.items, { name: `${it.brand} ${it.model}`, qty: 1, price: Number(it.sale_price || 0), discount_pct: 0, code: it.item_code || "" }] });
     setShowPicker(false);
   };
+
+  const lookupLineCode = (idx: number, raw: string) => {
+    const code = raw.trim();
+    if (!code) { updateItem(idx, { code: "", codeError: "" }); return; }
+    const c = catalogue.find((x) => (x.item_code || "").toLowerCase() === code.toLowerCase());
+    if (!c) { updateItem(idx, { code: raw, codeError: `No item matches code ${code}` }); return; }
+    updateItem(idx, {
+      code: c.item_code,
+      codeError: "",
+      name: `${c.brand} ${c.model}`,
+      price: Number(c.sale_price || 0),
+    });
+  };
+
+  const [pickerSearch, setPickerSearch] = useState("");
+  const filteredPicker = catalogue.filter((c) => {
+    const s = pickerSearch.trim().toLowerCase();
+    if (!s) return true;
+    return (c.item_code || "").toLowerCase().includes(s)
+      || c.brand.toLowerCase().includes(s)
+      || c.model.toLowerCase().includes(s);
+  });
 
   const totals = useMemo(() => calcTotals(form.items, form.gst_percent, form.extra_discount), [form.items, form.gst_percent, form.extra_discount]);
 
@@ -331,6 +353,7 @@ export default function CrmQuotations() {
                 <table className="w-full text-sm">
                   <thead className="bg-slate-800/50 text-xs uppercase text-slate-400">
                     <tr>
+                      <th className="text-left px-2 py-1.5 w-28">Code</th>
                       <th className="text-left px-2 py-1.5">Item</th>
                       <th className="text-right px-2 py-1.5 w-16">Qty</th>
                       <th className="text-right px-2 py-1.5 w-28">Price</th>
@@ -341,12 +364,23 @@ export default function CrmQuotations() {
                   </thead>
                   <tbody>
                     {form.items.length === 0 ? (
-                      <tr><td colSpan={6} className="text-center py-4 text-slate-500 text-xs">No items yet</td></tr>
+                      <tr><td colSpan={7} className="text-center py-4 text-slate-500 text-xs">No items yet</td></tr>
                     ) : form.items.map((it, idx) => {
                       const rowTotal = Number(it.qty || 0) * Number(it.price || 0) * (1 - Number(it.discount_pct || 0) / 100);
                       const inCat = isInCatalogue(it.name);
                       return (
-                        <tr key={idx} className="border-t border-slate-800">
+                        <tr key={idx} className="border-t border-slate-800 align-top">
+                          <td className="px-2 py-1">
+                            <input
+                              value={it.code || ""}
+                              onChange={(e) => updateItem(idx, { code: e.target.value, codeError: "" })}
+                              onBlur={(e) => lookupLineCode(idx, e.target.value)}
+                              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); lookupLineCode(idx, (e.target as HTMLInputElement).value); } }}
+                              placeholder="ITM-0001"
+                              className={inp + " font-mono text-xs"}
+                            />
+                            {it.codeError && <div className="text-[10px] text-red-400 mt-0.5">{it.codeError}</div>}
+                          </td>
                           <td className="px-2 py-1">
                             <input value={it.name} onChange={(e) => updateItem(idx, { name: e.target.value })} className={inp} />
                             {!inCat && (
@@ -421,11 +455,26 @@ export default function CrmQuotations() {
               <div className="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center p-4" onClick={() => setShowPicker(false)}>
                 <div className="bg-slate-900 border border-slate-700 rounded-lg w-full max-w-xl max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
                   <div className="px-4 py-3 border-b border-slate-800 flex justify-between"><span className="font-semibold text-white">Pick from Catalogue</span><button onClick={() => setShowPicker(false)}><X size={18} className="text-slate-400" /></button></div>
+                  <div className="p-3 border-b border-slate-800">
+                    <input
+                      autoFocus
+                      value={pickerSearch}
+                      onChange={(e) => setPickerSearch(e.target.value)}
+                      placeholder="Search code, brand or model..."
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-white"
+                    />
+                  </div>
                   <div className="divide-y divide-slate-800">
-                    {catalogue.length === 0 ? <div className="p-6 text-center text-slate-500 text-sm">No active catalogue items</div> :
-                      catalogue.map((it) => (
+                    {filteredPicker.length === 0 ? <div className="p-6 text-center text-slate-500 text-sm">No matching items</div> :
+                      filteredPicker.map((it) => (
                         <button key={it.id} onClick={() => addFromCatalogue(it)} className="w-full text-left px-4 py-3 hover:bg-slate-800 flex items-center justify-between">
-                          <div><div className="text-white text-sm">{it.brand} {it.model}</div><div className="text-xs text-slate-500">Stock: {it.stock_qty}</div></div>
+                          <div>
+                            <div className="text-white text-sm flex items-center gap-2">
+                              <span className="font-mono text-[10px] text-blue-300 px-1.5 py-0.5 bg-slate-800 rounded">{it.item_code}</span>
+                              {it.brand} {it.model}
+                            </div>
+                            <div className="text-xs text-slate-500">Stock: {it.stock_qty}</div>
+                          </div>
                           <div className="text-green-400 font-medium">{formatINR(it.sale_price)}</div>
                         </button>
                       ))

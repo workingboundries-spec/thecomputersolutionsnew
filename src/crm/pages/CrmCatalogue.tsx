@@ -7,6 +7,7 @@ import { useAdminSetting } from "@/crm/hooks/useAdminSettings";
 
 type Item = {
   id: string;
+  item_code: string;
   brand: string;
   model: string;
   category: string;
@@ -85,9 +86,16 @@ export default function CrmCatalogue() {
     toast.success("Deleted"); load();
   };
 
+  const copyCode = (code: string) => {
+    navigator.clipboard?.writeText(code).then(() => toast.success(`Copied ${code}`)).catch(() => {});
+  };
+
   const filtered = items.filter((i) => {
     const s = search.toLowerCase();
-    const matchSearch = !s || i.brand.toLowerCase().includes(s) || i.model.toLowerCase().includes(s);
+    const matchSearch = !s
+      || i.brand.toLowerCase().includes(s)
+      || i.model.toLowerCase().includes(s)
+      || (i.item_code || "").toLowerCase().includes(s);
     const matchCat = !filterCat || i.category === filterCat;
     return matchSearch && matchCat;
   });
@@ -111,7 +119,7 @@ export default function CrmCatalogue() {
       <div className="flex flex-wrap gap-2">
         <div className="relative flex-1 min-w-[200px]">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search brand or model..." className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-800 rounded text-sm text-white" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search brand, model or code (ITM-0001)..." className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-800 rounded text-sm text-white" />
         </div>
         <select value={filterCat} onChange={(e) => setFilterCat(e.target.value)} className="px-3 py-2 bg-slate-900 border border-slate-800 rounded text-sm text-white">
           <option value="">All categories</option>
@@ -131,6 +139,7 @@ export default function CrmCatalogue() {
           <table className="w-full text-sm">
             <thead className="bg-slate-800/50 text-xs uppercase text-slate-400">
               <tr>
+                <th className="text-left p-3">Code</th>
                 <th className="text-left p-3">Brand / Model</th>
                 <th className="text-left p-3">Category</th>
                 <th className="text-right p-3">Stock</th>
@@ -143,6 +152,17 @@ export default function CrmCatalogue() {
             <tbody className="divide-y divide-slate-800">
               {filtered.map((i) => (
                 <tr key={i.id} className="hover:bg-slate-800/30">
+                  <td className="p-3">
+                    <button
+                      type="button"
+                      onClick={() => copyCode(i.item_code)}
+                      title="Click to copy code"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded font-mono text-xs text-blue-300"
+                    >
+                      {i.item_code}
+                      <Copy size={11} className="opacity-60" />
+                    </button>
+                  </td>
                   <td className="p-3">
                     <div className="font-medium text-white">{i.brand}</div>
                     <div className="text-xs text-slate-400">{i.model}</div>
@@ -169,7 +189,15 @@ export default function CrmCatalogue() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filtered.map((i) => (
-            <div key={i.id} className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
+            <div key={i.id} className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden relative">
+              <button
+                type="button"
+                onClick={() => copyCode(i.item_code)}
+                title="Click to copy code"
+                className="absolute top-2 right-2 z-10 inline-flex items-center gap-1 px-2 py-0.5 bg-slate-900/90 hover:bg-slate-800 border border-slate-700 rounded font-mono text-[10px] text-blue-300"
+              >
+                {i.item_code}<Copy size={10} className="opacity-60" />
+              </button>
               <div className="aspect-video bg-slate-800 flex items-center justify-center">
                 {i.image_url ? <img src={i.image_url} alt={i.model} className="w-full h-full object-cover" /> : <span className="text-slate-600 text-xs">No image</span>}
               </div>
@@ -201,6 +229,9 @@ export default function CrmCatalogue() {
             <div className="flex items-center justify-between p-4 border-b border-slate-800">
               <h2 className="text-lg font-bold text-white">{editing.id ? "Edit Item" : "Add Item"}</h2>
               <button onClick={() => { setShowForm(false); setEditing(null); }} className="text-slate-400 hover:text-white"><X size={20} /></button>
+            </div>
+            <div className="px-4 pt-3 text-xs text-slate-400">
+              Item Code: <span className="font-mono text-blue-300">{(editing as Item).item_code || "Will be auto-assigned on save"}</span>
             </div>
             <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Brand *"><input value={editing.brand || ""} onChange={(e) => setEditing({ ...editing, brand: e.target.value })} className={inputCls} /></Field>

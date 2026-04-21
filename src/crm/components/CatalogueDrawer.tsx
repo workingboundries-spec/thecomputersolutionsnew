@@ -123,6 +123,10 @@ export default function CatalogueDrawer({ open, prefillName, onClose, onCreated 
           </button>
         </div>
 
+        <div className="px-4 pt-3 text-xs text-slate-400">
+          Item Code: <span className="font-mono text-blue-300">Will be auto-assigned on save</span>
+        </div>
+
         <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Brand *">
             <input value={editing.brand} onChange={(e) => setEditing({ ...editing, brand: e.target.value })} className={inputCls} />

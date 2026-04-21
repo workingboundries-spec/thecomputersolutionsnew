@@ -5,6 +5,8 @@ import { formatINR, formatDate, todayISO, addMonths, addDays } from "@/crm/lib/f
 import { toast } from "sonner";
 import { Plus, Search, Eye, Edit2, MessageCircle, Printer, X, Trash2 } from "lucide-react";
 import { useAdminSetting } from "@/crm/hooks/useAdminSettings";
+import { applyMovement } from "@/crm/lib/inventory";
+import { useCrmAuth } from "@/crm/hooks/useCrmAuth";
 
 const PAY_BADGE: Record<string, string> = {
   paid: "bg-green-500/15 text-green-300",
@@ -133,15 +135,21 @@ async function upsertCustomer(sale: any) {
   }
 }
 
-async function decrementStock(item_id: string | null, qty: number) {
-  if (!item_id) return;
-  const { data } = await supabase.from("crm_catalogue").select("stock_qty").eq("id", item_id).maybeSingle();
-  if (data) {
-    await supabase.from("crm_catalogue").update({ stock_qty: Math.max(0, (data.stock_qty || 0) - qty) }).eq("id", item_id);
-  }
+async function decrementStock(item_id: string | null, qty: number, saleId: string, userId: string | null) {
+  if (!item_id || !qty) return;
+  await applyMovement({
+    itemId: item_id,
+    movementType: "sale",
+    qty: -Math.abs(qty),
+    referenceId: saleId,
+    referenceType: "crm_sales",
+    notes: `Sale ${saleId.slice(0, 8)}`,
+    createdBy: userId,
+  });
 }
 
 export default function CrmSales() {
+  const { user } = useCrmAuth();
   const [params, setParams] = useSearchParams();
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

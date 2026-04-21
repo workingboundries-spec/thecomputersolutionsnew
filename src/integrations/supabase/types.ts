@@ -263,6 +263,7 @@ export type Database = {
           brand: string
           category: string
           created_at: string
+          current_stock: number
           id: string
           image_url: string | null
           is_active: boolean
@@ -270,6 +271,8 @@ export type Database = {
           mrp: number
           nlc_price: number
           online_price: number
+          opening_stock: number
+          reorder_level: number
           sale_price: number
           specs: string | null
           stock_qty: number
@@ -280,6 +283,7 @@ export type Database = {
           brand: string
           category?: string
           created_at?: string
+          current_stock?: number
           id?: string
           image_url?: string | null
           is_active?: boolean
@@ -287,6 +291,8 @@ export type Database = {
           mrp?: number
           nlc_price?: number
           online_price?: number
+          opening_stock?: number
+          reorder_level?: number
           sale_price?: number
           specs?: string | null
           stock_qty?: number
@@ -297,6 +303,7 @@ export type Database = {
           brand?: string
           category?: string
           created_at?: string
+          current_stock?: number
           id?: string
           image_url?: string | null
           is_active?: boolean
@@ -304,6 +311,8 @@ export type Database = {
           mrp?: number
           nlc_price?: number
           online_price?: number
+          opening_stock?: number
+          reorder_level?: number
           sale_price?: number
           specs?: string | null
           stock_qty?: number
@@ -1081,6 +1090,130 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      inventory_audits: {
+        Row: {
+          action_taken: string | null
+          audit_date: string
+          audit_month: number
+          audit_year: number
+          audited_by: string | null
+          closing_system_stock: number
+          created_at: string
+          damaged_qty: number
+          id: string
+          item_id: string
+          notes: string | null
+          opening_stock: number
+          physical_count: number
+          received_qty: number
+          sold_qty: number
+          variance: number
+        }
+        Insert: {
+          action_taken?: string | null
+          audit_date?: string
+          audit_month: number
+          audit_year: number
+          audited_by?: string | null
+          closing_system_stock?: number
+          created_at?: string
+          damaged_qty?: number
+          id?: string
+          item_id: string
+          notes?: string | null
+          opening_stock?: number
+          physical_count?: number
+          received_qty?: number
+          sold_qty?: number
+          variance?: number
+        }
+        Update: {
+          action_taken?: string | null
+          audit_date?: string
+          audit_month?: number
+          audit_year?: number
+          audited_by?: string | null
+          closing_system_stock?: number
+          created_at?: string
+          damaged_qty?: number
+          id?: string
+          item_id?: string
+          notes?: string | null
+          opening_stock?: number
+          physical_count?: number
+          received_qty?: number
+          sold_qty?: number
+          variance?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_audits_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "crm_catalogue"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_transactions: {
+        Row: {
+          balance_after: number | null
+          created_at: string
+          created_by: string | null
+          id: string
+          item_id: string
+          movement_type: string
+          notes: string | null
+          purchase_price: number | null
+          qty: number
+          reason: string | null
+          reference_id: string | null
+          reference_type: string | null
+          supplier_name: string | null
+          transaction_date: string
+        }
+        Insert: {
+          balance_after?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          item_id: string
+          movement_type: string
+          notes?: string | null
+          purchase_price?: number | null
+          qty: number
+          reason?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          supplier_name?: string | null
+          transaction_date?: string
+        }
+        Update: {
+          balance_after?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          item_id?: string
+          movement_type?: string
+          notes?: string | null
+          purchase_price?: number | null
+          qty?: number
+          reason?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          supplier_name?: string | null
+          transaction_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_transactions_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "crm_catalogue"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       products: {
         Row: {

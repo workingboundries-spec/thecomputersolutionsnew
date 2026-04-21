@@ -1,68 +1,44 @@
 
 
-## Show catalogue Specifications inside Enquiry messages and Quotation items
+## Fix: placeholders added in Admin templates render as empty in actual WhatsApp messages
 
-### Goal
-Whenever an item is added from the catalogue (or matched by item code), pull the **Specifications** text from `crm_catalogue.specs` along with it, store it on the line, and show it:
-- In the **Enquiry WhatsApp message** sent to the customer.
-- Under the item in the **Quotation** (form table, PDF/JPEG preview, and WhatsApp message).
+### Root cause
+The Admin → WhatsApp Templates preview uses a `sample` object containing every supported placeholder (`{price}`, `{phone}`, `{link}`, `{cost_line}`, `{purchase_date}`, `{expiry}`, etc.), so the preview always shows a value. But the runtime call sites (`sendWA` in Enquiries, Services, Sales, Catalogue, Dashboard) each pass only the small subset of variables they previously used.
 
-No DB schema changes needed — `crm_catalogue.specs` already exists and `crm_quotations.items` is JSONB so we can add a `specs` field to each line item without a migration.
+`fillTemplate` replaces unknown placeholders with empty string (`String(undefined ?? "")`), so any newly-added block like `{price}` silently disappears in the actual WhatsApp message — even though the Admin preview shows it filled.
 
----
+### Fix
+Make every call site pass the **full set** of placeholders the Admin preview advertises, populating each from the row's real data (with safe empty-string fallbacks). The user can then add any placeholder in the template and it will work everywhere.
 
-### 1. Quotations — carry `specs` per line item
+### 1. Centralise the placeholder contract — `src/crm/lib/whatsapp.ts`
+- Add a helper `buildEnquiryVars(r, opts)` that returns the canonical map for enquiry-type messages: `name, phone, item, price, budget, category, address, specs_block, notes_block, shop_name, shop_phone, shop_email, link`.
+- Add similar small builders for the other domains (`buildServiceVars`, `buildSalesVars`, `buildCatalogueQuoteVars`, `buildReminderVars`) — each returns every placeholder its template type can use, with sensible empty defaults so a missing field renders as `""` (not `undefined`) and an unused placeholder simply collapses.
+- Each builder also formats currency via `formatINR` so `{price}` and `{amount}` show `₹52,000` exactly like the Admin preview.
 
-**`src/crm/pages/CrmQuotations.tsx`**
-- Extend `QItem` type with `specs?: string`.
-- Catalogue load query: include `specs`:
-  `select("id, item_code, brand, model, sale_price, stock_qty, specs")`
-- `addFromCatalogue(it)` → store `specs: it.specs || ""` on the new line.
-- `lookupLineCode(idx, code)` → also write `specs: c.specs || ""` to the line.
-- Items table in the form: render the spec text as a small grey sub-line under the Item input (read-only, auto-filled, but editable via a tiny "edit" textarea/expand if user wants to override — keep simple: show as muted text and allow inline edit).
-- On save: include `specs` in each item object written to `crm_quotations.items`.
-- When loading an existing quote into the form for editing, preserve `specs` from the stored JSON.
+### 2. Update every WhatsApp call site to use the builder
+- **`src/crm/pages/CrmEnquiries.tsx`** → `sendWA(r)` builds vars via `buildEnquiryVars(r, { shop, specs })` instead of the current 5-key inline object. Now `{price}`, `{phone}`, `{address}`, etc. all populate.
+- **`src/crm/pages/CrmServices.tsx`** → service status messages get the full `buildServiceVars` set (`{job_no}`, `{device}`, `{status}`, `{cost_line}`, `{name}`, `{phone}`, `{shop_name}`).
+- **`src/crm/pages/CrmSales.tsx`** → both the receipt and "share sales form" sends use `buildSalesVars` (`{name}`, `{item}`, `{amount}`, `{invoice_no}`, `{link}`, `{shop_name}`).
+- **`src/crm/pages/CrmCatalogue.tsx`** → direct quote share uses `buildCatalogueQuoteVars` (`{name}`, `{item}`, `{price}`, `{specs_block}`, `{link}`, `{shop_name}`, `{shop_phone}`).
+- **`src/crm/pages/CrmDashboard.tsx`** → reminder send uses `buildReminderVars` (`{name}`, `{item}`, `{purchase_date}`, `{expiry}`, `{shop_name}`, `{shop_phone}`).
 
-**`src/crm/components/QuotationPreview.tsx`**
-- The items table column "Item Description" should render:
-  - Bold line: `it.name`
-  - Below it (smaller, grey): `it.specs` (only if present), with line breaks preserved (`whiteSpace: "pre-wrap"`).
-- Apply the same to the small WhatsApp-card preview block at the bottom of the file.
+### 3. Pull shop info once
+- Each call site already loads admin settings via `useAdminSettings` or a direct query — pass `shop_name`, `shop_phone`, `shop_email` into the builder so they're guaranteed to fill (currently some places hardcode `"The Computer Solutions"`, others omit it).
 
-**`src/crm/lib/quotationMessage.ts`**
-- `buildItemsTable(items)`: when an item has `specs`, append indented spec lines under the existing `Qty / Unit / Total` line, e.g.:
-  ```
-  1. Lenovo ThinkPad E14
-     Specs: i5-1235U / 16GB / 512GB SSD / 14" FHD
-     Qty: 1   Unit: ₹62,000   Total: ₹62,000
-  ```
-- Update the `items` array type signature to include optional `specs?: string`.
+### 4. Align the Admin preview sample with reality
+- In `CrmAdmin.tsx`, keep the `sample` object but add a small note under the placeholder hint: "Placeholders not relevant to a template type render as empty." This avoids confusion when, say, `{job_no}` is shown filled in preview but the enquiry flow has no job number.
 
-### 2. Enquiries — link to catalogue and pass specs into WhatsApp message
+### Result
+- Adding `{price}` (or any other supported placeholder) to **any** template in Admin → WhatsApp Templates and saving will now appear correctly in the WhatsApp message that actually goes out.
+- Cache is already cleared on save (existing `clearTemplateCache()`), so edits take effect immediately.
+- No DB schema changes; no migration needed.
 
-**`src/crm/pages/CrmEnquiries.tsx`**
-- Load active catalogue once (`brand, model, item_code, specs`) on mount.
-- In the enquiry form, replace the plain "Item Name" input with a **searchable picker / typeable field**:
-  - User can type freely (preserves existing data) **or** pick from catalogue.
-  - When picked, store both `item_name` (= `brand + model`) and (locally on the form) the matched `specs` so the user sees them.
-- We do **not** add a new column — instead, on `sendWA`, look up the catalogue row whose `brand + model` matches `r.item_name` and inject its `specs` into the message:
-  ```
-  Hi {name}, regarding your enquiry for {item_name}.
-  Specifications:
-  {specs}
-  — The Computer Solutions
-  ```
-  If no match / no specs, fall back to the current message (no Specifications line).
-- Show the matched specs as a small grey line under the "Item Name" field in the form (preview), and under the Item column in the enquiries table (so the owner sees what will be sent).
-
-### 3. Files touched
-- `src/crm/pages/CrmQuotations.tsx` — type, catalogue select, add/lookup helpers, form row UI, save payload.
-- `src/crm/components/QuotationPreview.tsx` — item description rendering (full preview + WA card).
-- `src/crm/lib/quotationMessage.ts` — `buildItemsTable` adds Specs line.
-- `src/crm/pages/CrmEnquiries.tsx` — load catalogue, picker on item name, specs preview, enriched WhatsApp message.
-
-### 4. Result
-- Adding `ITM-0007` (or picking it) into a quotation auto-fills the spec text under the item — visible in the form, preview, JPEG/PDF, and outgoing WhatsApp message.
-- Sending an enquiry follow-up via WhatsApp now includes the catalogue specs of the enquired item, so the customer immediately sees what configuration is being discussed.
-- Items not in catalogue (free-text) continue to work exactly as before — specs simply omitted.
+### Files touched
+- `src/crm/lib/whatsapp.ts` — add builder helpers.
+- `src/crm/pages/CrmEnquiries.tsx`
+- `src/crm/pages/CrmServices.tsx`
+- `src/crm/pages/CrmSales.tsx`
+- `src/crm/pages/CrmCatalogue.tsx`
+- `src/crm/pages/CrmDashboard.tsx`
+- `src/crm/pages/CrmAdmin.tsx` — small note under placeholders.
 

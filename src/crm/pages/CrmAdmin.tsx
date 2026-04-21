@@ -281,11 +281,12 @@ function Templates({ get, onSave }: any) {
         </div>
 
         <div className="flex items-center justify-between gap-3">
-          <div className="text-xs text-slate-500">Common placeholders: {"{name} {phone} {item} {device} {job_no} {status} {amount} {price} {invoice_no} {valid_until} {link} {shop_name} {shop_phone}"}</div>
+          <div className="text-xs text-slate-500">Common placeholders: {"{name} {phone} {item} {device} {job_no} {status} {amount} {price} {invoice_no} {valid_until} {link} {shop_name} {shop_phone} {address} {specs_block} {notes_block} {cost_line} {purchase_date} {expiry}"}</div>
           <button onClick={addDbTemplate} className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded text-xs flex items-center gap-1">
             <Plus size={12} />Add Template
           </button>
         </div>
+        <p className="text-[11px] text-slate-500 -mt-2">Note: placeholders not relevant to a particular flow (e.g. {"{job_no}"} on an enquiry message) will simply render as empty.</p>
 
         {loadingDbTemplates ? (
           <div className="text-sm text-slate-400">Loading templates…</div>

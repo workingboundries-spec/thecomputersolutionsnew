@@ -137,16 +137,19 @@ export default function CrmDashboard() {
   const sendReminderWA = async (r: any) => {
     let msg = r.whatsapp_message;
     if (!msg) {
-      const { getTemplate, fillTemplate } = await import("@/crm/lib/whatsapp");
+      const { getTemplate, fillTemplate, buildReminderVars } = await import("@/crm/lib/whatsapp");
+      const { getAdminSetting } = await import("@/crm/hooks/useAdminSettings");
+      const [shop_name, shop_phone, shop_email, shop_address] = await Promise.all([
+        getAdminSetting("shop_name"), getAdminSetting("shop_phone"),
+        getAdminSetting("shop_email"), getAdminSetting("shop_address"),
+      ]);
       const tpl = await getTemplate(
         "dashboard_reminder",
         "Hi {name}, this is a friendly reminder regarding your {item}.\n— {shop_name}"
       );
-      msg = fillTemplate(tpl, {
-        name: r.customer_name,
-        item: r.item_name || "purchase",
-        shop_name: "The Computer Solutions",
-      });
+      msg = fillTemplate(tpl, buildReminderVars(r, {
+        shop: { shop_name, shop_phone, shop_email, shop_address },
+      }));
     }
     window.open(waLink(r.whatsapp || r.phone, msg), "_blank");
   };

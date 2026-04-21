@@ -130,22 +130,21 @@ export default function CrmServices() {
   };
 
   const sendWA = async (r: any) => {
-    const { getTemplate, fillTemplate } = await import("@/crm/lib/whatsapp");
+    const { getTemplate, fillTemplate, buildServiceVars } = await import("@/crm/lib/whatsapp");
+    const { getAdminSetting } = await import("@/crm/hooks/useAdminSettings");
+    const [shop_name, shop_phone, shop_email, shop_address] = await Promise.all([
+      getAdminSetting("shop_name"), getAdminSetting("shop_phone"),
+      getAdminSetting("shop_email"), getAdminSetting("shop_address"),
+    ]);
     const tpl = await getTemplate(
       "service_status_update",
       "Hi {name}, update on your {device} (Job {job_no}): Status is now *{status}*.{cost_line}\n— {shop_name}"
     );
-    const costLine = r.final_cost
-      ? ` Final cost: ${formatINR(r.final_cost)}.`
-      : r.estimated_cost ? ` Estimate: ${formatINR(r.estimated_cost)}.` : "";
-    const msg = fillTemplate(tpl, {
-      name: r.customer_name,
-      device: r.device_type,
-      job_no: r.job_card_no,
-      status: STATUS_META[r.status as Status]?.label || r.status,
-      cost_line: costLine,
-      shop_name: "The Computer Solutions",
-    });
+    const statusLabel = STATUS_META[r.status as Status]?.label || r.status;
+    const msg = fillTemplate(tpl, buildServiceVars(r, {
+      shop: { shop_name, shop_phone, shop_email, shop_address },
+      statusLabel,
+    }));
     window.open(waLink(r.whatsapp || r.phone, msg), "_blank");
   };
 

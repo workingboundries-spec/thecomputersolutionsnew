@@ -16,13 +16,18 @@ const PAY_BADGE: Record<string, string> = {
 };
 
 async function shareSalesForm() {
-  const { getTemplate, fillTemplate } = await import("@/crm/lib/whatsapp");
+  const { getTemplate, fillTemplate, buildSalesVars } = await import("@/crm/lib/whatsapp");
+  const { getAdminSetting } = await import("@/crm/hooks/useAdminSettings");
+  const [shop_name, shop_phone, shop_email, shop_address] = await Promise.all([
+    getAdminSetting("shop_name"), getAdminSetting("shop_phone"),
+    getAdminSetting("shop_email"), getAdminSetting("shop_address"),
+  ]);
   const link = `${window.location.origin}/sales-form`;
   const tpl = await getTemplate(
     "sales_form_request",
     "Hello! Please fill in your purchase details using the link below — it only takes a minute:\n\n{link}\n\nThank you!"
   );
-  const msg = fillTemplate(tpl, { link, shop_name: "The Computer Solutions" });
+  const msg = fillTemplate(tpl, buildSalesVars({}, { shop: { shop_name, shop_phone, shop_email, shop_address }, link }));
   navigator.clipboard?.writeText(link).catch(() => {});
   window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
 }
@@ -354,19 +359,19 @@ export default function CrmSales() {
   };
 
   const sendReceipt = async (s: any) => {
-    const { getTemplate, fillTemplate } = await import("@/crm/lib/whatsapp");
+    const { getTemplate, fillTemplate, buildSalesVars } = await import("@/crm/lib/whatsapp");
     const tpl = await getTemplate(
       "sales_receipt",
       "Hi {name}, thank you for your purchase!\nInvoice: {invoice_no}\nItem: {item}\nAmount: {amount}\nWarranty till: {warranty_expiry}\n— {shop_name}"
     );
-    const msg = fillTemplate(tpl, {
-      name: s.customer_name,
-      invoice_no: s.invoice_no,
-      item: s.item_name,
-      amount: formatINR(s.total_amount),
-      warranty_expiry: formatDate(s.warranty_expiry),
-      shop_name: shopInfo.shop_name || "The Computer Solutions",
-    });
+    const msg = fillTemplate(tpl, buildSalesVars(s, {
+      shop: {
+        shop_name: shopInfo.shop_name,
+        shop_phone: shopInfo.shop_phone,
+        shop_email: shopInfo.shop_email,
+        shop_address: shopInfo.shop_address,
+      },
+    }));
     const phone = (s.whatsapp || s.phone || "").replace(/\D/g, "");
     const cc = phone.startsWith("91") ? phone : "91" + phone;
     window.open(`https://wa.me/${cc}?text=${encodeURIComponent(msg)}`, "_blank");

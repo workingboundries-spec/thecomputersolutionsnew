@@ -7,6 +7,7 @@ import { useAdminSetting } from "@/crm/hooks/useAdminSettings";
 import { useCrmAuth } from "@/crm/hooks/useCrmAuth";
 import { toast } from "sonner";
 import { Plus, Search, Edit2, Trash2, X, Upload, Link as LinkIcon, MessageCircle, Cake, Heart, Save, FileText } from "lucide-react";
+import ConfirmDialog from "@/crm/components/ConfirmDialog";
 
 const empty = {
   name: "", phone: "", whatsapp: "", email: "", address: "", city: "",

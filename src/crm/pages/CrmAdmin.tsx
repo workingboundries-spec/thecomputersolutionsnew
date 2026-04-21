@@ -82,9 +82,27 @@ export default function CrmAdmin() {
 
       <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
         <div className="flex flex-wrap border-b border-slate-800">
-          {TABS.map((t) => (
-            <button key={t} onClick={() => setTab(t)} className={`px-4 py-3 text-sm font-medium transition-colors ${tab === t ? "bg-slate-800 text-white border-b-2 border-blue-500" : "text-slate-400 hover:text-white"}`}>{t}</button>
-          ))}
+          {TABS.map((t) => {
+            const isDanger = t === "Danger Zone";
+            const active = tab === t;
+            return (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`px-4 py-3 text-sm font-medium transition-colors ${
+                  active
+                    ? isDanger
+                      ? "bg-red-900/40 text-red-200 border-b-2 border-red-500"
+                      : "bg-slate-800 text-white border-b-2 border-blue-500"
+                    : isDanger
+                      ? "text-red-400 hover:text-red-200 hover:bg-red-900/20"
+                      : "text-slate-400 hover:text-white"
+                }`}
+              >
+                {isDanger ? "⚠ " : ""}{t}
+              </button>
+            );
+          })}
         </div>
 
         <div className="p-5">

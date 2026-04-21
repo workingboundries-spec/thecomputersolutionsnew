@@ -140,11 +140,33 @@ export default function CrmQuotations() {
     setForm({ ...form, items });
   };
   const removeItem = (idx: number) => setForm({ ...form, items: form.items.filter((_, i) => i !== idx) });
-  const addItem = () => setForm({ ...form, items: [...form.items, { name: "", qty: 1, price: 0, discount_pct: 0 }] });
+  const addItem = () => setForm({ ...form, items: [...form.items, { name: "", qty: 1, price: 0, discount_pct: 0, code: "" }] });
   const addFromCatalogue = (it: any) => {
-    setForm({ ...form, items: [...form.items, { name: `${it.brand} ${it.model}`, qty: 1, price: Number(it.sale_price || 0), discount_pct: 0 }] });
+    setForm({ ...form, items: [...form.items, { name: `${it.brand} ${it.model}`, qty: 1, price: Number(it.sale_price || 0), discount_pct: 0, code: it.item_code || "" }] });
     setShowPicker(false);
   };
+
+  const lookupLineCode = (idx: number, raw: string) => {
+    const code = raw.trim();
+    if (!code) { updateItem(idx, { code: "", codeError: "" }); return; }
+    const c = catalogue.find((x) => (x.item_code || "").toLowerCase() === code.toLowerCase());
+    if (!c) { updateItem(idx, { code: raw, codeError: `No item matches code ${code}` }); return; }
+    updateItem(idx, {
+      code: c.item_code,
+      codeError: "",
+      name: `${c.brand} ${c.model}`,
+      price: Number(c.sale_price || 0),
+    });
+  };
+
+  const [pickerSearch, setPickerSearch] = useState("");
+  const filteredPicker = catalogue.filter((c) => {
+    const s = pickerSearch.trim().toLowerCase();
+    if (!s) return true;
+    return (c.item_code || "").toLowerCase().includes(s)
+      || c.brand.toLowerCase().includes(s)
+      || c.model.toLowerCase().includes(s);
+  });
 
   const totals = useMemo(() => calcTotals(form.items, form.gst_percent, form.extra_discount), [form.items, form.gst_percent, form.extra_discount]);
 

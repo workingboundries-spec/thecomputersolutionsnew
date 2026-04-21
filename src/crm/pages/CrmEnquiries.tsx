@@ -29,7 +29,16 @@ export default function CrmEnquiries() {
   const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState<any>(empty);
   const [showConverted, setShowConverted] = useState(false);
+  const [catalogue, setCatalogue] = useState<any[]>([]);
+  const [itemPickerOpen, setItemPickerOpen] = useState(false);
   const navigate = useNavigate();
+
+  const findCatalogueSpecs = (itemName?: string): string => {
+    const n = (itemName || "").trim().toLowerCase();
+    if (!n) return "";
+    const c = catalogue.find((x) => `${x.brand} ${x.model}`.toLowerCase() === n);
+    return (c?.specs || "").trim();
+  };
 
   const load = async () => {
     setLoading(true);
@@ -39,6 +48,12 @@ export default function CrmEnquiries() {
     // Fetch all sales with enquiry_id to know which enquiries are actually linked to a sale
     const { data: salesData } = await supabase.from("crm_sales").select("enquiry_id").not("enquiry_id", "is", null);
     setLinkedSaleIds(new Set((salesData || []).map((s: any) => s.enquiry_id)));
+    // Load active catalogue for item picker + specs lookup
+    const { data: catData } = await supabase
+      .from("crm_catalogue")
+      .select("id, item_code, brand, model, specs")
+      .eq("is_active", true);
+    setCatalogue(catData || []);
     setLoading(false);
   };
 
@@ -57,7 +72,10 @@ export default function CrmEnquiries() {
   });
 
   const sendWA = (r: any) => {
-    const msg = `Hi ${r.customer_name}, regarding your enquiry for ${r.item_name || r.product_category} at The Computer Solutions.${r.notes ? " " + r.notes : ""}`;
+    const specs = findCatalogueSpecs(r.item_name);
+    let msg = `Hi ${r.customer_name}, regarding your enquiry for ${r.item_name || r.product_category} at The Computer Solutions.`;
+    if (specs) msg += `\n\nSpecifications:\n${specs}`;
+    if (r.notes) msg += `\n\n${r.notes}`;
     window.open(waLink(r.whatsapp || r.phone, msg), "_blank");
   };
 

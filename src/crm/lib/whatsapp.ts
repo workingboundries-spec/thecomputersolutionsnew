@@ -26,3 +26,28 @@ export async function logWhatsApp(payload: {
     status: "sent",
   });
 }
+
+// Simple in-memory cache so we don't hit the DB on every WhatsApp click.
+let _tplCache: Record<string, string> | null = null;
+let _tplCacheAt = 0;
+const TPL_TTL_MS = 60_000;
+
+/** Load all WhatsApp templates from crm_whatsapp_templates (cached 60s). */
+export async function loadWhatsappTemplates(force = false): Promise<Record<string, string>> {
+  if (!force && _tplCache && Date.now() - _tplCacheAt < TPL_TTL_MS) return _tplCache;
+  const { data } = await supabase.from("crm_whatsapp_templates").select("template_name, message_body");
+  const map: Record<string, string> = {};
+  (data || []).forEach((r: any) => { map[r.template_name] = r.message_body; });
+  _tplCache = map;
+  _tplCacheAt = Date.now();
+  return map;
+}
+
+/** Get a single template by name; falls back to provided default if missing. */
+export async function getTemplate(name: string, fallback: string): Promise<string> {
+  const all = await loadWhatsappTemplates();
+  return all[name] || fallback;
+}
+
+/** Reset cache (call after edits in Settings). */
+export function clearTemplateCache() { _tplCache = null; }

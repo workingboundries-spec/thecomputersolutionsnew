@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatINR, formatDate, waLink } from "@/crm/lib/format";
+import { getTemplate, fillTemplate } from "@/crm/lib/whatsapp";
 import { toast } from "sonner";
 import { Plus, Search, Edit2, Trash2, ArrowRight, Download, MessageCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -71,11 +72,19 @@ export default function CrmEnquiries() {
     return true;
   });
 
-  const sendWA = (r: any) => {
+  const sendWA = async (r: any) => {
     const specs = findCatalogueSpecs(r.item_name);
-    let msg = `Hi ${r.customer_name}, regarding your enquiry for ${r.item_name || r.product_category} at The Computer Solutions.`;
-    if (specs) msg += `\n\nSpecifications:\n${specs}`;
-    if (r.notes) msg += `\n\n${r.notes}`;
+    const tpl = await getTemplate(
+      "enquiry_followup",
+      "Hi {name}, regarding your enquiry for {item} at {shop_name}.{specs_block}{notes_block}\n— {shop_name}"
+    );
+    const msg = fillTemplate(tpl, {
+      name: r.customer_name,
+      item: r.item_name || r.product_category,
+      shop_name: "The Computer Solutions",
+      specs_block: specs ? `\n\nSpecifications:\n${specs}` : "",
+      notes_block: r.notes ? `\n\n${r.notes}` : "",
+    });
     window.open(waLink(r.whatsapp || r.phone, msg), "_blank");
   };
 

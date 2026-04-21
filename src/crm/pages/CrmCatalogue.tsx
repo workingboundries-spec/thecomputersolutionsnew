@@ -284,8 +284,29 @@ function QuoteShareModal({ item, onClose }: { item: Item; onClose: () => void })
   const [price, setPrice] = useState<number>(item.sale_price);
   const [validUntil, setValidUntil] = useState(addDays(todayISO(), 7));
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [waMsg, setWaMsg] = useState<string>("");
   const [savedQuote, setSavedQuote] = useState<{ no: string; id: string } | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Build the WhatsApp message from the editable template once we have a share link.
+  useEffect(() => {
+    if (!shareUrl) { setWaMsg(""); return; }
+    (async () => {
+      const { getTemplate, fillTemplate } = await import("@/crm/lib/whatsapp");
+      const tpl = await getTemplate(
+        "catalogue_quote_share",
+        "Hi {name}, here's your quote for {item} — {price}.\nView details: {link}\nValid until {valid_until}.\n— {shop_name}"
+      );
+      setWaMsg(fillTemplate(tpl, {
+        name: name || "there",
+        item: `${item.brand} ${item.model}`,
+        price: formatINR(price),
+        link: shareUrl,
+        valid_until: validUntil,
+        shop_name: "The Computer Solutions",
+      }));
+    })();
+  }, [shareUrl, name, price, validUntil, item.brand, item.model]);
 
   // Try to find an open enquiry for this phone+item; otherwise create one.
   const ensureEnquiry = async (): Promise<string | null> => {
@@ -390,9 +411,7 @@ function QuoteShareModal({ item, onClose }: { item: Item; onClose: () => void })
     toast.success(enquiryId ? "Quote saved & linked to Enquiry" : "Quote link generated");
   };
 
-  const waMsg = shareUrl
-    ? `Hi ${name || "there"}, here's your quote for ${item.brand} ${item.model} - ${formatINR(price)}.\nView details: ${shareUrl}\nValid until ${validUntil}.\n— The Computer Solutions`
-    : "";
+  // waMsg is built reactively in a useEffect above (uses editable template).
 
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 overflow-y-auto">

@@ -134,8 +134,20 @@ export default function CrmDashboard() {
     })();
   }, []);
 
-  const sendReminderWA = (r: any) => {
-    const msg = r.whatsapp_message || `Hi ${r.customer_name}, this is a friendly reminder regarding your ${r.item_name || "purchase"}. — The Computer Solutions`;
+  const sendReminderWA = async (r: any) => {
+    let msg = r.whatsapp_message;
+    if (!msg) {
+      const { getTemplate, fillTemplate } = await import("@/crm/lib/whatsapp");
+      const tpl = await getTemplate(
+        "dashboard_reminder",
+        "Hi {name}, this is a friendly reminder regarding your {item}.\n— {shop_name}"
+      );
+      msg = fillTemplate(tpl, {
+        name: r.customer_name,
+        item: r.item_name || "purchase",
+        shop_name: "The Computer Solutions",
+      });
+    }
     window.open(waLink(r.whatsapp || r.phone, msg), "_blank");
   };
 

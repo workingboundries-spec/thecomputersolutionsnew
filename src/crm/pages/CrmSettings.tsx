@@ -92,6 +92,8 @@ export default function CrmSettings() {
       }]);
       if (error) { toast.error(error.message); return; }
     }
+    const { clearTemplateCache } = await import("@/crm/lib/whatsapp");
+    clearTemplateCache();
     toast.success("Template saved");
     load();
   };

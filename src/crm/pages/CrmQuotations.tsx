@@ -435,6 +435,24 @@ export default function CrmQuotations() {
       )}
 
       {previewQ && <QuotePreviewModal q={previewQ} branding={branding} onClose={() => setPreviewQ(null)} />}
+
+      <CatalogueDrawer
+        open={drawerForIdx !== null}
+        prefillName={drawerForIdx !== null ? form.items[drawerForIdx]?.name || "" : ""}
+        onClose={() => setDrawerForIdx(null)}
+        onCreated={(item) => {
+          if (drawerForIdx !== null) {
+            const items = form.items.map((it, i) =>
+              i === drawerForIdx
+                ? { ...it, name: `${item.brand} ${item.model}`, price: Number(item.sale_price || it.price) }
+                : it
+            );
+            setForm({ ...form, items });
+          }
+          // Refresh catalogue so the suggestion disappears
+          load();
+        }}
+      />
     </div>
   );
 }

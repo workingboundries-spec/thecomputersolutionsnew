@@ -1,27 +1,47 @@
 
-The user wants a public-facing customer form that, when filled out, auto-creates a row in the Sales section (`crm_sales`). The form link will be shared via WhatsApp.
 
-**Plan:**
+## Fix orphaned warranty reminders for deleted customers
 
-1. **New public route `/sales-form`** (no auth required) — a clean form for the customer to fill:
-   - Name, Phone, WhatsApp, Address, DOB (optional)
-   - Item purchased (text), Sale price, Payment mode (dropdown), Notes
-   - Submit button
+### Problem
+Warranty reminders (and the Warranty page) still show entries for deleted customers like SHIVAY and vijay. Root cause:
 
-2. **Database/RLS:**
-   - `crm_sales` currently requires `is_crm_user(auth.uid())` for INSERT. A public customer is anonymous, so we need a way to allow anonymous inserts safely.
-   - Add a new RLS policy: allow `anon` to INSERT into `crm_sales` ONLY when `payment_status = 'pending_review'` (a flag that means "submitted by customer, needs CRM review").
-   - Add `payment_status='pending_review'` so CRM staff can filter and confirm these.
-   - Generate `invoice_no` server-side as `CUST-{timestamp}` placeholder so customer doesn't need to fill it.
+- `crm_warranty_reminders` is linked to `crm_sales.id` via `sale_id`, **not** to `crm_customers.id`.
+- When a customer was deleted, the cascade I built cleaned `crm_whatsapp_log` and reminders matching the customer's `phone`, but the matching `crm_sales` were only **soft-deleted** (`is_deleted = true`), and the reminders attached to those sales were never removed.
+- The Warranty page reads `crm_warranty_reminders` with no filter on sale status, so orphan rows still appear.
 
-3. **CRM Sales page:**
-   - Add a "Share Sale Form" button at top → copies link `https://<site>/sales-form` and opens WhatsApp with prefilled message: "Please fill your purchase details: <link>"
-   - Customer-submitted rows show a yellow "Pending Review" badge so staff can edit/confirm them.
+### Fix (3 parts)
 
-4. **Files to edit/create:**
-   - NEW: `src/pages/PublicSalesForm.tsx` — the public form
-   - EDIT: `src/App.tsx` — add `/sales-form` route (public)
-   - EDIT: `src/crm/pages/CrmSales.tsx` — add Share button + Pending badge
-   - MIGRATION: add anon INSERT policy on `crm_sales` restricted to `payment_status='pending_review'`
+**1. One-time cleanup of existing orphans**
 
-No changes to other modules. Minimal and focused.
+Migration to delete reminders whose underlying sale is soft-deleted OR whose phone has no matching customer:
+```sql
+DELETE FROM crm_warranty_reminders r
+USING crm_sales s
+WHERE r.sale_id = s.id AND s.is_deleted = true;
+
+DELETE FROM crm_warranty_reminders r
+WHERE NOT EXISTS (
+  SELECT 1 FROM crm_customers c WHERE c.phone = r.phone
+);
+```
+Same for `crm_whatsapp_log` rows linked to deleted sales.
+
+**2. Extend the customer cascade-delete (CrmCustomers.tsx)**
+
+When deleting a customer, also:
+- Find all `crm_sales` for that customer's `phone` (or `customer_id` if set).
+- For each sale: hard-delete its `crm_warranty_reminders` (by `sale_id`), and `crm_whatsapp_log` entries (by `sale_id`).
+- Hard-delete those sales (not soft-delete) so nothing orphan remains.
+
+**3. Hook the same cleanup into Sales delete (CrmSales.tsx)**
+
+When a sale is deleted (soft or hard), also delete its `crm_warranty_reminders` and related `crm_whatsapp_log` rows by `sale_id`. This prevents the same orphan situation in the future, regardless of the customer-delete path.
+
+### Files touched
+- New migration: cleanup orphan reminders + WA logs.
+- `src/crm/pages/CrmCustomers.tsx` — extend `performCascadeDelete` with sales+warranty sweep.
+- `src/crm/pages/CrmSales.tsx` — on delete/reverse, also remove tied warranty reminders + WA logs.
+
+### Result
+Warranty page will be empty of SHIVAY/vijay immediately after the migration runs, and future customer/sale deletes will not leave orphaned reminders behind.
+

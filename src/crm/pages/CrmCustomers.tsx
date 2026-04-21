@@ -205,19 +205,32 @@ export default function CrmCustomers() {
 
   const performCascadeDelete = async (c: any) => {
     setDeleting(true);
-    // App-level cleanup. FK cascade handles reminders_queue, customer_event_logs, campaign_recipients.
-    // crm_whatsapp_log: no FK -> delete by customer_id (and by phone for legacy rows).
-    // crm_warranty_reminders: no customer_id at all -> delete by phone match.
+    // 1. Find all sales for this customer (by phone) so we can clean their tied reminders & WA logs.
+    const { data: salesRows } = await supabase
+      .from("crm_sales")
+      .select("id")
+      .eq("phone", c.phone);
+    const saleIds = (salesRows || []).map((s: any) => s.id);
+
     const tasks: Promise<any>[] = [
+      ...(saleIds.length
+        ? [
+            supabase.from("crm_warranty_reminders").delete().in("sale_id", saleIds),
+            supabase.from("crm_whatsapp_log").delete().in("sale_id", saleIds),
+          ]
+        : []),
       supabase.from("crm_whatsapp_log").delete().eq("customer_id", c.id),
       supabase.from("crm_whatsapp_log").delete().eq("phone", c.phone),
       supabase.from("crm_warranty_reminders").delete().eq("phone", c.phone),
-      // Belt-and-suspenders: also explicitly delete from FK-cascading tables in case cascade missed.
       (supabase as any).from("reminders_queue").delete().eq("customer_id", c.id),
       (supabase as any).from("customer_event_logs").delete().eq("customer_id", c.id),
       (supabase as any).from("campaign_recipients").delete().eq("customer_id", c.id),
     ];
     await Promise.all(tasks);
+    // Hard-delete the sales themselves so nothing remains orphaned.
+    if (saleIds.length) {
+      await supabase.from("crm_sales").delete().in("id", saleIds);
+    }
     const { error } = await supabase.from("crm_customers").delete().eq("id", c.id);
     setDeleting(false);
     if (error) return toast.error(error.message);

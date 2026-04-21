@@ -286,6 +286,11 @@ export default function CrmSales() {
     if (!confirm(`Delete sale ${s.invoice_no}? Stock will be restored.`)) return;
     const { error } = await supabase.from("crm_sales").update({ is_deleted: true }).eq("id", s.id);
     if (error) return toast.error(error.message);
+    // Remove tied warranty reminders & WhatsApp logs to prevent orphans on the Warranty page.
+    await Promise.all([
+      supabase.from("crm_warranty_reminders").delete().eq("sale_id", s.id),
+      supabase.from("crm_whatsapp_log").delete().eq("sale_id", s.id),
+    ]);
     if (s.item_id && Number(s.qty || 0) > 0) {
       const res = await applyMovement({
         itemId: s.item_id,

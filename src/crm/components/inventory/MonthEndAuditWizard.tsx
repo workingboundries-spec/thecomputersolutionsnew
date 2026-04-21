@@ -41,12 +41,20 @@ export default function MonthEndAuditWizard({ onClose, onSaved }: { onClose: () 
   const [rows, setRows] = useState<AggRow[]>([]);
   const [action, setAction] = useState<"reset" | "carry_forward">("reset");
   const [saving, setSaving] = useState(false);
+  const [existingCount, setExistingCount] = useState(0);
+  const [confirmOverwrite, setConfirmOverwrite] = useState(false);
 
   useEffect(() => {
     (async () => {
-      // Pull all active items + sum movements for this month
+      // Pull all active items + sum movements for this month + check existing audit
       const monthStart = new Date(auditYear, auditMonth - 1, 1).toISOString();
       const monthEnd = new Date(auditYear, auditMonth, 1).toISOString();
+      const existingRes = await supabase
+        .from("inventory_audits" as any)
+        .select("id", { count: "exact", head: true })
+        .eq("audit_year", auditYear)
+        .eq("audit_month", auditMonth);
+      setExistingCount(existingRes.count || 0);
       const [catRes, txRes] = await Promise.all([
         supabase.from("crm_catalogue")
           .select("id, brand, model, opening_stock, current_stock, stock_qty")

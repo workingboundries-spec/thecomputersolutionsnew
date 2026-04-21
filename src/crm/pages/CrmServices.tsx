@@ -129,8 +129,23 @@ export default function CrmServices() {
     load();
   };
 
-  const sendWA = (r: any) => {
-    const msg = `Hi ${r.customer_name}, update on your ${r.device_type} (Job ${r.job_card_no}): Status is now *${STATUS_META[r.status as Status]?.label || r.status}*.${r.final_cost ? ` Final cost: ${formatINR(r.final_cost)}.` : r.estimated_cost ? ` Estimate: ${formatINR(r.estimated_cost)}.` : ""} — The Computer Solutions`;
+  const sendWA = async (r: any) => {
+    const { getTemplate, fillTemplate } = await import("@/crm/lib/whatsapp");
+    const tpl = await getTemplate(
+      "service_status_update",
+      "Hi {name}, update on your {device} (Job {job_no}): Status is now *{status}*.{cost_line}\n— {shop_name}"
+    );
+    const costLine = r.final_cost
+      ? ` Final cost: ${formatINR(r.final_cost)}.`
+      : r.estimated_cost ? ` Estimate: ${formatINR(r.estimated_cost)}.` : "";
+    const msg = fillTemplate(tpl, {
+      name: r.customer_name,
+      device: r.device_type,
+      job_no: r.job_card_no,
+      status: STATUS_META[r.status as Status]?.label || r.status,
+      cost_line: costLine,
+      shop_name: "The Computer Solutions",
+    });
     window.open(waLink(r.whatsapp || r.phone, msg), "_blank");
   };
 

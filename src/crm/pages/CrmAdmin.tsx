@@ -173,20 +173,196 @@ function ChipEditor({ settingKey, label, initial, onSave }: any) {
 }
 
 function Templates({ get, onSave }: any) {
-  const [vals, setVals] = useState<Record<string, string>>(() => Object.fromEntries(TEMPLATE_KEYS.map((t) => [t.key, get(t.key)])));
-  const sample = { name: "Ramesh", phone: "9876543210", item: "HP Laptop 15s", purchase_date: "10 Jan 2026", expiry: "10 Jan 2027", shop_phone: get("shop_phone"), shop_name: get("shop_name") };
+  const [legacyVals, setLegacyVals] = useState<Record<string, string>>(() => Object.fromEntries(TEMPLATE_KEYS.map((t) => [t.key, get(t.key)])));
+  const [dbTemplates, setDbTemplates] = useState<any[]>([]);
+  const [loadingDbTemplates, setLoadingDbTemplates] = useState(true);
+
+  const sample = {
+    name: "Ramesh",
+    phone: "9876543210",
+    item: "HP Laptop 15s",
+    purchase_date: "10 Jan 2026",
+    expiry: "10 Jan 2027",
+    status: "Ready for pickup",
+    job_no: "JOB-1042",
+    device: "Dell Inspiron 15",
+    price: "₹52,000",
+    amount: "₹52,000",
+    invoice_no: "INV-1001",
+    valid_until: "28 Apr 2026",
+    link: "https://example.com/share/abc123",
+    specs_block: "\nSpecifications:\ni5 / 16GB / 512GB SSD",
+    notes_block: "\nNotes: Call before visiting",
+    cost_line: "\nEstimated cost: ₹1,500",
+    shop_phone: get("shop_phone"),
+    shop_name: get("shop_name"),
+  };
+
   const render = (tpl: string) => tpl.replace(/\{(\w+)\}/g, (_: any, k: string) => (sample as any)[k] ?? `{${k}}`);
+
+  const loadDbTemplates = async () => {
+    setLoadingDbTemplates(true);
+    const { data, error } = await supabase
+      .from("crm_whatsapp_templates")
+      .select("*")
+      .order("template_type")
+      .order("template_name");
+
+    if (error) {
+      toast.error(error.message);
+      setDbTemplates([]);
+    } else {
+      setDbTemplates(data || []);
+    }
+    setLoadingDbTemplates(false);
+  };
+
+  useEffect(() => {
+    loadDbTemplates();
+  }, []);
+
+  const updateDbTemplateField = (idx: number, field: string, value: string) => {
+    const copy = [...dbTemplates];
+    copy[idx] = { ...copy[idx], [field]: value };
+    setDbTemplates(copy);
+  };
+
+  const addDbTemplate = () => {
+    setDbTemplates([
+      ...dbTemplates,
+      { template_name: "", template_type: "general", message_body: "", _new: true },
+    ]);
+  };
+
+  const saveDbTemplate = async (template: any) => {
+    if (!template.template_name?.trim() || !template.message_body?.trim()) {
+      toast.error("Template name and message are required");
+      return;
+    }
+
+    const payload = {
+      template_name: template.template_name.trim(),
+      template_type: template.template_type || "general",
+      message_body: template.message_body,
+    };
+
+    const { error } = template.id
+      ? await supabase.from("crm_whatsapp_templates").update(payload).eq("id", template.id)
+      : await supabase.from("crm_whatsapp_templates").insert(payload);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    clearTemplateCache();
+    toast.success("WhatsApp template saved");
+    loadDbTemplates();
+  };
+
+  const deleteDbTemplate = async (id: string) => {
+    if (!confirm("Delete this WhatsApp template?")) return;
+    const { error } = await supabase.from("crm_whatsapp_templates").delete().eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    clearTemplateCache();
+    toast.success("WhatsApp template deleted");
+    loadDbTemplates();
+  };
+
   return (
-    <div className="space-y-4 max-w-3xl">
-      {TEMPLATE_KEYS.map((t) => (
-        <div key={t.key} className="border border-slate-800 rounded p-3">
-          <label className="text-sm font-semibold text-white mb-1 block">{t.label}</label>
-          <textarea rows={3} value={vals[t.key] || ""} onChange={(e) => setVals({ ...vals, [t.key]: e.target.value })} className={inp} />
-          <div className="text-xs text-slate-500 mt-1">Available: {"{name} {phone} {item} {purchase_date} {expiry} {shop_phone} {shop_name}"}</div>
-          <div className="text-xs text-slate-300 mt-2 p-2 bg-slate-950 border border-slate-800 rounded"><span className="text-slate-500">Preview:</span> {render(vals[t.key] || "")}</div>
+    <div className="space-y-6 max-w-4xl">
+      <div className="border border-slate-800 rounded p-4 space-y-4">
+        <div>
+          <h3 className="text-sm font-semibold text-white">CRM WhatsApp message templates</h3>
+          <p className="text-xs text-slate-400 mt-1">These are the live templates used by enquiries, catalogue quote sharing, services, sales, quotations, reminders and other CRM WhatsApp actions.</p>
         </div>
-      ))}
-      <button onClick={() => onSave(TEMPLATE_KEYS.map((t) => ({ key: t.key, value: vals[t.key] || "" })))} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm flex items-center gap-1.5"><Save size={14} />Save All Templates</button>
+
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-xs text-slate-500">Common placeholders: {"{name} {phone} {item} {device} {job_no} {status} {amount} {price} {invoice_no} {valid_until} {link} {shop_name} {shop_phone}"}</div>
+          <button onClick={addDbTemplate} className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded text-xs flex items-center gap-1">
+            <Plus size={12} />Add Template
+          </button>
+        </div>
+
+        {loadingDbTemplates ? (
+          <div className="text-sm text-slate-400">Loading templates…</div>
+        ) : dbTemplates.length === 0 ? (
+          <div className="text-sm text-slate-500 border border-slate-800 rounded p-4">No CRM WhatsApp templates found.</div>
+        ) : (
+          <div className="space-y-3">
+            {dbTemplates.map((t, idx) => (
+              <div key={t.id || idx} className="border border-slate-800 rounded p-3 space-y-3 bg-slate-950/40">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <Field label="Template Name">
+                    <input
+                      value={t.template_name || ""}
+                      onChange={(e) => updateDbTemplateField(idx, "template_name", e.target.value)}
+                      placeholder="e.g. enquiry_followup"
+                      className={inp}
+                    />
+                  </Field>
+                  <Field label="Template Type">
+                    <select
+                      value={t.template_type || "general"}
+                      onChange={(e) => updateDbTemplateField(idx, "template_type", e.target.value)}
+                      className={inp}
+                    >
+                      {["enquiry", "quote", "service", "sales", "warranty", "birthday", "promo", "general"].map((option) => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </select>
+                  </Field>
+                </div>
+
+                <Field label="Message Body">
+                  <textarea
+                    rows={4}
+                    value={t.message_body || ""}
+                    onChange={(e) => updateDbTemplateField(idx, "message_body", e.target.value)}
+                    className={inp}
+                  />
+                </Field>
+
+                <div className="text-xs text-slate-300 p-2 bg-slate-950 border border-slate-800 rounded">
+                  <span className="text-slate-500">Preview:</span> {render(t.message_body || "")}
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  {t.id && (
+                    <button onClick={() => deleteDbTemplate(t.id)} className="px-3 py-1.5 text-red-400 hover:bg-red-500/10 rounded text-xs">
+                      Delete
+                    </button>
+                  )}
+                  <button onClick={() => saveDbTemplate(t)} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs flex items-center gap-1">
+                    <Save size={12} />Save
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="border border-slate-800 rounded p-4 space-y-4">
+        <div>
+          <h3 className="text-sm font-semibold text-white">Legacy reminder templates</h3>
+          <p className="text-xs text-slate-400 mt-1">These older templates are still used for birthday and some scheduled warranty reminder flows stored in admin settings.</p>
+        </div>
+
+        {TEMPLATE_KEYS.map((t) => (
+          <div key={t.key} className="border border-slate-800 rounded p-3">
+            <label className="text-sm font-semibold text-white mb-1 block">{t.label}</label>
+            <textarea rows={3} value={legacyVals[t.key] || ""} onChange={(e) => setLegacyVals({ ...legacyVals, [t.key]: e.target.value })} className={inp} />
+            <div className="text-xs text-slate-500 mt-1">Available: {"{name} {phone} {item} {purchase_date} {expiry} {shop_phone} {shop_name}"}</div>
+            <div className="text-xs text-slate-300 mt-2 p-2 bg-slate-950 border border-slate-800 rounded"><span className="text-slate-500">Preview:</span> {render(legacyVals[t.key] || "")}</div>
+          </div>
+        ))}
+
+        <button onClick={() => onSave(TEMPLATE_KEYS.map((t) => ({ key: t.key, value: legacyVals[t.key] || "" })))} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm flex items-center gap-1.5"><Save size={14} />Save Legacy Templates</button>
+      </div>
     </div>
   );
 }

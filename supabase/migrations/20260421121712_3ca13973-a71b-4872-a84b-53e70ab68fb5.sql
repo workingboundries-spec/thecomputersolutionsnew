@@ -1,0 +1,1 @@
+ALTER TABLE public.crm_catalogue ALTER COLUMN item_code SET DEFAULT '';

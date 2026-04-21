@@ -288,7 +288,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
-          item_code: string
+          item_code?: string
           model: string
           mrp?: number
           nlc_price?: number

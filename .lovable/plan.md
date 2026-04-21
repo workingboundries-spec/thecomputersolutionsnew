@@ -1,47 +1,58 @@
 
+Fix the enquiry leak at its source so deleted/converted customers stop appearing in the Quotation “Link to Enquiry” dropdown.
 
-## Fix orphaned warranty reminders for deleted customers
+1. Confirm and correct the data model mismatch
+- The dropdown in `src/crm/pages/CrmQuotations.tsx` currently loads enquiries with `is_converted = false`.
+- The leaked rows for SHIVAY/vijay still exist in `crm_enquiries`, and their rows are inconsistent: `status = 'converted'` but `is_converted = false`.
+- `src/crm/pages/CrmSales.tsx` currently marks an enquiry as converted by updating only `status`, not `is_converted`.
+- `src/crm/pages/CrmCustomers.tsx` currently deletes customers, sales, reminders, logs, and campaign rows, but does not clean related enquiries by phone.
 
-### Problem
-Warranty reminders (and the Warranty page) still show entries for deleted customers like SHIVAY and vijay. Root cause:
+2. Apply a one-time backend cleanup migration
+- Backfill enquiry rows so `is_converted` matches the real state:
+  - set `is_converted = true` where `status = 'converted'`
+  - optionally also set `status = 'converted'` where a linked `crm_sales.enquiry_id` exists
+- Remove orphan enquiries that belong to deleted customers/sales and should no longer be selectable:
+  - delete or mark closed/lost converted enquiries whose customer no longer exists and whose linked sale is soft-deleted/deleted
+- Add a safety SQL update so future historical inconsistencies can be repaired in one pass.
 
-- `crm_warranty_reminders` is linked to `crm_sales.id` via `sale_id`, **not** to `crm_customers.id`.
-- When a customer was deleted, the cascade I built cleaned `crm_whatsapp_log` and reminders matching the customer's `phone`, but the matching `crm_sales` were only **soft-deleted** (`is_deleted = true`), and the reminders attached to those sales were never removed.
-- The Warranty page reads `crm_warranty_reminders` with no filter on sale status, so orphan rows still appear.
+3. Make sale creation keep enquiry state consistent
+- In `src/crm/pages/CrmSales.tsx`, when creating a sale from an enquiry, update both:
+  - `status = 'converted'`
+  - `is_converted = true`
+- On sale delete/reversal, decide the enquiry state based on whether any non-deleted sale still references it:
+  - if no active linked sale remains, reset enquiry to a non-converted state (`status` back to `quoted` or `follow_up`, and `is_converted = false`)
+- Keep this logic in the existing save/delete flow rather than introducing new UI.
 
-### Fix (3 parts)
+4. Extend customer deletion cleanup to enquiries
+- In `src/crm/pages/CrmCustomers.tsx`, after locating the customer’s sales, also locate related enquiries by:
+  - matching `crm_sales.enquiry_id`
+  - fallback phone match where needed
+- Delete or close those enquiries during cascade delete so deleted customers cannot continue appearing in CRM selectors.
 
-**1. One-time cleanup of existing orphans**
+5. Harden the Quotation dropdown query
+- In `src/crm/pages/CrmQuotations.tsx`, stop relying on only `is_converted = false`.
+- Load only enquiries that are genuinely open/selectable, e.g. exclude:
+  - `status IN ('converted', 'lost')`
+  - rows linked to deleted sales
+- Prefer a combined filter so one stale flag cannot leak records into the dropdown again.
 
-Migration to delete reminders whose underlying sale is soft-deleted OR whose phone has no matching customer:
-```sql
-DELETE FROM crm_warranty_reminders r
-USING crm_sales s
-WHERE r.sale_id = s.id AND s.is_deleted = true;
+6. Keep Enquiries page behavior consistent
+- In `src/crm/pages/CrmEnquiries.tsx`, preserve the existing “Show Converted” behavior, but make the derived converted state consistent with the repaired data.
+- Ensure rows with active linked sales always behave as converted, even if a stale flag slips in.
 
-DELETE FROM crm_warranty_reminders r
-WHERE NOT EXISTS (
-  SELECT 1 FROM crm_customers c WHERE c.phone = r.phone
-);
-```
-Same for `crm_whatsapp_log` rows linked to deleted sales.
+7. Verify the exact failing case after implementation
+- SHIVAY and vijay should no longer appear in the Quotation “Link to Enquiry” dropdown.
+- Deleted customers should not leave selectable enquiries behind.
+- New sale-from-enquiry flows should mark enquiries converted immediately.
+- Deleting a sale should only reopen its enquiry if no other active sale still uses it.
 
-**2. Extend the customer cascade-delete (CrmCustomers.tsx)**
-
-When deleting a customer, also:
-- Find all `crm_sales` for that customer's `phone` (or `customer_id` if set).
-- For each sale: hard-delete its `crm_warranty_reminders` (by `sale_id`), and `crm_whatsapp_log` entries (by `sale_id`).
-- Hard-delete those sales (not soft-delete) so nothing orphan remains.
-
-**3. Hook the same cleanup into Sales delete (CrmSales.tsx)**
-
-When a sale is deleted (soft or hard), also delete its `crm_warranty_reminders` and related `crm_whatsapp_log` rows by `sale_id`. This prevents the same orphan situation in the future, regardless of the customer-delete path.
-
-### Files touched
-- New migration: cleanup orphan reminders + WA logs.
-- `src/crm/pages/CrmCustomers.tsx` — extend `performCascadeDelete` with sales+warranty sweep.
-- `src/crm/pages/CrmSales.tsx` — on delete/reverse, also remove tied warranty reminders + WA logs.
-
-### Result
-Warranty page will be empty of SHIVAY/vijay immediately after the migration runs, and future customer/sale deletes will not leave orphaned reminders behind.
-
+Technical details
+- Files to update:
+  - `src/crm/pages/CrmSales.tsx`
+  - `src/crm/pages/CrmCustomers.tsx`
+  - `src/crm/pages/CrmQuotations.tsx`
+  - `src/crm/pages/CrmEnquiries.tsx`
+  - new SQL migration in `supabase/migrations/`
+- No new tables are needed.
+- No page outside the affected enquiry/sales/customer/quotation flow needs to be touched.
+- This is primarily a data consistency fix plus tighter query filtering, not a UI redesign.

@@ -301,7 +301,6 @@ export default function CrmSales() {
     } else {
       toast.success("Sale deleted");
     }
-    }
     load();
   };
 

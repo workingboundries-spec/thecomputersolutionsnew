@@ -115,9 +115,13 @@ export default function MonthEndAuditWizard({ onClose, onSaved }: { onClose: () 
   }, [rows]);
 
   const finish = async () => {
+    if (existingCount > 0 && !confirmOverwrite) {
+      setConfirmOverwrite(true);
+      return;
+    }
     setSaving(true);
 
-    // 1. Insert one inventory_audits row per item
+    // 1. Upsert one inventory_audits row per item (one per year/month/item)
     const auditRows = rows.map((r) => ({
       audit_month: auditMonth,
       audit_year: auditYear,
@@ -132,10 +136,14 @@ export default function MonthEndAuditWizard({ onClose, onSaved }: { onClose: () 
       action_taken: action,
       notes: r.notes || null,
       audited_by: user?.id ?? null,
+      audit_date: new Date().toISOString(),
     }));
-    const { error: auditErr } = await supabase.from("inventory_audits" as any).insert(auditRows);
+    const { error: auditErr } = await supabase
+      .from("inventory_audits" as any)
+      .upsert(auditRows, { onConflict: "audit_year,audit_month,item_id" });
     if (auditErr) {
       setSaving(false);
+      setConfirmOverwrite(false);
       return toast.error(auditErr.message);
     }
 

@@ -292,21 +292,25 @@ function QuoteShareModal({ item, onClose }: { item: Item; onClose: () => void })
   useEffect(() => {
     if (!shareUrl) { setWaMsg(""); return; }
     (async () => {
-      const { getTemplate, fillTemplate } = await import("@/crm/lib/whatsapp");
+      const { getTemplate, fillTemplate, buildCatalogueQuoteVars } = await import("@/crm/lib/whatsapp");
+      const { getAdminSetting } = await import("@/crm/hooks/useAdminSettings");
+      const [shop_name, shop_phone, shop_email, shop_address] = await Promise.all([
+        getAdminSetting("shop_name"), getAdminSetting("shop_phone"),
+        getAdminSetting("shop_email"), getAdminSetting("shop_address"),
+      ]);
       const tpl = await getTemplate(
         "catalogue_quote_share",
         "Hi {name}, here's your quote for {item} — {price}.\nView details: {link}\nValid until {valid_until}.\n— {shop_name}"
       );
-      setWaMsg(fillTemplate(tpl, {
-        name: name || "there",
-        item: `${item.brand} ${item.model}`,
-        price: formatINR(price),
+      setWaMsg(fillTemplate(tpl, buildCatalogueQuoteVars({
+        name, phone, item, price,
+        specs: config,
         link: shareUrl,
-        valid_until: validUntil,
-        shop_name: "The Computer Solutions",
-      }));
+        validUntil: validUntil,
+        shop: { shop_name, shop_phone, shop_email, shop_address },
+      })));
     })();
-  }, [shareUrl, name, price, validUntil, item.brand, item.model]);
+  }, [shareUrl, name, price, validUntil, item.brand, item.model, config, phone]);
 
   // Try to find an open enquiry for this phone+item; otherwise create one.
   const ensureEnquiry = async (): Promise<string | null> => {

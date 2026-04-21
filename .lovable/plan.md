@@ -1,58 +1,81 @@
 
-Fix the enquiry leak at its source so deleted/converted customers stop appearing in the Quotation “Link to Enquiry” dropdown.
 
-1. Confirm and correct the data model mismatch
-- The dropdown in `src/crm/pages/CrmQuotations.tsx` currently loads enquiries with `is_converted = false`.
-- The leaked rows for SHIVAY/vijay still exist in `crm_enquiries`, and their rows are inconsistent: `status = 'converted'` but `is_converted = false`.
-- `src/crm/pages/CrmSales.tsx` currently marks an enquiry as converted by updating only `status`, not `is_converted`.
-- `src/crm/pages/CrmCustomers.tsx` currently deletes customers, sales, reminders, logs, and campaign rows, but does not clean related enquiries by phone.
+## Add unique Item Code (alias) for each catalogue item
 
-2. Apply a one-time backend cleanup migration
-- Backfill enquiry rows so `is_converted` matches the real state:
-  - set `is_converted = true` where `status = 'converted'`
-  - optionally also set `status = 'converted'` where a linked `crm_sales.enquiry_id` exists
-- Remove orphan enquiries that belong to deleted customers/sales and should no longer be selectable:
-  - delete or mark closed/lost converted enquiries whose customer no longer exists and whose linked sale is soft-deleted/deleted
-- Add a safety SQL update so future historical inconsistencies can be repaired in one pass.
+### Goal
+Give every catalogue item a short, unique, human-readable **Item Code** (e.g. `ITM-0001`) shown against the item everywhere, and allow Sales / Quotations to add a line by typing this code as an alias — bypassing the dropdown.
 
-3. Make sale creation keep enquiry state consistent
-- In `src/crm/pages/CrmSales.tsx`, when creating a sale from an enquiry, update both:
-  - `status = 'converted'`
-  - `is_converted = true`
-- On sale delete/reversal, decide the enquiry state based on whether any non-deleted sale still references it:
-  - if no active linked sale remains, reset enquiry to a non-converted state (`status` back to `quoted` or `follow_up`, and `is_converted = false`)
-- Keep this logic in the existing save/delete flow rather than introducing new UI.
+---
 
-4. Extend customer deletion cleanup to enquiries
-- In `src/crm/pages/CrmCustomers.tsx`, after locating the customer’s sales, also locate related enquiries by:
-  - matching `crm_sales.enquiry_id`
-  - fallback phone match where needed
-- Delete or close those enquiries during cascade delete so deleted customers cannot continue appearing in CRM selectors.
+### 1. Database — add `item_code` to `crm_catalogue`
 
-5. Harden the Quotation dropdown query
-- In `src/crm/pages/CrmQuotations.tsx`, stop relying on only `is_converted = false`.
-- Load only enquiries that are genuinely open/selectable, e.g. exclude:
-  - `status IN ('converted', 'lost')`
-  - rows linked to deleted sales
-- Prefer a combined filter so one stale flag cannot leak records into the dropdown again.
+Add one new column:
 
-6. Keep Enquiries page behavior consistent
-- In `src/crm/pages/CrmEnquiries.tsx`, preserve the existing “Show Converted” behavior, but make the derived converted state consistent with the repaired data.
-- Ensure rows with active linked sales always behave as converted, even if a stale flag slips in.
+- `item_code TEXT UNIQUE` — auto-assigned `ITM-0001`, `ITM-0002`, ... in insertion order.
 
-7. Verify the exact failing case after implementation
-- SHIVAY and vijay should no longer appear in the Quotation “Link to Enquiry” dropdown.
-- Deleted customers should not leave selectable enquiries behind.
-- New sale-from-enquiry flows should mark enquiries converted immediately.
-- Deleting a sale should only reopen its enquiry if no other active sale still uses it.
+Migration steps:
+1. Add column `item_code TEXT` (nullable initially), then `UNIQUE` index.
+2. Backfill all existing rows with sequential codes ordered by `created_at`:  
+   `ITM-0001`, `ITM-0002`, ...
+3. Create a Postgres sequence + trigger so new inserts auto-fill `item_code` if blank:
+   - `crm_catalogue_code_seq` starts after the highest existing number.
+   - `BEFORE INSERT` trigger sets `NEW.item_code = 'ITM-' || LPAD(nextval(...)::text, 4, '0')` when null.
+4. After backfill, mark column `NOT NULL`.
 
-Technical details
-- Files to update:
-  - `src/crm/pages/CrmSales.tsx`
-  - `src/crm/pages/CrmCustomers.tsx`
-  - `src/crm/pages/CrmQuotations.tsx`
-  - `src/crm/pages/CrmEnquiries.tsx`
-  - new SQL migration in `supabase/migrations/`
-- No new tables are needed.
-- No page outside the affected enquiry/sales/customer/quotation flow needs to be touched.
-- This is primarily a data consistency fix plus tighter query filtering, not a UI redesign.
+No other table changes — Sales / Quotations continue to link by the existing `item_id` UUID. `item_code` is just the human alias.
+
+---
+
+### 2. Catalogue page (`src/crm/pages/CrmCatalogue.tsx`)
+
+- Add `item_code` to the `Item` type and to `select("*")` (already covered by `*`).
+- **Table view**: add a new first column **"Code"** showing `i.item_code` in a monospace pill (e.g. `ITM-0001`). Make it copy-on-click.
+- **Grid view**: show the code as a small badge in the top-right of each card.
+- **Edit modal**: show the code as read-only at the top (`Item Code: ITM-0001 — auto-assigned`). Do not allow editing. New items show "Will be auto-assigned on save".
+- **Search**: extend the existing search filter so typing `ITM-0001` also matches.
+
+---
+
+### 3. Sales page (`src/crm/pages/CrmSales.tsx`) — alias entry
+
+Add a new field in the Add/Edit Sale form, just above the existing "Pick from Catalogue" dropdown:
+
+- **"Item Code (quick entry)"** — single text input.
+- On blur / Enter, look up the catalogue row where `item_code = <typed value>` (case-insensitive).
+  - If found: auto-fill `item_id`, `item_name = "<brand> <model>"`, `sale_price`, same as picking from the dropdown today.
+  - If not found: show inline red text "No item matches code XYZ" and leave manual fields untouched.
+- The existing dropdown and manual entry continue to work unchanged.
+
+---
+
+### 4. Quotations page (`src/crm/pages/CrmQuotations.tsx`) — alias entry per line
+
+For each quotation line item, add a small **"Code"** input next to the item name field:
+
+- Type `ITM-0001` → on blur, fill that line's `name` with `"<brand> <model>"` and `price` with `sale_price` from catalogue.
+- If the code is invalid, show the same inline "not found" hint reused from the existing "not in catalogue" suggestion.
+- The existing "Add from Catalogue" picker and the "Add to Catalogue" drawer flow stay as-is.
+
+Also extend the catalogue-picker search to match by `item_code`.
+
+---
+
+### 5. Catalogue drawer (`src/crm/components/CatalogueDrawer.tsx`)
+
+Show a read-only "Item Code: will be auto-assigned" line at the top of the form, so users adding items inline from a quotation know a code will be generated.
+
+---
+
+### Files touched
+- New SQL migration (column + sequence + trigger + backfill).
+- `src/crm/pages/CrmCatalogue.tsx` — display code, search, edit modal label.
+- `src/crm/pages/CrmSales.tsx` — quick-entry code field.
+- `src/crm/pages/CrmQuotations.tsx` — per-line code field + picker search.
+- `src/crm/components/CatalogueDrawer.tsx` — informational label only.
+
+### Result
+- Every catalogue item carries a permanent, unique, short code like `ITM-0007`.
+- Visible on every catalogue listing (table + grid).
+- Sales and quotations can be created either by picking from the dropdown **or** by typing the code — both routes resolve to the same `item_id` and trigger the same stock movement / linking behaviour.
+- Existing data, sales history, and stock movements are untouched.
+

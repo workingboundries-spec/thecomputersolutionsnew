@@ -19,7 +19,7 @@ const STATUS_BADGE: Record<string, string> = {
   rejected: "bg-red-500/15 text-red-300",
 };
 
-type QItem = { name: string; qty: number; price: number; discount_pct: number; code?: string; codeError?: string };
+type QItem = { name: string; qty: number; price: number; discount_pct: number; code?: string; codeError?: string; specs?: string };
 
 const emptyForm = () => ({
   id: null as string | null,
@@ -83,7 +83,7 @@ export default function CrmQuotations() {
     setLoading(true);
     const [qRes, cRes, eRes] = await Promise.all([
       supabase.from("crm_quotations").select("*").order("created_at", { ascending: false }),
-      supabase.from("crm_catalogue").select("id, item_code, brand, model, sale_price, stock_qty").eq("is_active", true),
+      supabase.from("crm_catalogue").select("id, item_code, brand, model, sale_price, stock_qty, specs").eq("is_active", true),
       supabase
         .from("crm_enquiries")
         .select("id, customer_name, phone, item_name")
@@ -117,7 +117,7 @@ export default function CrmQuotations() {
     f.validity_date = addDays(todayISO(), f.validity_days);
     f.notes = t.notes || "";
     f.terms = t.terms || settings.quotation_terms || "";
-    f.items = (t.items || []).map((it: any) => ({ name: it.name, qty: Number(it.qty || 1), price: Number(it.price || 0), discount_pct: Number(it.discount_pct || 0) }));
+    f.items = (t.items || []).map((it: any) => ({ name: it.name, qty: Number(it.qty || 1), price: Number(it.price || 0), discount_pct: Number(it.discount_pct || 0), specs: it.specs || "" }));
     f.quote_no = await nextQuoteNo(settings.quote_prefix || "QT");
     f._from_template_id = t.id;
     setForm(f);
@@ -140,9 +140,9 @@ export default function CrmQuotations() {
     setForm({ ...form, items });
   };
   const removeItem = (idx: number) => setForm({ ...form, items: form.items.filter((_, i) => i !== idx) });
-  const addItem = () => setForm({ ...form, items: [...form.items, { name: "", qty: 1, price: 0, discount_pct: 0, code: "" }] });
+  const addItem = () => setForm({ ...form, items: [...form.items, { name: "", qty: 1, price: 0, discount_pct: 0, code: "", specs: "" }] });
   const addFromCatalogue = (it: any) => {
-    setForm({ ...form, items: [...form.items, { name: `${it.brand} ${it.model}`, qty: 1, price: Number(it.sale_price || 0), discount_pct: 0, code: it.item_code || "" }] });
+    setForm({ ...form, items: [...form.items, { name: `${it.brand} ${it.model}`, qty: 1, price: Number(it.sale_price || 0), discount_pct: 0, code: it.item_code || "", specs: it.specs || "" }] });
     setShowPicker(false);
   };
 
@@ -156,6 +156,7 @@ export default function CrmQuotations() {
       codeError: "",
       name: `${c.brand} ${c.model}`,
       price: Number(c.sale_price || 0),
+      specs: c.specs || "",
     });
   };
 
@@ -383,6 +384,13 @@ export default function CrmQuotations() {
                           </td>
                           <td className="px-2 py-1">
                             <input value={it.name} onChange={(e) => updateItem(idx, { name: e.target.value })} className={inp} />
+                            <textarea
+                              value={it.specs || ""}
+                              onChange={(e) => updateItem(idx, { specs: e.target.value })}
+                              placeholder="Specifications (auto-filled from catalogue, editable)"
+                              rows={2}
+                              className={inp + " mt-1 text-[11px] text-slate-300"}
+                            />
                             {!inCat && (
                               <div className="mt-1 text-[11px] text-slate-400 flex flex-wrap items-center gap-2">
                                 <span>'{it.name}' not found in catalogue.</span>

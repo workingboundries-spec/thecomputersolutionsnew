@@ -77,7 +77,7 @@ function stringify(v: any): string {
 
 // Build a clean monospaced items table for WhatsApp/text.
 // Sr | Item | Qty | Unit | Total
-export function buildItemsTable(items: Array<{ name: string; qty: number; price: number; discount_pct?: number }>): string {
+export function buildItemsTable(items: Array<{ name: string; qty: number; price: number; discount_pct?: number; specs?: string }>): string {
   if (!items || items.length === 0) return "(no items)";
 
   const fmt = (n: number) =>
@@ -90,6 +90,10 @@ export function buildItemsTable(items: Array<{ name: string; qty: number; price:
     const price = Number(it.price || 0);
     const total = qty * price * (1 - Number(it.discount_pct || 0) / 100);
     lines.push(`${i + 1}. ${it.name}`);
+    if (it.specs && String(it.specs).trim()) {
+      const specLines = String(it.specs).trim().split("\n");
+      specLines.forEach((sl) => lines.push(`   ${sl.trim()}`));
+    }
     lines.push(`   Qty: ${qty}   Unit: ${fmt(price)}   Total: ${fmt(total)}`);
     lines.push("");
   });

@@ -8,7 +8,7 @@ export type QuotePreviewData = {
   whatsapp?: string | null;
   email?: string | null;
   address?: string | null;
-  items: Array<{ name: string; qty: number; price: number; discount_pct?: number }>;
+  items: Array<{ name: string; qty: number; price: number; discount_pct?: number; specs?: string }>;
   subtotal: number;
   discount: number;
   gst_percent: number;
@@ -96,8 +96,13 @@ export function QuotationPreview({ q, b, showNotes = false }: { q: QuotePreviewD
               const total = Number(it.qty) * Number(it.price) * (1 - Number(it.discount_pct || 0) / 100);
               return (
                 <tr key={i} style={{ background: i % 2 === 0 ? "#ffffff" : altRowBg }}>
-                  <td style={{ ...tdStyle, color: b.font }}>{i + 1}</td>
-                  <td style={{ ...tdStyle, color: b.font }}>{it.name}</td>
+                  <td style={{ ...tdStyle, color: b.font, verticalAlign: "top" }}>{i + 1}</td>
+                  <td style={{ ...tdStyle, color: b.font }}>
+                    <div style={{ fontWeight: 600 }}>{it.name}</div>
+                    {it.specs && (
+                      <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2, whiteSpace: "pre-wrap" }}>{it.specs}</div>
+                    )}
+                  </td>
                   <td style={{ ...tdStyle, textAlign: "right", color: b.font }}>{it.qty}</td>
                   <td style={{ ...tdStyle, textAlign: "right", color: b.font }}>{formatINR(it.price)}</td>
                   <td style={{ ...tdStyle, textAlign: "right", color: b.font }}>{it.discount_pct || 0}%</td>

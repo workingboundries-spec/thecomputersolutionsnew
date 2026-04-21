@@ -71,6 +71,13 @@ export default function CrmQuotations() {
   const [showPicker, setShowPicker] = useState(false);
   const [catalogue, setCatalogue] = useState<any[]>([]);
   const [enquiries, setEnquiries] = useState<any[]>([]);
+  const [drawerForIdx, setDrawerForIdx] = useState<number | null>(null);
+
+  const isInCatalogue = (name: string) => {
+    const n = (name || "").trim().toLowerCase();
+    if (!n) return true;
+    return catalogue.some((c) => `${c.brand} ${c.model}`.toLowerCase() === n);
+  };
 
   const load = async () => {
     setLoading(true);

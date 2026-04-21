@@ -194,6 +194,11 @@ export default function MonthEndAuditWizard({ onClose, onSaved }: { onClose: () 
         </div>
 
         <div className="p-4 max-h-[65vh] overflow-y-auto">
+          {!loading && existingCount > 0 && (
+            <div className="mb-3 p-3 rounded border border-amber-500/40 bg-amber-500/10 text-amber-200 text-xs">
+              An audit for <strong>{monthLabel}</strong> already exists ({existingCount} item{existingCount === 1 ? "" : "s"}). Saving will <strong>overwrite</strong> the previous entries for this month.
+            </div>
+          )}
           {loading ? <div className="text-center py-8 text-slate-400">Loading items…</div> :
 
             step === 1 ? (

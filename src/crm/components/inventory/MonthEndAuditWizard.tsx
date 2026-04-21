@@ -41,12 +41,20 @@ export default function MonthEndAuditWizard({ onClose, onSaved }: { onClose: () 
   const [rows, setRows] = useState<AggRow[]>([]);
   const [action, setAction] = useState<"reset" | "carry_forward">("reset");
   const [saving, setSaving] = useState(false);
+  const [existingCount, setExistingCount] = useState(0);
+  const [confirmOverwrite, setConfirmOverwrite] = useState(false);
 
   useEffect(() => {
     (async () => {
-      // Pull all active items + sum movements for this month
+      // Pull all active items + sum movements for this month + check existing audit
       const monthStart = new Date(auditYear, auditMonth - 1, 1).toISOString();
       const monthEnd = new Date(auditYear, auditMonth, 1).toISOString();
+      const existingRes = await supabase
+        .from("inventory_audits" as any)
+        .select("id", { count: "exact", head: true })
+        .eq("audit_year", auditYear)
+        .eq("audit_month", auditMonth);
+      setExistingCount(existingRes.count || 0);
       const [catRes, txRes] = await Promise.all([
         supabase.from("crm_catalogue")
           .select("id, brand, model, opening_stock, current_stock, stock_qty")
@@ -107,9 +115,13 @@ export default function MonthEndAuditWizard({ onClose, onSaved }: { onClose: () 
   }, [rows]);
 
   const finish = async () => {
+    if (existingCount > 0 && !confirmOverwrite) {
+      setConfirmOverwrite(true);
+      return;
+    }
     setSaving(true);
 
-    // 1. Insert one inventory_audits row per item
+    // 1. Upsert one inventory_audits row per item (one per year/month/item)
     const auditRows = rows.map((r) => ({
       audit_month: auditMonth,
       audit_year: auditYear,
@@ -124,10 +136,14 @@ export default function MonthEndAuditWizard({ onClose, onSaved }: { onClose: () 
       action_taken: action,
       notes: r.notes || null,
       audited_by: user?.id ?? null,
+      audit_date: new Date().toISOString(),
     }));
-    const { error: auditErr } = await supabase.from("inventory_audits" as any).insert(auditRows);
+    const { error: auditErr } = await supabase
+      .from("inventory_audits" as any)
+      .upsert(auditRows, { onConflict: "audit_year,audit_month,item_id" });
     if (auditErr) {
       setSaving(false);
+      setConfirmOverwrite(false);
       return toast.error(auditErr.message);
     }
 
@@ -178,6 +194,11 @@ export default function MonthEndAuditWizard({ onClose, onSaved }: { onClose: () 
         </div>
 
         <div className="p-4 max-h-[65vh] overflow-y-auto">
+          {!loading && existingCount > 0 && (
+            <div className="mb-3 p-3 rounded border border-amber-500/40 bg-amber-500/10 text-amber-200 text-xs">
+              An audit for <strong>{monthLabel}</strong> already exists ({existingCount} item{existingCount === 1 ? "" : "s"}). Saving will <strong>overwrite</strong> the previous entries for this month.
+            </div>
+          )}
           {loading ? <div className="text-center py-8 text-slate-400">Loading items…</div> :
 
             step === 1 ? (
@@ -282,7 +303,22 @@ export default function MonthEndAuditWizard({ onClose, onSaved }: { onClose: () 
             {step < 3 ? (
               <button onClick={() => setStep((s) => (s + 1) as 1 | 2 | 3)} disabled={loading || rows.length === 0} className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded flex items-center gap-1">Next<ChevronRight size={14} /></button>
             ) : (
-              <button onClick={finish} disabled={saving} className="px-4 py-2 text-sm bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white rounded font-medium flex items-center gap-1.5"><CheckCircle2 size={14} />{saving ? "Saving…" : "Save Audit"}</button>
+              <button
+                onClick={finish}
+                disabled={saving}
+                className={`px-4 py-2 text-sm disabled:opacity-50 text-white rounded font-medium flex items-center gap-1.5 ${
+                  existingCount > 0 && !confirmOverwrite
+                    ? "bg-amber-600 hover:bg-amber-500"
+                    : "bg-green-600 hover:bg-green-500"
+                }`}
+              >
+                <CheckCircle2 size={14} />
+                {saving
+                  ? "Saving…"
+                  : existingCount > 0
+                  ? confirmOverwrite ? "Click again to confirm overwrite" : "Overwrite Audit"
+                  : "Save Audit"}
+              </button>
             )}
           </div>
         </div>

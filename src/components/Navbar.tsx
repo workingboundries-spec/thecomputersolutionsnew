@@ -6,7 +6,8 @@ import { useNavItems, useSiteSettings } from "@/hooks/use-site-data";
 
 const LOGO_SIZE_KEY = "navbar-logo-size";
 const MIN_LOGO = 40;
-const MAX_LOGO = 160;
+const MAX_LOGO = 240;
+const HEADER_HEIGHT = 88; // fixed header height — logo can overflow without resizing it
 
 const fallbackLinks = [
   { id: "f1", label: "Home", href: "#home" },

@@ -56,6 +56,7 @@ export default function Navbar() {
     const dy = e.clientY - startRef.current.y;
     const delta = Math.max(dx, dy);
     const next = Math.min(MAX_LOGO, Math.max(MIN_LOGO, startRef.current.size + delta));
+    userTouchedRef.current = true;
     setLogoSize(next);
   }, []);
 

@@ -91,13 +91,14 @@ export default function Navbar() {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/85 backdrop-blur-xl border-b border-primary/20">
       <div
-        className="container mx-auto flex items-center justify-between px-4"
-        style={{ minHeight: Math.max(96, logoSize + 16) }}
+        className="container mx-auto flex items-center justify-between px-4 relative"
+        style={{ height: HEADER_HEIGHT }}
       >
         <div className="flex items-center gap-3">
+          {/* Logo box is absolutely sized; allowed to overflow header vertically */}
           <div
-            className="relative group"
-            style={{ height: logoSize, width: logoSize }}
+            className="relative group flex-shrink-0"
+            style={{ height: logoSize, width: logoSize, marginTop: Math.max(0, (logoSize - HEADER_HEIGHT) / 2 + 8) > 0 ? 0 : 0 }}
             title="Drag corner to resize logo"
           >
             <Link to="/" className="block h-full w-full">
@@ -111,7 +112,7 @@ export default function Navbar() {
             <button
               type="button"
               onPointerDown={onHandleDown}
-              onDoubleClick={() => setLogoSize(80)}
+              onDoubleClick={() => { userTouchedRef.current = false; setLogoSize(adminDefault || 80); }}
               aria-label="Resize logo (double-click to reset)"
               className="absolute -bottom-1 -right-1 h-5 w-5 rounded-sm bg-primary/80 text-primary-foreground opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity flex items-center justify-center cursor-nwse-resize shadow-md"
             >

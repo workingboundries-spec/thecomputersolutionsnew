@@ -27,14 +27,24 @@ export default function Navbar() {
   const shopName = settings?.shop_name || "Computer Solutions";
   const shopLogo = settings?.shop_logo_url;
 
+  const adminDefault = parseInt(settings?.navbar_logo_size || "80", 10);
+
   const [logoSize, setLogoSize] = useState<number>(() => {
     if (typeof window === "undefined") return 80;
     const saved = window.localStorage.getItem(LOGO_SIZE_KEY);
     const n = saved ? parseInt(saved, 10) : NaN;
     return Number.isFinite(n) ? Math.min(MAX_LOGO, Math.max(MIN_LOGO, n)) : 80;
   });
+  const userTouchedRef = useRef(false);
   const draggingRef = useRef(false);
   const startRef = useRef<{ x: number; y: number; size: number } | null>(null);
+
+  // Sync with admin-set default if user hasn't manually adjusted
+  useEffect(() => {
+    if (!userTouchedRef.current && Number.isFinite(adminDefault)) {
+      setLogoSize(Math.min(MAX_LOGO, Math.max(MIN_LOGO, adminDefault)));
+    }
+  }, [adminDefault]);
 
   useEffect(() => {
     window.localStorage.setItem(LOGO_SIZE_KEY, String(logoSize));

@@ -66,6 +66,10 @@
     @apply border-border;
   }
 
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply bg-background text-foreground font-body antialiased;
   }
@@ -73,6 +77,11 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-heading;
   }
+
+  /* Slim, themed scrollbar for horizontal scroll-snap rows */
+  .scrollbar-thin::-webkit-scrollbar { height: 6px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background: hsl(var(--primary) / 0.4); border-radius: 9999px; }
 }
 
 @layer utilities {

@@ -8,6 +8,7 @@ import NewArrivals from "@/components/NewArrivals";
 import Products from "@/components/Products";
 import CCTVProducts from "@/components/CCTVProducts";
 import WhyChooseUs from "@/components/WhyChooseUs";
+import SisterConcerns from "@/components/SisterConcerns";
 import Gallery from "@/components/Gallery";
 import YouTubeVideos from "@/components/YouTubeVideos";
 import SocialLinks from "@/components/SocialLinks";
@@ -30,6 +31,7 @@ const Index = () => {
       <Products />
       <CCTVProducts />
       <WhyChooseUs />
+      <SisterConcerns />
       <Gallery />
       <YouTubeVideos />
       <SocialLinks />

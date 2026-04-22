@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Save, Plus, Trash2, LogOut, Flame, Camera } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, LogOut, Flame, Camera, Menu, Image as ImageIcon, Tag, Award, Instagram, MessageSquare, Inbox, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
@@ -59,6 +59,14 @@ interface GalleryImage {
   display_order: number;
 }
 
+interface NavItem { id: string; label: string; href: string; sort_order: number; is_visible: boolean; }
+interface BannerSlide { id: string; image_url: string | null; heading: string | null; subheading: string | null; button_text: string | null; button_link: string | null; sort_order: number; is_active: boolean; }
+interface SectionHeading { id: string; section_key: string; heading: string; subheading: string | null; is_visible: boolean; }
+interface DealerBrand { id: string; brand_name: string; logo_url: string | null; website_url: string | null; brand_type: string | null; sort_order: number; is_active: boolean; }
+interface InstagramReel { id: string; title: string | null; reel_url: string | null; thumbnail_url: string; caption: string | null; sort_order: number; is_active: boolean; }
+interface TestimonialVideo { id: string; customer_name: string; location: string | null; product_purchased: string | null; video_url: string | null; thumbnail_url: string | null; review_text: string | null; rating: number; sort_order: number; is_active: boolean; }
+interface Enquiry { id: string; name: string; phone: string; message: string | null; status: string; created_at: string; }
+
 type Settings = Record<string, string>;
 
 export default function Admin() {
@@ -70,6 +78,13 @@ export default function Admin() {
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
   const [deals, setDeals] = useState<DailyDeal[]>([]);
   const [cctvProducts, setCctvProducts] = useState<CCTVProduct[]>([]);
+  const [navItems, setNavItems] = useState<NavItem[]>([]);
+  const [bannerSlides, setBannerSlides] = useState<BannerSlide[]>([]);
+  const [sectionHeadings, setSectionHeadings] = useState<SectionHeading[]>([]);
+  const [dealerBrands, setDealerBrands] = useState<DealerBrand[]>([]);
+  const [instagramReels, setInstagramReels] = useState<InstagramReel[]>([]);
+  const [testimonialVideos, setTestimonialVideos] = useState<TestimonialVideo[]>([]);
+  const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [loading, setLoading] = useState(true);
   const queryClient = useQueryClient();
   const { signOut } = useAuth();
@@ -87,7 +102,7 @@ export default function Admin() {
 
   const loadAll = async () => {
     setLoading(true);
-    const [s, p, sv, v, g, d, cc] = await Promise.all([
+    const [s, p, sv, v, g, d, cc, ni, bs, sh, db, ir, tv, eq] = await Promise.all([
       supabase.from("site_settings").select("*"),
       supabase.from("products").select("*").order("display_order"),
       supabase.from("services").select("*").order("display_order"),
@@ -95,6 +110,13 @@ export default function Admin() {
       supabase.from("gallery_images").select("*").order("display_order"),
       supabase.from("daily_deals").select("*").order("display_order"),
       supabase.from("cctv_products").select("*").order("display_order"),
+      supabase.from("nav_items").select("*").order("sort_order"),
+      supabase.from("banner_slides").select("*").order("sort_order"),
+      supabase.from("section_headings").select("*").order("section_key"),
+      supabase.from("dealer_brands").select("*").order("sort_order"),
+      supabase.from("instagram_reels").select("*").order("sort_order"),
+      supabase.from("testimonial_videos").select("*").order("sort_order"),
+      supabase.from("enquiries").select("*").order("created_at", { ascending: false }),
     ]);
     const settingsMap: Settings = {};
     s.data?.forEach((r) => { settingsMap[r.key] = r.value; });
@@ -105,6 +127,13 @@ export default function Admin() {
     setGallery((g.data as GalleryImage[]) || []);
     setDeals((d.data as DailyDeal[]) || []);
     setCctvProducts((cc.data as CCTVProduct[]) || []);
+    setNavItems((ni.data as NavItem[]) || []);
+    setBannerSlides((bs.data as BannerSlide[]) || []);
+    setSectionHeadings((sh.data as SectionHeading[]) || []);
+    setDealerBrands((db.data as DealerBrand[]) || []);
+    setInstagramReels((ir.data as InstagramReel[]) || []);
+    setTestimonialVideos((tv.data as TestimonialVideo[]) || []);
+    setEnquiries((eq.data as Enquiry[]) || []);
     setLoading(false);
   };
 
@@ -114,7 +143,10 @@ export default function Admin() {
     }
   };
 
-  const saveCRUD = async (table: "products" | "services" | "youtube_videos" | "gallery_images" | "daily_deals" | "cctv_products", items: any[]) => {
+  const saveCRUD = async (
+    table: "products" | "services" | "youtube_videos" | "gallery_images" | "daily_deals" | "cctv_products" | "nav_items" | "banner_slides" | "section_headings" | "dealer_brands" | "instagram_reels" | "testimonial_videos",
+    items: any[],
+  ) => {
     const existing = await supabase.from(table).select("id");
     const existingIds = new Set(existing.data?.map((r: any) => r.id) || []);
     const currentIds = new Set(items.map((i) => i.id));
@@ -136,6 +168,12 @@ export default function Admin() {
         saveCRUD("gallery_images", gallery),
         saveCRUD("daily_deals", deals),
         saveCRUD("cctv_products", cctvProducts),
+        saveCRUD("nav_items", navItems),
+        saveCRUD("banner_slides", bannerSlides),
+        saveCRUD("section_headings", sectionHeadings),
+        saveCRUD("dealer_brands", dealerBrands),
+        saveCRUD("instagram_reels", instagramReels),
+        saveCRUD("testimonial_videos", testimonialVideos),
       ]);
       queryClient.invalidateQueries();
       toast.success("All changes saved to database!");
@@ -144,18 +182,37 @@ export default function Admin() {
     }
   };
 
+  const updateEnquiryStatus = async (id: string, status: string) => {
+    await supabase.from("enquiries").update({ status }).eq("id", id);
+    setEnquiries(enquiries.map((e) => (e.id === id ? { ...e, status } : e)));
+    toast.success("Enquiry status updated");
+  };
+
+  const deleteEnquiry = async (id: string) => {
+    await supabase.from("enquiries").delete().eq("id", id);
+    setEnquiries(enquiries.filter((e) => e.id !== id));
+    toast.success("Enquiry deleted");
+  };
+
   const updateSetting = (key: string, value: string) => setSettings({ ...settings, [key]: value });
 
   const productCategories = (settings.product_categories || "Business,Gaming,Student,Budget,Premium").split(",").map(c => c.trim()).filter(Boolean);
 
   const tabs = [
     { id: "banner", label: "Banner" },
+    { id: "slides", label: "🎞 Slides" },
+    { id: "nav", label: "Menu" },
+    { id: "headings", label: "Headings" },
+    { id: "brands", label: "Brands" },
     { id: "deals", label: "🔥 Deals" },
     { id: "products", label: "Products" },
     { id: "cctv", label: "📹 CCTV" },
     { id: "services", label: "Services" },
     { id: "videos", label: "YouTube" },
+    { id: "reels", label: "📸 Reels" },
+    { id: "testimonials", label: "Testimonials" },
     { id: "gallery", label: "Gallery" },
+    { id: "enquiries", label: "📥 Enquiries" },
     { id: "contact", label: "Contact" },
   ];
 
@@ -409,6 +466,201 @@ export default function Admin() {
             <div><label className="text-sm text-muted-foreground mb-1 block">Instagram Thumbnail URL</label><input className={inputClass} value={settings.instagram_thumbnail || ""} onChange={(e) => updateSetting("instagram_thumbnail", e.target.value)} placeholder="https://image-url.com/insta-thumb.jpg" /></div>
             <div><label className="text-sm text-muted-foreground mb-1 block">Facebook URL</label><input className={inputClass} value={settings.facebook_url || ""} onChange={(e) => updateSetting("facebook_url", e.target.value)} placeholder="https://facebook.com/yourpage" /></div>
             <div><label className="text-sm text-muted-foreground mb-1 block">Facebook Thumbnail URL</label><input className={inputClass} value={settings.facebook_thumbnail || ""} onChange={(e) => updateSetting("facebook_thumbnail", e.target.value)} placeholder="https://image-url.com/fb-thumb.jpg" /></div>
+          </div>
+        )}
+
+        {/* Banner Slides Tab */}
+        {activeTab === "slides" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="font-heading text-2xl font-semibold flex items-center gap-2"><ImageIcon className="h-6 w-6 text-primary" /> Hero Banner Slides</h2>
+              <button onClick={() => setBannerSlides([...bannerSlides, { id: crypto.randomUUID(), image_url: "", heading: "New Slide", subheading: "", button_text: "Shop Now", button_link: "#products", sort_order: bannerSlides.length + 1, is_active: true }])} className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium">
+                <Plus className="h-4 w-4" /> Add Slide
+              </button>
+            </div>
+            {bannerSlides.map((b) => (
+              <div key={b.id} className="glass rounded-2xl p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="font-heading font-semibold">{b.heading || "Untitled"}</span>
+                  <div className="flex gap-2">
+                    <button onClick={() => setBannerSlides(bannerSlides.map((x) => x.id === b.id ? { ...x, is_active: !x.is_active } : x))} className={b.is_active ? "text-primary" : "text-muted-foreground"}>
+                      {b.is_active ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                    </button>
+                    <button onClick={() => setBannerSlides(bannerSlides.filter((x) => x.id !== b.id))} className="text-destructive"><Trash2 className="h-4 w-4" /></button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2"><label className="text-xs text-muted-foreground">Image URL</label><input className={inputClass} value={b.image_url || ""} onChange={(e) => setBannerSlides(bannerSlides.map((x) => x.id === b.id ? { ...x, image_url: e.target.value } : x))} placeholder="https://..." /></div>
+                  <div><label className="text-xs text-muted-foreground">Heading</label><input className={inputClass} value={b.heading || ""} onChange={(e) => setBannerSlides(bannerSlides.map((x) => x.id === b.id ? { ...x, heading: e.target.value } : x))} /></div>
+                  <div><label className="text-xs text-muted-foreground">Subheading</label><input className={inputClass} value={b.subheading || ""} onChange={(e) => setBannerSlides(bannerSlides.map((x) => x.id === b.id ? { ...x, subheading: e.target.value } : x))} /></div>
+                  <div><label className="text-xs text-muted-foreground">Button Text</label><input className={inputClass} value={b.button_text || ""} onChange={(e) => setBannerSlides(bannerSlides.map((x) => x.id === b.id ? { ...x, button_text: e.target.value } : x))} /></div>
+                  <div><label className="text-xs text-muted-foreground">Button Link</label><input className={inputClass} value={b.button_link || ""} onChange={(e) => setBannerSlides(bannerSlides.map((x) => x.id === b.id ? { ...x, button_link: e.target.value } : x))} placeholder="#products" /></div>
+                  <div><label className="text-xs text-muted-foreground">Sort Order</label><input type="number" className={inputClass} value={b.sort_order} onChange={(e) => setBannerSlides(bannerSlides.map((x) => x.id === b.id ? { ...x, sort_order: parseInt(e.target.value) || 0 } : x))} /></div>
+                </div>
+              </div>
+            ))}
+            {bannerSlides.length === 0 && <p className="text-muted-foreground text-center py-8">No slides yet. Click "Add Slide".</p>}
+          </div>
+        )}
+
+        {/* Nav Items Tab */}
+        {activeTab === "nav" && (
+          <div className="space-y-4 max-w-3xl">
+            <div className="flex items-center justify-between">
+              <h2 className="font-heading text-2xl font-semibold flex items-center gap-2"><Menu className="h-6 w-6 text-primary" /> Navigation Menu</h2>
+              <button onClick={() => setNavItems([...navItems, { id: crypto.randomUUID(), label: "New Link", href: "#", sort_order: navItems.length + 1, is_visible: true }])} className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium">
+                <Plus className="h-4 w-4" /> Add Link
+              </button>
+            </div>
+            {navItems.map((n) => (
+              <div key={n.id} className="glass rounded-xl p-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                <input className={inputClass + " md:col-span-3"} placeholder="Label" value={n.label} onChange={(e) => setNavItems(navItems.map((x) => x.id === n.id ? { ...x, label: e.target.value } : x))} />
+                <input className={inputClass + " md:col-span-4"} placeholder="Link (e.g. #products)" value={n.href} onChange={(e) => setNavItems(navItems.map((x) => x.id === n.id ? { ...x, href: e.target.value } : x))} />
+                <input type="number" className={inputClass + " md:col-span-2"} placeholder="Order" value={n.sort_order} onChange={(e) => setNavItems(navItems.map((x) => x.id === n.id ? { ...x, sort_order: parseInt(e.target.value) || 0 } : x))} />
+                <label className="md:col-span-2 flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={n.is_visible} onChange={(e) => setNavItems(navItems.map((x) => x.id === n.id ? { ...x, is_visible: e.target.checked } : x))} className="accent-primary" />
+                  Visible
+                </label>
+                <button onClick={() => setNavItems(navItems.filter((x) => x.id !== n.id))} className="text-destructive md:col-span-1"><Trash2 className="h-4 w-4" /></button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Section Headings Tab */}
+        {activeTab === "headings" && (
+          <div className="space-y-4 max-w-3xl">
+            <div className="flex items-center justify-between">
+              <h2 className="font-heading text-2xl font-semibold flex items-center gap-2"><Tag className="h-6 w-6 text-primary" /> Section Headings</h2>
+              <button onClick={() => setSectionHeadings([...sectionHeadings, { id: crypto.randomUUID(), section_key: "new_section", heading: "New Heading", subheading: "", is_visible: true }])} className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium">
+                <Plus className="h-4 w-4" /> Add Heading
+              </button>
+            </div>
+            {sectionHeadings.map((h) => (
+              <div key={h.id} className="glass rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <code className="text-xs bg-secondary px-2 py-1 rounded">{h.section_key}</code>
+                  <div className="flex gap-2">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" checked={h.is_visible} onChange={(e) => setSectionHeadings(sectionHeadings.map((x) => x.id === h.id ? { ...x, is_visible: e.target.checked } : x))} className="accent-primary" />
+                      Visible
+                    </label>
+                    <button onClick={() => setSectionHeadings(sectionHeadings.filter((x) => x.id !== h.id))} className="text-destructive"><Trash2 className="h-4 w-4" /></button>
+                  </div>
+                </div>
+                <input className={inputClass} placeholder="Section Key" value={h.section_key} onChange={(e) => setSectionHeadings(sectionHeadings.map((x) => x.id === h.id ? { ...x, section_key: e.target.value } : x))} />
+                <input className={inputClass} placeholder="Heading" value={h.heading} onChange={(e) => setSectionHeadings(sectionHeadings.map((x) => x.id === h.id ? { ...x, heading: e.target.value } : x))} />
+                <input className={inputClass} placeholder="Subheading" value={h.subheading || ""} onChange={(e) => setSectionHeadings(sectionHeadings.map((x) => x.id === h.id ? { ...x, subheading: e.target.value } : x))} />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Dealer Brands Tab */}
+        {activeTab === "brands" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-heading text-2xl font-semibold flex items-center gap-2"><Award className="h-6 w-6 text-primary" /> Authorized Brands</h2>
+              <button onClick={() => setDealerBrands([...dealerBrands, { id: crypto.randomUUID(), brand_name: "New Brand", logo_url: "", website_url: "", brand_type: "dealer", sort_order: dealerBrands.length + 1, is_active: true }])} className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium">
+                <Plus className="h-4 w-4" /> Add Brand
+              </button>
+            </div>
+            {dealerBrands.map((b) => (
+              <div key={b.id} className="glass rounded-xl p-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                <input className={inputClass + " md:col-span-3"} placeholder="Brand Name" value={b.brand_name} onChange={(e) => setDealerBrands(dealerBrands.map((x) => x.id === b.id ? { ...x, brand_name: e.target.value } : x))} />
+                <input className={inputClass + " md:col-span-3"} placeholder="Logo URL" value={b.logo_url || ""} onChange={(e) => setDealerBrands(dealerBrands.map((x) => x.id === b.id ? { ...x, logo_url: e.target.value } : x))} />
+                <input className={inputClass + " md:col-span-3"} placeholder="Website URL" value={b.website_url || ""} onChange={(e) => setDealerBrands(dealerBrands.map((x) => x.id === b.id ? { ...x, website_url: e.target.value } : x))} />
+                <select className={inputClass + " md:col-span-2"} value={b.brand_type || "dealer"} onChange={(e) => setDealerBrands(dealerBrands.map((x) => x.id === b.id ? { ...x, brand_type: e.target.value } : x))}>
+                  <option value="dealer">Dealer</option>
+                  <option value="service">Service</option>
+                </select>
+                <button onClick={() => setDealerBrands(dealerBrands.filter((x) => x.id !== b.id))} className="text-destructive md:col-span-1"><Trash2 className="h-4 w-4" /></button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Instagram Reels Tab */}
+        {activeTab === "reels" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="font-heading text-2xl font-semibold flex items-center gap-2"><Instagram className="h-6 w-6 text-primary" /> Instagram Reels</h2>
+              <button onClick={() => setInstagramReels([...instagramReels, { id: crypto.randomUUID(), title: "New Reel", reel_url: "", thumbnail_url: "", caption: "", sort_order: instagramReels.length + 1, is_active: true }])} className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium">
+                <Plus className="h-4 w-4" /> Add Reel
+              </button>
+            </div>
+            {instagramReels.map((r) => (
+              <div key={r.id} className="glass rounded-2xl p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="font-heading font-semibold">{r.title || "Untitled"}</span>
+                  <button onClick={() => setInstagramReels(instagramReels.filter((x) => x.id !== r.id))} className="text-destructive"><Trash2 className="h-4 w-4" /></button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div><label className="text-xs text-muted-foreground">Title</label><input className={inputClass} value={r.title || ""} onChange={(e) => setInstagramReels(instagramReels.map((x) => x.id === r.id ? { ...x, title: e.target.value } : x))} /></div>
+                  <div><label className="text-xs text-muted-foreground">Reel URL</label><input className={inputClass} value={r.reel_url || ""} onChange={(e) => setInstagramReels(instagramReels.map((x) => x.id === r.id ? { ...x, reel_url: e.target.value } : x))} placeholder="https://instagram.com/reel/..." /></div>
+                  <div className="md:col-span-2"><label className="text-xs text-muted-foreground">Thumbnail URL</label><input className={inputClass} value={r.thumbnail_url} onChange={(e) => setInstagramReels(instagramReels.map((x) => x.id === r.id ? { ...x, thumbnail_url: e.target.value } : x))} placeholder="https://..." /></div>
+                  <div className="md:col-span-2"><label className="text-xs text-muted-foreground">Caption</label><input className={inputClass} value={r.caption || ""} onChange={(e) => setInstagramReels(instagramReels.map((x) => x.id === r.id ? { ...x, caption: e.target.value } : x))} /></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Testimonial Videos Tab */}
+        {activeTab === "testimonials" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="font-heading text-2xl font-semibold flex items-center gap-2"><MessageSquare className="h-6 w-6 text-primary" /> Customer Testimonials</h2>
+              <button onClick={() => setTestimonialVideos([...testimonialVideos, { id: crypto.randomUUID(), customer_name: "New Customer", location: "", product_purchased: "", video_url: "", thumbnail_url: "", review_text: "", rating: 5, sort_order: testimonialVideos.length + 1, is_active: true }])} className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium">
+                <Plus className="h-4 w-4" /> Add Testimonial
+              </button>
+            </div>
+            {testimonialVideos.map((t) => (
+              <div key={t.id} className="glass rounded-2xl p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="font-heading font-semibold">{t.customer_name}</span>
+                  <button onClick={() => setTestimonialVideos(testimonialVideos.filter((x) => x.id !== t.id))} className="text-destructive"><Trash2 className="h-4 w-4" /></button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div><label className="text-xs text-muted-foreground">Customer Name</label><input className={inputClass} value={t.customer_name} onChange={(e) => setTestimonialVideos(testimonialVideos.map((x) => x.id === t.id ? { ...x, customer_name: e.target.value } : x))} /></div>
+                  <div><label className="text-xs text-muted-foreground">Location</label><input className={inputClass} value={t.location || ""} onChange={(e) => setTestimonialVideos(testimonialVideos.map((x) => x.id === t.id ? { ...x, location: e.target.value } : x))} /></div>
+                  <div><label className="text-xs text-muted-foreground">Product Purchased</label><input className={inputClass} value={t.product_purchased || ""} onChange={(e) => setTestimonialVideos(testimonialVideos.map((x) => x.id === t.id ? { ...x, product_purchased: e.target.value } : x))} /></div>
+                  <div><label className="text-xs text-muted-foreground">Rating (1-5)</label><input type="number" min={1} max={5} className={inputClass} value={t.rating} onChange={(e) => setTestimonialVideos(testimonialVideos.map((x) => x.id === t.id ? { ...x, rating: parseInt(e.target.value) || 5 } : x))} /></div>
+                  <div><label className="text-xs text-muted-foreground">Video URL</label><input className={inputClass} value={t.video_url || ""} onChange={(e) => setTestimonialVideos(testimonialVideos.map((x) => x.id === t.id ? { ...x, video_url: e.target.value } : x))} /></div>
+                  <div><label className="text-xs text-muted-foreground">Thumbnail URL</label><input className={inputClass} value={t.thumbnail_url || ""} onChange={(e) => setTestimonialVideos(testimonialVideos.map((x) => x.id === t.id ? { ...x, thumbnail_url: e.target.value } : x))} /></div>
+                  <div className="md:col-span-2"><label className="text-xs text-muted-foreground">Review Text</label><textarea rows={2} className={inputClass + " resize-none"} value={t.review_text || ""} onChange={(e) => setTestimonialVideos(testimonialVideos.map((x) => x.id === t.id ? { ...x, review_text: e.target.value } : x))} /></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Enquiries Inbox Tab */}
+        {activeTab === "enquiries" && (
+          <div className="space-y-4">
+            <h2 className="font-heading text-2xl font-semibold flex items-center gap-2"><Inbox className="h-6 w-6 text-primary" /> Enquiries Inbox <span className="text-sm text-muted-foreground font-normal">({enquiries.length})</span></h2>
+            {enquiries.length === 0 && <p className="text-muted-foreground text-center py-8">No enquiries yet.</p>}
+            {enquiries.map((e) => (
+              <div key={e.id} className="glass rounded-xl p-4 space-y-2">
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div>
+                    <p className="font-heading font-semibold">{e.name} <span className="text-sm text-muted-foreground font-normal">· {e.phone}</span></p>
+                    <p className="text-xs text-muted-foreground">{new Date(e.created_at).toLocaleString()}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <select value={e.status} onChange={(ev) => updateEnquiryStatus(e.id, ev.target.value)} className="bg-secondary rounded-lg px-3 py-1.5 text-sm">
+                      <option value="new">New</option>
+                      <option value="contacted">Contacted</option>
+                      <option value="resolved">Resolved</option>
+                      <option value="spam">Spam</option>
+                    </select>
+                    <a href={`https://wa.me/91${e.phone.replace(/\D/g, "")}`} target="_blank" rel="noreferrer" className="bg-primary text-primary-foreground px-3 py-1.5 rounded-lg text-sm">WhatsApp</a>
+                    <button onClick={() => deleteEnquiry(e.id)} className="text-destructive"><Trash2 className="h-4 w-4" /></button>
+                  </div>
+                </div>
+                {e.message && <p className="text-sm bg-secondary rounded-lg p-3">{e.message}</p>}
+              </div>
+            ))}
           </div>
         )}
       </div>

@@ -59,6 +59,14 @@ interface GalleryImage {
   display_order: number;
 }
 
+interface NavItem { id: string; label: string; href: string; sort_order: number; is_visible: boolean; }
+interface BannerSlide { id: string; image_url: string | null; heading: string | null; subheading: string | null; button_text: string | null; button_link: string | null; sort_order: number; is_active: boolean; }
+interface SectionHeading { id: string; section_key: string; heading: string; subheading: string | null; is_visible: boolean; }
+interface DealerBrand { id: string; brand_name: string; logo_url: string | null; website_url: string | null; brand_type: string | null; sort_order: number; is_active: boolean; }
+interface InstagramReel { id: string; title: string | null; reel_url: string | null; thumbnail_url: string; caption: string | null; sort_order: number; is_active: boolean; }
+interface TestimonialVideo { id: string; customer_name: string; location: string | null; product_purchased: string | null; video_url: string | null; thumbnail_url: string | null; review_text: string | null; rating: number; sort_order: number; is_active: boolean; }
+interface Enquiry { id: string; name: string; phone: string; message: string | null; status: string; created_at: string; }
+
 type Settings = Record<string, string>;
 
 export default function Admin() {
@@ -70,6 +78,13 @@ export default function Admin() {
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
   const [deals, setDeals] = useState<DailyDeal[]>([]);
   const [cctvProducts, setCctvProducts] = useState<CCTVProduct[]>([]);
+  const [navItems, setNavItems] = useState<NavItem[]>([]);
+  const [bannerSlides, setBannerSlides] = useState<BannerSlide[]>([]);
+  const [sectionHeadings, setSectionHeadings] = useState<SectionHeading[]>([]);
+  const [dealerBrands, setDealerBrands] = useState<DealerBrand[]>([]);
+  const [instagramReels, setInstagramReels] = useState<InstagramReel[]>([]);
+  const [testimonialVideos, setTestimonialVideos] = useState<TestimonialVideo[]>([]);
+  const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [loading, setLoading] = useState(true);
   const queryClient = useQueryClient();
   const { signOut } = useAuth();

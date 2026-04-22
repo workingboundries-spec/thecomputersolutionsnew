@@ -1,42 +1,50 @@
 import { useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import HeroBanner from "@/components/HeroBanner";
+import WhyChooseUs from "@/components/WhyChooseUs";
+import EmiBanner from "@/components/EmiBanner";
 import BrandsMarquee from "@/components/BrandsMarquee";
+import NewArrivals from "@/components/NewArrivals";
 import DailyDeals from "@/components/DailyDeals";
 import Services from "@/components/Services";
-import NewArrivals from "@/components/NewArrivals";
 import Products from "@/components/Products";
 import CCTVProducts from "@/components/CCTVProducts";
-import WhyChooseUs from "@/components/WhyChooseUs";
+import TestimonialVideos from "@/components/TestimonialVideos";
+import YouTubeVideos from "@/components/YouTubeVideos";
+import InstagramReels from "@/components/InstagramReels";
 import SisterConcerns from "@/components/SisterConcerns";
 import Gallery from "@/components/Gallery";
-import YouTubeVideos from "@/components/YouTubeVideos";
 import SocialLinks from "@/components/SocialLinks";
 import ContactUs from "@/components/ContactUs";
 import Footer from "@/components/Footer";
+import FloatingWhatsApp from "@/components/FloatingWhatsApp";
 
 const Index = () => {
   useEffect(() => {
-    document.title = "ComputerSolutions — Premium Laptops & Computers at Best Prices";
+    document.title = "Computer Solutions — Premium Laptops, CCTV & Tech";
   }, []);
 
   return (
     <div className="min-h-screen">
       <Navbar />
       <HeroBanner />
+      <WhyChooseUs />
+      <EmiBanner />
       <BrandsMarquee />
+      <NewArrivals />
       <DailyDeals />
       <Services />
-      <NewArrivals />
       <Products />
       <CCTVProducts />
-      <WhyChooseUs />
+      <TestimonialVideos />
+      <YouTubeVideos />
+      <InstagramReels />
       <SisterConcerns />
       <Gallery />
-      <YouTubeVideos />
       <SocialLinks />
       <ContactUs />
       <Footer />
+      <FloatingWhatsApp />
     </div>
   );
 };

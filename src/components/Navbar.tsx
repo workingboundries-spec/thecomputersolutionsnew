@@ -33,12 +33,12 @@ export default function Navbar() {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/85 backdrop-blur-xl border-b border-primary/20">
-      <div className="container mx-auto flex items-center justify-between h-20 px-4">
+      <div className="container mx-auto flex items-center justify-between h-24 px-4">
         <Link to="/" className="flex items-center gap-3">
           <img
             src={shopLogo || logo}
             alt={shopName}
-            className="h-12 w-auto object-contain drop-shadow-[0_0_12px_hsl(var(--primary)/0.4)]"
+            className="h-16 md:h-20 w-auto object-contain drop-shadow-[0_0_12px_hsl(var(--primary)/0.4)]"
           />
           <span className="hidden sm:inline-block font-heading font-bold text-lg tracking-tight">
             <span className="text-vibrant">{shopName}</span>

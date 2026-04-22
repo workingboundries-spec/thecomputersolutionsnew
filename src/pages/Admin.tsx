@@ -258,7 +258,52 @@ export default function Admin() {
         {/* Banner Tab */}
         {activeTab === "banner" && (
           <div className="max-w-2xl space-y-5">
-            <h2 className="font-heading text-2xl font-semibold mb-4">Banner Settings</h2>
+            <h2 className="font-heading text-2xl font-semibold mb-4">Logo & Shop Identity</h2>
+            <div className="glass rounded-2xl p-5 space-y-4">
+              <div>
+                <label className="text-sm text-muted-foreground mb-1 block">Shop Name</label>
+                <input className={inputClass} value={settings.shop_name || ""} onChange={(e) => updateSetting("shop_name", e.target.value)} placeholder="Computer Solutions" />
+              </div>
+              <div>
+                <label className="text-sm text-muted-foreground mb-1 block">Logo Image URL</label>
+                <input className={inputClass} value={settings.shop_logo_url || ""} onChange={(e) => updateSetting("shop_logo_url", e.target.value)} placeholder="https://... or upload below" />
+              </div>
+              <div className="flex items-center gap-4">
+                <label className="cursor-pointer inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
+                  <ImageIcon className="h-4 w-4" /> Upload Logo
+                  <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                    const file = e.target.files?.[0]; if (!file) return;
+                    const ext = file.name.split(".").pop() || "png";
+                    const path = `logo/logo-${Date.now()}.${ext}`;
+                    const { error } = await supabase.storage.from("shop-assets").upload(path, file, { upsert: true });
+                    if (error) { toast.error(error.message); return; }
+                    const { data } = supabase.storage.from("shop-assets").getPublicUrl(path);
+                    updateSetting("shop_logo_url", data.publicUrl);
+                    toast.success("Logo uploaded — click Save All to apply");
+                  }} />
+                </label>
+                {settings.shop_logo_url && (
+                  <div className="h-16 w-16 rounded-lg bg-secondary p-1 flex items-center justify-center overflow-hidden">
+                    <img src={settings.shop_logo_url} alt="logo preview" className="max-h-full max-w-full object-contain" />
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="text-sm text-muted-foreground mb-1 block">Default Logo Size on Header (px): <span className="text-primary font-semibold">{settings.navbar_logo_size || "80"}</span></label>
+                <input
+                  type="range"
+                  min={40}
+                  max={200}
+                  step={4}
+                  value={parseInt(settings.navbar_logo_size || "80", 10)}
+                  onChange={(e) => updateSetting("navbar_logo_size", e.target.value)}
+                  className="w-full accent-primary"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Logo can grow larger than the header bar without changing header height. Visitors can also drag the corner handle to adjust locally.</p>
+              </div>
+            </div>
+
+            <h2 className="font-heading text-2xl font-semibold mb-4 pt-4 border-t border-border">Banner Settings</h2>
             <div>
               <label className="text-sm text-muted-foreground mb-1 block">Banner Title</label>
               <input className={inputClass} value={settings.banner_title || ""} onChange={(e) => updateSetting("banner_title", e.target.value)} />

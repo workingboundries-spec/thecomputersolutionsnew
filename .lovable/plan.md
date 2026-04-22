@@ -1,34 +1,48 @@
 
 
-## Fix the migration script so it works on any Supabase (empty OR partially set up)
+## Add Real Thumbnails to Services Section
 
-### Root cause
-The script uses `CREATE TABLE IF NOT EXISTS`, which **skips entirely** when a table of the same name already exists — even if its columns differ. Your target Supabase already has an old `crm_catalogue` table (without `item_code`), so the new column definitions were never applied. Then line 513 tries to create a unique index on `item_code` and fails with `42703: column "item_code" does not exist`.
+### Why thumbnails aren't showing
+The `Services` component already supports thumbnails — it reads `s.thumbnail_url` from the `services` table and renders it as a background image. When `thumbnail_url` is empty/null, it falls back to a yellow gradient (which is what you're seeing now).
 
-### Fix strategy
-Make `full_database_setup.sql` fully idempotent and self-healing:
+So the code is fine — the database rows simply don't have `thumbnail_url` values set yet.
 
-1. **After every `CREATE TABLE IF NOT EXISTS`**, emit `ALTER TABLE … ADD COLUMN IF NOT EXISTS …` for every column with the same type/default/nullable. This guarantees missing columns get added on partial DBs.
-2. **Wrap risky DDL** (indexes, triggers, FKs that depend on new columns) in `DO $$ … $$` blocks that check `information_schema.columns` first, so they skip cleanly if a column is somehow still absent.
-3. **Order**: extensions → enum → sequence → functions → tables → ALTER ADD COLUMN guards → indexes → triggers → RLS → policies → storage buckets → storage policies.
-4. **Storage buckets / policies** stay wrapped in `ON CONFLICT DO NOTHING` and `DROP POLICY IF EXISTS` so re-runs are safe.
-5. **No data loss**: script never `DROP`s tables; only adds missing columns / policies / triggers.
+### Two ways to fix this (we'll do both)
 
-### Deliverable
-- Rewrite `/mnt/documents/full_database_setup.sql` (single file) with the above structure, covering all 30 tables exactly as they exist in the live DB (schemas pulled from current Supabase metadata already in context).
-- Add a short header comment block with the run-order steps:
-  1. Run the SQL in Supabase SQL Editor.
-  2. Create the admin user under Auth → Users.
-  3. `INSERT INTO public.crm_user_roles (user_id, role) VALUES ('<uuid>', 'crm_admin');`
-  4. Update the app's `.env` with the new `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
+**1. Seed each existing service with a relevant high-quality image**
+Update every row in the `services` table with a contextually matching photo (Unsplash CDN URLs — free, fast, no upload needed). Mapping by `icon_name` / `title`:
 
-### Result
-The single SQL file will run cleanly on:
-- A brand-new empty Supabase project, **and**
-- Your current target project that already has partial tables — it will heal them by adding any missing columns before creating indexes/triggers/policies.
+| Service type | Image theme |
+|---|---|
+| Laptop / Sales | Modern laptop on desk |
+| Wrench / Repair | Technician repairing laptop motherboard |
+| RefreshCw / Upgrade | RAM/SSD hardware upgrade |
+| ShieldCheck / AMC | IT support shield/security |
+| Truck / Delivery | Delivery box / courier |
+| Headphones / Support | Customer support headset |
+| Monitor / Display | Monitor/display setup |
+| Cpu / Hardware | CPU/processor closeup |
+| HardDrive / Data | Hard drive / data recovery |
 
-No `item_code does not exist` (or similar) errors will occur on re-run.
+This makes the homepage instantly visual without any admin work.
 
-### Files touched
-- `/mnt/documents/full_database_setup.sql` — full rewrite (idempotent version).
+**2. Improve the Admin → Services tab so it's easy to change later**
+In `src/pages/Admin.tsx`, the Services tab currently has a `thumbnail_url` text field but it's easy to miss. We'll:
+- Add a clear **"Thumbnail Image"** label with helper text ("Paste image URL or upload")
+- Add an **upload button** that pushes the file to the existing `shop-assets` Supabase storage bucket and auto-fills the URL
+- Show a small **live preview** of the current thumbnail next to the input
+- Match the same UX already used for Products/Deals
+
+### Files to change
+- `src/pages/Admin.tsx` — enhance Services tab editor (upload + preview)
+- Database — `UPDATE services SET thumbnail_url = '...'` for each existing row (via insert tool, no schema change)
+
+### What you'll see after
+- Homepage Services cards each show a relevant background photo with the yellow icon badge and dark overlay (existing design preserved)
+- In `/admin → Services`, you can replace any thumbnail by uploading or pasting a new URL, with an instant preview
+
+### Out of scope
+- No schema changes (column already exists)
+- No changes to the Services component itself (already renders thumbnails correctly)
+- CRM at `/crm` untouched
 

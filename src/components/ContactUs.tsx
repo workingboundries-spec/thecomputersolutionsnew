@@ -2,23 +2,42 @@ import { useSiteSettings } from "@/hooks/use-site-data";
 import { Phone, Mail, MapPin, MessageCircle, Send } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function ContactUs() {
   const { data: settings } = useSiteSettings();
-  const contactPhone = settings?.contact_phone || "+91 98765 43210";
-  const contactEmail = settings?.contact_email || "info@computersolutions.com";
-  const contactAddress = settings?.contact_address || "Shop No. 12, Tech Market, Main Road, City - 110001";
-  const whatsapp = settings?.whatsapp || "919876543210";
-  const mapsEmbed = settings?.google_maps_embed || "";
+  const contactPhone = settings?.shop_phone || settings?.contact_phone || "+91 98765 43210";
+  const contactEmail = settings?.shop_email || settings?.contact_email || "info@computersolutions.com";
+  const contactAddress = settings?.shop_address || settings?.contact_address || "Shop No. 12, Tech Market, Main Road";
+  const whatsapp = settings?.shop_whatsapp || settings?.whatsapp || "919876543210";
+  const mapsEmbed = settings?.maps_embed_url || settings?.google_maps_embed || "";
 
   const [form, setForm] = useState({ name: "", phone: "", message: "" });
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const text = `Name: ${form.name}%0APhone: ${form.phone}%0AMessage: ${form.message}`;
-    window.open(`https://wa.me/${whatsapp}?text=${text}`, "_blank");
-    toast.success("Redirecting to WhatsApp!");
-    setForm({ name: "", phone: "", message: "" });
+    setSubmitting(true);
+    try {
+      // Save enquiry to database
+      const { error } = await supabase.from("enquiries").insert({
+        name: form.name,
+        phone: form.phone,
+        message: form.message,
+      });
+      if (error) throw error;
+
+      // Open WhatsApp pre-filled
+      const text = `Name: ${form.name}%0APhone: ${form.phone}%0AMessage: ${form.message}`;
+      window.open(`https://wa.me/${whatsapp}?text=${text}`, "_blank");
+      toast.success("Enquiry submitted! Redirecting to WhatsApp.");
+      setForm({ name: "", phone: "", message: "" });
+    } catch (err) {
+      console.error(err);
+      toast.error("Couldn't save enquiry. Please try again or message us on WhatsApp.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -29,16 +48,16 @@ export default function ContactUs() {
           <h2 className="font-heading text-3xl md:text-5xl font-bold mt-3">Contact Us</h2>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 max-w-6xl mx-auto">
           <div className="space-y-6">
-            <h3 className="font-heading text-2xl font-semibold mb-6">Let's Connect</h3>
+            <h3 className="font-heading text-2xl font-semibold mb-2">Let's Connect</h3>
             {[
               { icon: Phone, label: "Phone", value: contactPhone },
               { icon: Mail, label: "Email", value: contactEmail },
               { icon: MapPin, label: "Address", value: contactAddress },
             ].map((item) => (
               <div key={item.label} className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                <div className="w-12 h-12 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
                   <item.icon className="h-5 w-5 text-primary" />
                 </div>
                 <div>
@@ -50,17 +69,17 @@ export default function ContactUs() {
 
             <button
               onClick={() => window.open(`https://wa.me/${whatsapp}`, "_blank")}
-              className="flex items-center gap-2 bg-green-600 text-foreground px-6 py-3 rounded-xl font-medium hover:bg-green-700 transition-colors mt-4"
+              className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-medium transition-colors"
             >
               <MessageCircle className="h-5 w-5" /> Chat on WhatsApp
             </button>
 
             {mapsEmbed && (
-              <div className="rounded-2xl overflow-hidden mt-6 border border-border">
+              <div className="rounded-2xl overflow-hidden border border-primary/20 mt-4">
                 <iframe
                   src={mapsEmbed}
                   width="100%"
-                  height="250"
+                  height="280"
                   style={{ border: 0 }}
                   allowFullScreen
                   loading="lazy"
@@ -76,8 +95,8 @@ export default function ContactUs() {
             <input type="text" placeholder="Your Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className="w-full bg-secondary rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
             <input type="tel" placeholder="Phone Number" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required className="w-full bg-secondary rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
             <textarea placeholder="Your Message" rows={4} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} required className="w-full bg-secondary rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
-            <button type="submit" className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-heading font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
-              <Send className="h-4 w-4" /> Send via WhatsApp
+            <button type="submit" disabled={submitting} className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-heading font-semibold flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 transition-opacity">
+              <Send className="h-4 w-4" /> {submitting ? "Sending..." : "Send Enquiry"}
             </button>
           </form>
         </div>

@@ -42,6 +42,7 @@ interface Service {
   title: string;
   description: string;
   icon_name: string;
+  thumbnail_url: string | null;
   display_order: number;
 }
 
@@ -386,7 +387,7 @@ export default function Admin() {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="font-heading text-2xl font-semibold">Services</h2>
-              <button onClick={() => setServices([...services, { id: crypto.randomUUID(), title: "New Service", description: "", icon_name: "Monitor", display_order: services.length + 1 }])} className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium">
+              <button onClick={() => setServices([...services, { id: crypto.randomUUID(), title: "New Service", description: "", icon_name: "Monitor", thumbnail_url: "", display_order: services.length + 1 }])} className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium">
                 <Plus className="h-4 w-4" /> Add Service
               </button>
             </div>
@@ -404,6 +405,33 @@ export default function Admin() {
                     </select>
                   </div>
                   <div className="md:col-span-2"><label className="text-xs text-muted-foreground">Description</label><textarea className={inputClass + " resize-none"} rows={2} value={s.description} onChange={(e) => setServices(services.map((x) => x.id === s.id ? { ...x, description: e.target.value } : x))} /></div>
+                  <div className="md:col-span-2">
+                    <label className="text-xs text-muted-foreground">Thumbnail Image — paste URL or upload</label>
+                    <div className="flex flex-col md:flex-row gap-3 items-start">
+                      <div className="flex-1 w-full space-y-2">
+                        <input className={inputClass} value={s.thumbnail_url || ""} placeholder="https://..." onChange={(e) => setServices(services.map((x) => x.id === s.id ? { ...x, thumbnail_url: e.target.value } : x))} />
+                        <label className="inline-flex items-center gap-2 text-xs cursor-pointer bg-secondary text-secondary-foreground px-3 py-2 rounded-lg hover:opacity-90">
+                          <ImageIcon className="h-4 w-4" /> Upload image
+                          <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                            const file = e.target.files?.[0]; if (!file) return;
+                            const ext = file.name.split(".").pop() || "jpg";
+                            const path = `services/${s.id}-${Date.now()}.${ext}`;
+                            const t = toast.loading("Uploading...");
+                            const { error } = await supabase.storage.from("shop-assets").upload(path, file, { upsert: true, contentType: file.type });
+                            if (error) { toast.error(error.message, { id: t }); return; }
+                            const { data } = supabase.storage.from("shop-assets").getPublicUrl(path);
+                            setServices(services.map((x) => x.id === s.id ? { ...x, thumbnail_url: data.publicUrl } : x));
+                            toast.success("Uploaded", { id: t });
+                          }} />
+                        </label>
+                      </div>
+                      {s.thumbnail_url ? (
+                        <img src={s.thumbnail_url} alt="" className="h-24 w-32 object-cover rounded-lg border border-border" />
+                      ) : (
+                        <div className="h-24 w-32 rounded-lg border border-dashed border-border flex items-center justify-center text-xs text-muted-foreground">No image</div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}

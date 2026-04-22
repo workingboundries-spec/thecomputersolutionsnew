@@ -1,8 +1,12 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { Menu, X } from "lucide-react";
+import { Menu, X, GripHorizontal } from "lucide-react";
 import logo from "@/assets/logo-cs.png";
 import { useNavItems, useSiteSettings } from "@/hooks/use-site-data";
+
+const LOGO_SIZE_KEY = "navbar-logo-size";
+const MIN_LOGO = 40;
+const MAX_LOGO = 160;
 
 const fallbackLinks = [
   { id: "f1", label: "Home", href: "#home" },
@@ -22,6 +26,47 @@ export default function Navbar() {
   const shopName = settings?.shop_name || "Computer Solutions";
   const shopLogo = settings?.shop_logo_url;
 
+  const [logoSize, setLogoSize] = useState<number>(() => {
+    if (typeof window === "undefined") return 80;
+    const saved = window.localStorage.getItem(LOGO_SIZE_KEY);
+    const n = saved ? parseInt(saved, 10) : NaN;
+    return Number.isFinite(n) ? Math.min(MAX_LOGO, Math.max(MIN_LOGO, n)) : 80;
+  });
+  const draggingRef = useRef(false);
+  const startRef = useRef<{ x: number; y: number; size: number } | null>(null);
+
+  useEffect(() => {
+    window.localStorage.setItem(LOGO_SIZE_KEY, String(logoSize));
+  }, [logoSize]);
+
+  const onPointerMove = useCallback((e: PointerEvent) => {
+    if (!draggingRef.current || !startRef.current) return;
+    const dx = e.clientX - startRef.current.x;
+    const dy = e.clientY - startRef.current.y;
+    const delta = Math.max(dx, dy);
+    const next = Math.min(MAX_LOGO, Math.max(MIN_LOGO, startRef.current.size + delta));
+    setLogoSize(next);
+  }, []);
+
+  const onPointerUp = useCallback(() => {
+    draggingRef.current = false;
+    startRef.current = null;
+    window.removeEventListener("pointermove", onPointerMove);
+    window.removeEventListener("pointerup", onPointerUp);
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+  }, [onPointerMove]);
+
+  const onHandleDown = (e: React.PointerEvent) => {
+    e.preventDefault();
+    draggingRef.current = true;
+    startRef.current = { x: e.clientX, y: e.clientY, size: logoSize };
+    document.body.style.cursor = "nwse-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+  };
+
   const handleNav = (href: string) => {
     setOpen(false);
     if (href.startsWith("#")) {
@@ -33,17 +78,38 @@ export default function Navbar() {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/85 backdrop-blur-xl border-b border-primary/20">
-      <div className="container mx-auto flex items-center justify-between h-24 px-4">
-        <Link to="/" className="flex items-center gap-3">
-          <img
-            src={shopLogo || logo}
-            alt={shopName}
-            className="h-16 md:h-20 w-auto object-contain drop-shadow-[0_0_12px_hsl(var(--primary)/0.4)]"
-          />
-          <span className="hidden sm:inline-block font-heading font-bold text-lg tracking-tight">
+      <div
+        className="container mx-auto flex items-center justify-between px-4"
+        style={{ minHeight: Math.max(96, logoSize + 16) }}
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className="relative group"
+            style={{ height: logoSize, width: logoSize }}
+            title="Drag corner to resize logo"
+          >
+            <Link to="/" className="block h-full w-full">
+              <img
+                src={shopLogo || logo}
+                alt={shopName}
+                draggable={false}
+                className="h-full w-full object-contain drop-shadow-[0_0_12px_hsl(var(--primary)/0.4)] select-none"
+              />
+            </Link>
+            <button
+              type="button"
+              onPointerDown={onHandleDown}
+              onDoubleClick={() => setLogoSize(80)}
+              aria-label="Resize logo (double-click to reset)"
+              className="absolute -bottom-1 -right-1 h-5 w-5 rounded-sm bg-primary/80 text-primary-foreground opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity flex items-center justify-center cursor-nwse-resize shadow-md"
+            >
+              <GripHorizontal className="h-3 w-3 rotate-45" />
+            </button>
+          </div>
+          <Link to="/" className="hidden sm:inline-block font-heading font-bold text-lg tracking-tight">
             <span className="text-vibrant">{shopName}</span>
-          </span>
-        </Link>
+          </Link>
+        </div>
 
         <div className="hidden lg:flex items-center gap-6">
           {links.map((l) => (

@@ -168,6 +168,12 @@ export default function Admin() {
         saveCRUD("gallery_images", gallery),
         saveCRUD("daily_deals", deals),
         saveCRUD("cctv_products", cctvProducts),
+        saveCRUD("nav_items", navItems),
+        saveCRUD("banner_slides", bannerSlides),
+        saveCRUD("section_headings", sectionHeadings),
+        saveCRUD("dealer_brands", dealerBrands),
+        saveCRUD("instagram_reels", instagramReels),
+        saveCRUD("testimonial_videos", testimonialVideos),
       ]);
       queryClient.invalidateQueries();
       toast.success("All changes saved to database!");
@@ -176,18 +182,37 @@ export default function Admin() {
     }
   };
 
+  const updateEnquiryStatus = async (id: string, status: string) => {
+    await supabase.from("enquiries").update({ status }).eq("id", id);
+    setEnquiries(enquiries.map((e) => (e.id === id ? { ...e, status } : e)));
+    toast.success("Enquiry status updated");
+  };
+
+  const deleteEnquiry = async (id: string) => {
+    await supabase.from("enquiries").delete().eq("id", id);
+    setEnquiries(enquiries.filter((e) => e.id !== id));
+    toast.success("Enquiry deleted");
+  };
+
   const updateSetting = (key: string, value: string) => setSettings({ ...settings, [key]: value });
 
   const productCategories = (settings.product_categories || "Business,Gaming,Student,Budget,Premium").split(",").map(c => c.trim()).filter(Boolean);
 
   const tabs = [
     { id: "banner", label: "Banner" },
+    { id: "slides", label: "🎞 Slides" },
+    { id: "nav", label: "Menu" },
+    { id: "headings", label: "Headings" },
+    { id: "brands", label: "Brands" },
     { id: "deals", label: "🔥 Deals" },
     { id: "products", label: "Products" },
     { id: "cctv", label: "📹 CCTV" },
     { id: "services", label: "Services" },
     { id: "videos", label: "YouTube" },
+    { id: "reels", label: "📸 Reels" },
+    { id: "testimonials", label: "Testimonials" },
     { id: "gallery", label: "Gallery" },
+    { id: "enquiries", label: "📥 Enquiries" },
     { id: "contact", label: "Contact" },
   ];
 

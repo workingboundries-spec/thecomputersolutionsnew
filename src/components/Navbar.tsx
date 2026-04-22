@@ -6,7 +6,8 @@ import { useNavItems, useSiteSettings } from "@/hooks/use-site-data";
 
 const LOGO_SIZE_KEY = "navbar-logo-size";
 const MIN_LOGO = 40;
-const MAX_LOGO = 160;
+const MAX_LOGO = 240;
+const HEADER_HEIGHT = 88; // fixed header height — logo can overflow without resizing it
 
 const fallbackLinks = [
   { id: "f1", label: "Home", href: "#home" },
@@ -26,14 +27,24 @@ export default function Navbar() {
   const shopName = settings?.shop_name || "Computer Solutions";
   const shopLogo = settings?.shop_logo_url;
 
+  const adminDefault = parseInt(settings?.navbar_logo_size || "80", 10);
+
   const [logoSize, setLogoSize] = useState<number>(() => {
     if (typeof window === "undefined") return 80;
     const saved = window.localStorage.getItem(LOGO_SIZE_KEY);
     const n = saved ? parseInt(saved, 10) : NaN;
     return Number.isFinite(n) ? Math.min(MAX_LOGO, Math.max(MIN_LOGO, n)) : 80;
   });
+  const userTouchedRef = useRef(false);
   const draggingRef = useRef(false);
   const startRef = useRef<{ x: number; y: number; size: number } | null>(null);
+
+  // Sync with admin-set default if user hasn't manually adjusted
+  useEffect(() => {
+    if (!userTouchedRef.current && Number.isFinite(adminDefault)) {
+      setLogoSize(Math.min(MAX_LOGO, Math.max(MIN_LOGO, adminDefault)));
+    }
+  }, [adminDefault]);
 
   useEffect(() => {
     window.localStorage.setItem(LOGO_SIZE_KEY, String(logoSize));
@@ -45,6 +56,7 @@ export default function Navbar() {
     const dy = e.clientY - startRef.current.y;
     const delta = Math.max(dx, dy);
     const next = Math.min(MAX_LOGO, Math.max(MIN_LOGO, startRef.current.size + delta));
+    userTouchedRef.current = true;
     setLogoSize(next);
   }, []);
 
@@ -79,13 +91,14 @@ export default function Navbar() {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/85 backdrop-blur-xl border-b border-primary/20">
       <div
-        className="container mx-auto flex items-center justify-between px-4"
-        style={{ minHeight: Math.max(96, logoSize + 16) }}
+        className="container mx-auto flex items-center justify-between px-4 relative"
+        style={{ height: HEADER_HEIGHT }}
       >
         <div className="flex items-center gap-3">
+          {/* Logo box is absolutely sized; allowed to overflow header vertically */}
           <div
-            className="relative group"
-            style={{ height: logoSize, width: logoSize }}
+            className="relative group flex-shrink-0"
+            style={{ height: logoSize, width: logoSize, marginTop: Math.max(0, (logoSize - HEADER_HEIGHT) / 2 + 8) > 0 ? 0 : 0 }}
             title="Drag corner to resize logo"
           >
             <Link to="/" className="block h-full w-full">
@@ -99,7 +112,7 @@ export default function Navbar() {
             <button
               type="button"
               onPointerDown={onHandleDown}
-              onDoubleClick={() => setLogoSize(80)}
+              onDoubleClick={() => { userTouchedRef.current = false; setLogoSize(adminDefault || 80); }}
               aria-label="Resize logo (double-click to reset)"
               className="absolute -bottom-1 -right-1 h-5 w-5 rounded-sm bg-primary/80 text-primary-foreground opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity flex items-center justify-center cursor-nwse-resize shadow-md"
             >

@@ -71,6 +71,45 @@ export type Database = {
         }
         Relationships: []
       }
+      banner_slides: {
+        Row: {
+          button_link: string | null
+          button_text: string | null
+          created_at: string | null
+          heading: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean | null
+          sort_order: number | null
+          subheading: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          button_link?: string | null
+          button_text?: string | null
+          created_at?: string | null
+          heading?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          sort_order?: number | null
+          subheading?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          button_link?: string | null
+          button_text?: string | null
+          created_at?: string | null
+          heading?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          sort_order?: number | null
+          subheading?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       campaign_recipients: {
         Row: {
           campaign_id: string | null
@@ -1035,35 +1074,122 @@ export type Database = {
         Row: {
           created_at: string
           deal_price: string
+          description: string | null
+          discount_percent: number | null
           display_order: number
           id: string
           image: string
+          is_active: boolean | null
+          mrp: number | null
           name: string
           original_price: string
+          regular_price_num: number | null
+          sale_price_num: number | null
+          title: string | null
           updated_at: string
           valid_until: string
+          whatsapp_msg: string | null
         }
         Insert: {
           created_at?: string
           deal_price: string
+          description?: string | null
+          discount_percent?: number | null
           display_order?: number
           id?: string
           image?: string
+          is_active?: boolean | null
+          mrp?: number | null
           name: string
           original_price: string
+          regular_price_num?: number | null
+          sale_price_num?: number | null
+          title?: string | null
           updated_at?: string
           valid_until?: string
+          whatsapp_msg?: string | null
         }
         Update: {
           created_at?: string
           deal_price?: string
+          description?: string | null
+          discount_percent?: number | null
           display_order?: number
           id?: string
           image?: string
+          is_active?: boolean | null
+          mrp?: number | null
           name?: string
           original_price?: string
+          regular_price_num?: number | null
+          sale_price_num?: number | null
+          title?: string | null
           updated_at?: string
           valid_until?: string
+          whatsapp_msg?: string | null
+        }
+        Relationships: []
+      }
+      dealer_brands: {
+        Row: {
+          brand_name: string
+          brand_type: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          logo_url: string | null
+          sort_order: number | null
+          updated_at: string | null
+          website_url: string | null
+        }
+        Insert: {
+          brand_name: string
+          brand_type?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          logo_url?: string | null
+          sort_order?: number | null
+          updated_at?: string | null
+          website_url?: string | null
+        }
+        Update: {
+          brand_name?: string
+          brand_type?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          logo_url?: string | null
+          sort_order?: number | null
+          updated_at?: string | null
+          website_url?: string | null
+        }
+        Relationships: []
+      }
+      enquiries: {
+        Row: {
+          created_at: string | null
+          id: string
+          message: string | null
+          name: string
+          phone: string
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          message?: string | null
+          name: string
+          phone: string
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          message?: string | null
+          name?: string
+          phone?: string
+          status?: string | null
         }
         Relationships: []
       }
@@ -1091,6 +1217,42 @@ export type Database = {
           id?: string
           image_url?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      instagram_reels: {
+        Row: {
+          caption: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          reel_url: string | null
+          sort_order: number | null
+          thumbnail_url: string
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          reel_url?: string | null
+          sort_order?: number | null
+          thumbnail_url: string
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          reel_url?: string | null
+          sort_order?: number | null
+          thumbnail_url?: string
+          title?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -1218,42 +1380,93 @@ export type Database = {
           },
         ]
       }
+      nav_items: {
+        Row: {
+          created_at: string | null
+          href: string
+          id: string
+          is_visible: boolean | null
+          label: string
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          href: string
+          id?: string
+          is_visible?: boolean | null
+          label: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          href?: string
+          id?: string
+          is_visible?: boolean | null
+          label?: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       products: {
         Row: {
+          badge: string | null
           category: string
           created_at: string
+          description: string | null
           display_order: number
           id: string
           image: string
+          is_active: boolean | null
           is_new: boolean
+          mrp: number | null
           name: string
           price: string
+          regular_price: number | null
+          sale_price: number | null
           specs: string | null
           updated_at: string
+          whatsapp_enquiry_msg: string | null
         }
         Insert: {
+          badge?: string | null
           category?: string
           created_at?: string
+          description?: string | null
           display_order?: number
           id?: string
           image?: string
+          is_active?: boolean | null
           is_new?: boolean
+          mrp?: number | null
           name: string
           price: string
+          regular_price?: number | null
+          sale_price?: number | null
           specs?: string | null
           updated_at?: string
+          whatsapp_enquiry_msg?: string | null
         }
         Update: {
+          badge?: string | null
           category?: string
           created_at?: string
+          description?: string | null
           display_order?: number
           id?: string
           image?: string
+          is_active?: boolean | null
           is_new?: boolean
+          mrp?: number | null
           name?: string
           price?: string
+          regular_price?: number | null
+          sale_price?: number | null
           specs?: string | null
           updated_at?: string
+          whatsapp_enquiry_msg?: string | null
         }
         Relationships: []
       }
@@ -1390,6 +1603,36 @@ export type Database = {
           },
         ]
       }
+      section_headings: {
+        Row: {
+          created_at: string | null
+          heading: string
+          id: string
+          is_visible: boolean | null
+          section_key: string
+          subheading: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          heading: string
+          id?: string
+          is_visible?: boolean | null
+          section_key: string
+          subheading?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          heading?: string
+          id?: string
+          is_visible?: boolean | null
+          section_key?: string
+          subheading?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       services: {
         Row: {
           created_at: string
@@ -1397,6 +1640,8 @@ export type Database = {
           display_order: number
           icon_name: string
           id: string
+          is_active: boolean | null
+          thumbnail_url: string | null
           title: string
           updated_at: string
         }
@@ -1406,6 +1651,8 @@ export type Database = {
           display_order?: number
           icon_name?: string
           id?: string
+          is_active?: boolean | null
+          thumbnail_url?: string | null
           title: string
           updated_at?: string
         }
@@ -1415,6 +1662,8 @@ export type Database = {
           display_order?: number
           icon_name?: string
           id?: string
+          is_active?: boolean | null
+          thumbnail_url?: string | null
           title?: string
           updated_at?: string
         }
@@ -1444,30 +1693,87 @@ export type Database = {
         }
         Relationships: []
       }
+      testimonial_videos: {
+        Row: {
+          created_at: string | null
+          customer_name: string
+          id: string
+          is_active: boolean | null
+          location: string | null
+          product_purchased: string | null
+          rating: number | null
+          review_text: string | null
+          sort_order: number | null
+          thumbnail_url: string | null
+          updated_at: string | null
+          video_url: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          customer_name: string
+          id?: string
+          is_active?: boolean | null
+          location?: string | null
+          product_purchased?: string | null
+          rating?: number | null
+          review_text?: string | null
+          sort_order?: number | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          customer_name?: string
+          id?: string
+          is_active?: boolean | null
+          location?: string | null
+          product_purchased?: string | null
+          rating?: number | null
+          review_text?: string | null
+          sort_order?: number | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          video_url?: string | null
+        }
+        Relationships: []
+      }
       youtube_videos: {
         Row: {
           created_at: string
+          description: string | null
           display_order: number
           embed_url: string
           id: string
+          is_active: boolean | null
+          thumbnail_url: string | null
           title: string | null
           updated_at: string
+          youtube_url: string | null
         }
         Insert: {
           created_at?: string
+          description?: string | null
           display_order?: number
           embed_url: string
           id?: string
+          is_active?: boolean | null
+          thumbnail_url?: string | null
           title?: string | null
           updated_at?: string
+          youtube_url?: string | null
         }
         Update: {
           created_at?: string
+          description?: string | null
           display_order?: number
           embed_url?: string
           id?: string
+          is_active?: boolean | null
+          thumbnail_url?: string | null
           title?: string | null
           updated_at?: string
+          youtube_url?: string | null
         }
         Relationships: []
       }

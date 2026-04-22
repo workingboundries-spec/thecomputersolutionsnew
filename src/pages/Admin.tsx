@@ -102,7 +102,7 @@ export default function Admin() {
 
   const loadAll = async () => {
     setLoading(true);
-    const [s, p, sv, v, g, d, cc] = await Promise.all([
+    const [s, p, sv, v, g, d, cc, ni, bs, sh, db, ir, tv, eq] = await Promise.all([
       supabase.from("site_settings").select("*"),
       supabase.from("products").select("*").order("display_order"),
       supabase.from("services").select("*").order("display_order"),
@@ -110,6 +110,13 @@ export default function Admin() {
       supabase.from("gallery_images").select("*").order("display_order"),
       supabase.from("daily_deals").select("*").order("display_order"),
       supabase.from("cctv_products").select("*").order("display_order"),
+      supabase.from("nav_items").select("*").order("sort_order"),
+      supabase.from("banner_slides").select("*").order("sort_order"),
+      supabase.from("section_headings").select("*").order("section_key"),
+      supabase.from("dealer_brands").select("*").order("sort_order"),
+      supabase.from("instagram_reels").select("*").order("sort_order"),
+      supabase.from("testimonial_videos").select("*").order("sort_order"),
+      supabase.from("enquiries").select("*").order("created_at", { ascending: false }),
     ]);
     const settingsMap: Settings = {};
     s.data?.forEach((r) => { settingsMap[r.key] = r.value; });
@@ -120,6 +127,13 @@ export default function Admin() {
     setGallery((g.data as GalleryImage[]) || []);
     setDeals((d.data as DailyDeal[]) || []);
     setCctvProducts((cc.data as CCTVProduct[]) || []);
+    setNavItems((ni.data as NavItem[]) || []);
+    setBannerSlides((bs.data as BannerSlide[]) || []);
+    setSectionHeadings((sh.data as SectionHeading[]) || []);
+    setDealerBrands((db.data as DealerBrand[]) || []);
+    setInstagramReels((ir.data as InstagramReel[]) || []);
+    setTestimonialVideos((tv.data as TestimonialVideo[]) || []);
+    setEnquiries((eq.data as Enquiry[]) || []);
     setLoading(false);
   };
 
@@ -129,7 +143,10 @@ export default function Admin() {
     }
   };
 
-  const saveCRUD = async (table: "products" | "services" | "youtube_videos" | "gallery_images" | "daily_deals" | "cctv_products", items: any[]) => {
+  const saveCRUD = async (
+    table: "products" | "services" | "youtube_videos" | "gallery_images" | "daily_deals" | "cctv_products" | "nav_items" | "banner_slides" | "section_headings" | "dealer_brands" | "instagram_reels" | "testimonial_videos",
+    items: any[],
+  ) => {
     const existing = await supabase.from(table).select("id");
     const existingIds = new Set(existing.data?.map((r: any) => r.id) || []);
     const currentIds = new Set(items.map((i) => i.id));

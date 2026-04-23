@@ -28,8 +28,8 @@ const Index = () => {
       <HeroBanner />
       <IntroSection />
       <WhyChooseUs />
-      <EmiBanner />
       <BrandsMarquee />
+      <EmiBanner />
       <NewArrivals />
       <DailyDeals />
       <Services />

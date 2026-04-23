@@ -1,4 +1,5 @@
 import { useSiteSettings } from "@/hooks/use-site-data";
+import { useWhatsappTemplates, getTemplateMessage, fillTemplate } from "@/hooks/use-whatsapp-templates";
 import { Phone, Mail, MapPin, MessageCircle, Send } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -6,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export default function ContactUs() {
   const { data: settings } = useSiteSettings();
+  const { data: waTemplates } = useWhatsappTemplates();
   const contactPhone = settings?.shop_phone || settings?.contact_phone || "+91 98765 43210";
   const contactEmail = settings?.shop_email || settings?.contact_email || "info@computersolutions.com";
   const contactAddress = settings?.shop_address || settings?.contact_address || "Shop No. 12, Tech Market, Main Road";
@@ -27,8 +29,10 @@ export default function ContactUs() {
       });
       if (error) throw error;
 
-      // Open WhatsApp pre-filled
-      const text = `Name: ${form.name}%0APhone: ${form.phone}%0AMessage: ${form.message}`;
+      // Open WhatsApp pre-filled using admin-managed template
+      const tpl = waTemplates?.find((x) => x.template_key === "contact_form" && x.is_active);
+      const body = tpl?.message_body || "Name: {name}%0APhone: {phone}%0AMessage: {message}";
+      const text = fillTemplate(body, { name: form.name, phone: form.phone, message: form.message });
       window.open(`https://wa.me/${whatsapp}?text=${text}`, "_blank");
       toast.success("Enquiry submitted! Redirecting to WhatsApp.");
       setForm({ name: "", phone: "", message: "" });
@@ -68,7 +72,10 @@ export default function ContactUs() {
             ))}
 
             <button
-              onClick={() => window.open(`https://wa.me/${whatsapp}`, "_blank")}
+              onClick={() => {
+                const msg = getTemplateMessage(waTemplates, "contact_chat_button", {}, "Hi! I would like to chat about your products and services.");
+                window.open(`https://wa.me/${whatsapp}?text=${encodeURIComponent(msg)}`, "_blank");
+              }}
               className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-medium transition-colors"
             >
               <MessageCircle className="h-5 w-5" /> Chat on WhatsApp

@@ -883,6 +883,41 @@ export default function Admin() {
             {sisterConcerns.length === 0 && <p className="text-muted-foreground text-center py-8">No cards yet. Click "Add Card".</p>}
           </div>
         )}
+
+        {/* WhatsApp Templates Tab */}
+        {activeTab === "wa_templates" && (
+          <div className="space-y-5">
+            <div>
+              <h2 className="font-heading text-2xl font-semibold flex items-center gap-2"><MessageCircle className="h-6 w-6 text-primary" /> WhatsApp Message Templates</h2>
+              <p className="text-sm text-muted-foreground mt-1">Edit the WhatsApp messages sent from every section of the public website. Use placeholders like <code className="bg-secondary px-1 rounded">{"{product}"}</code>, <code className="bg-secondary px-1 rounded">{"{price}"}</code>, <code className="bg-secondary px-1 rounded">{"{name}"}</code>, <code className="bg-secondary px-1 rounded">{"{phone}"}</code>, <code className="bg-secondary px-1 rounded">{"{message}"}</code>, <code className="bg-secondary px-1 rounded">{"{deal}"}</code> — they'll be replaced automatically.</p>
+            </div>
+            {waTemplates.map((t) => (
+              <div key={t.id} className="glass rounded-2xl p-5 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-heading font-semibold">{t.label}</h3>
+                    {t.description && <p className="text-xs text-muted-foreground mt-1">{t.description}</p>}
+                    <code className="text-xs text-primary/80">key: {t.template_key}</code>
+                  </div>
+                  <label className="flex items-center gap-2 text-sm shrink-0">
+                    <input type="checkbox" checked={t.is_active} onChange={(e) => setWaTemplates(waTemplates.map((x) => x.id === t.id ? { ...x, is_active: e.target.checked } : x))} className="accent-primary" />
+                    Active
+                  </label>
+                </div>
+                <textarea
+                  rows={3}
+                  className={inputClass + " resize-none font-mono text-sm"}
+                  value={t.message_body}
+                  onChange={(e) => setWaTemplates(waTemplates.map((x) => x.id === t.id ? { ...x, message_body: e.target.value } : x))}
+                />
+                {t.placeholders && (
+                  <p className="text-xs text-muted-foreground">Available placeholders: <span className="text-primary">{t.placeholders}</span></p>
+                )}
+              </div>
+            ))}
+            {waTemplates.length === 0 && <p className="text-muted-foreground text-center py-8">No templates loaded.</p>}
+          </div>
+        )}
       </div>
     </div>
   );

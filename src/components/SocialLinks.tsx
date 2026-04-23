@@ -1,5 +1,5 @@
 import { useSiteSettings, useSectionHeadings, getHeading } from "@/hooks/use-site-data";
-import { Instagram, Facebook, Youtube, ArrowRight } from "lucide-react";
+import { Instagram, Facebook, Youtube, MapPin, ArrowRight } from "lucide-react";
 
 export default function SocialLinks() {
   const { data: settings } = useSiteSettings();
@@ -9,8 +9,9 @@ export default function SocialLinks() {
   const youtube = settings?.youtube_url;
   const instagram = settings?.instagram_url;
   const facebook = settings?.facebook_url;
+  const googleBusiness = settings?.google_business_url;
 
-  if (!visible || (!youtube && !instagram && !facebook)) return null;
+  if (!visible || (!youtube && !instagram && !facebook && !googleBusiness)) return null;
 
   const platforms = [
     {
@@ -30,6 +31,12 @@ export default function SocialLinks() {
       desc: "Community & customer stories",
       cta: "Like Page",
       color: "#1877F2",
+    },
+    {
+      key: "gmb", name: "Google", url: googleBusiness, icon: MapPin,
+      desc: "Reviews, location & timings",
+      cta: "View & Review",
+      color: "#4285F4",
     },
   ].filter((p) => p.url);
 

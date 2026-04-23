@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Save, Plus, Trash2, LogOut, Flame, Camera, Menu, Image as ImageIcon, Tag, Award, Instagram, MessageSquare, Inbox, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, LogOut, Flame, Camera, Menu, Image as ImageIcon, Tag, Award, Instagram, MessageSquare, Inbox, Eye, EyeOff, Users, Video } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
@@ -67,6 +67,8 @@ interface DealerBrand { id: string; brand_name: string; logo_url: string | null;
 interface InstagramReel { id: string; title: string | null; reel_url: string | null; thumbnail_url: string; caption: string | null; sort_order: number; is_active: boolean; }
 interface TestimonialVideo { id: string; customer_name: string; location: string | null; product_purchased: string | null; video_url: string | null; thumbnail_url: string | null; review_text: string | null; rating: number; sort_order: number; is_active: boolean; }
 interface Enquiry { id: string; name: string; phone: string; message: string | null; status: string; created_at: string; }
+interface SisterConcern { id: string; name: string; tagline: string | null; description: string | null; thumbnail_url: string | null; website_url: string | null; sort_order: number; is_active: boolean; }
+interface IntroSectionRow { id: string; heading: string; subheading: string | null; body_text: string | null; youtube_url: string | null; is_visible: boolean; }
 
 type Settings = Record<string, string>;
 
@@ -86,6 +88,8 @@ export default function Admin() {
   const [instagramReels, setInstagramReels] = useState<InstagramReel[]>([]);
   const [testimonialVideos, setTestimonialVideos] = useState<TestimonialVideo[]>([]);
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
+  const [sisterConcerns, setSisterConcerns] = useState<SisterConcern[]>([]);
+  const [introSection, setIntroSection] = useState<IntroSectionRow | null>(null);
   const [loading, setLoading] = useState(true);
   const queryClient = useQueryClient();
   const { signOut } = useAuth();
@@ -103,7 +107,7 @@ export default function Admin() {
 
   const loadAll = async () => {
     setLoading(true);
-    const [s, p, sv, v, g, d, cc, ni, bs, sh, db, ir, tv, eq] = await Promise.all([
+    const [s, p, sv, v, g, d, cc, ni, bs, sh, db, ir, tv, eq, sc, intro] = await Promise.all([
       supabase.from("site_settings").select("*"),
       supabase.from("products").select("*").order("display_order"),
       supabase.from("services").select("*").order("display_order"),
@@ -118,6 +122,8 @@ export default function Admin() {
       supabase.from("instagram_reels").select("*").order("sort_order"),
       supabase.from("testimonial_videos").select("*").order("sort_order"),
       supabase.from("enquiries").select("*").order("created_at", { ascending: false }),
+      (supabase as any).from("sister_concerns").select("*").order("sort_order"),
+      (supabase as any).from("intro_section").select("*").limit(1).maybeSingle(),
     ]);
     const settingsMap: Settings = {};
     s.data?.forEach((r) => { settingsMap[r.key] = r.value; });
@@ -135,6 +141,8 @@ export default function Admin() {
     setInstagramReels((ir.data as InstagramReel[]) || []);
     setTestimonialVideos((tv.data as TestimonialVideo[]) || []);
     setEnquiries((eq.data as Enquiry[]) || []);
+    setSisterConcerns(((sc as any).data as SisterConcern[]) || []);
+    setIntroSection(((intro as any).data as IntroSectionRow) || null);
     setLoading(false);
   };
 
@@ -161,6 +169,21 @@ export default function Admin() {
 
   const saveAll = async () => {
     try {
+      // Sister concerns: upsert/delete
+      const existingSC = await (supabase as any).from("sister_concerns").select("id");
+      const existingSCIds = new Set((existingSC.data || []).map((r: any) => r.id));
+      const currentSCIds = new Set(sisterConcerns.map((i) => i.id));
+      for (const id of existingSCIds) {
+        if (!currentSCIds.has(id)) await (supabase as any).from("sister_concerns").delete().eq("id", id);
+      }
+      for (const item of sisterConcerns) {
+        await (supabase as any).from("sister_concerns").upsert(item);
+      }
+      // Intro section: single row upsert
+      if (introSection) {
+        await (supabase as any).from("intro_section").upsert(introSection);
+      }
+
       await Promise.all([
         saveSettings(),
         saveCRUD("products", products),
@@ -215,6 +238,8 @@ export default function Admin() {
     { id: "gallery", label: "Gallery" },
     { id: "enquiries", label: "📥 Enquiries" },
     { id: "contact", label: "Contact" },
+    { id: "intro", label: "🎬 Intro Video" },
+    { id: "family", label: "👥 Our Family" },
   ];
 
   const inputClass = "w-full bg-secondary rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50";

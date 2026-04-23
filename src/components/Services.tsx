@@ -8,7 +8,7 @@ const iconMap: Record<string, LucideIcon> = {
 export default function Services() {
   const { data: services = [] } = useServices();
   const { data: headings } = useSectionHeadings();
-  const { heading, subheading, visible } = getHeading(headings, "services", "Our Services", "Professional tech solutions for every need");
+  const { heading, subheading, visible } = getHeading(headings, "services", "Our Services", "Professional Tech solutions for every need");
 
   if (!visible) return null;
 

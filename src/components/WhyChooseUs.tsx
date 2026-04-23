@@ -6,7 +6,7 @@ const icons = [Award, IndianRupee, Clock, BadgeCheck];
 export default function WhyChooseUs() {
   const { data: settings } = useSiteSettings();
   const { data: headings } = useSectionHeadings();
-  const { heading, subheading, visible } = getHeading(headings, "why_us", "Why Choose Us", "Trusted by thousands across the region");
+  const { heading, subheading, visible } = getHeading(headings, "why_us", "Why Choose Us", "Price . Quality . Service . You can Pick only Two");
 
   if (!visible) return null;
 

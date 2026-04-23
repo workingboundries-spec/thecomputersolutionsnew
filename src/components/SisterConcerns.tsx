@@ -3,7 +3,7 @@ import { GraduationCap, Plane, Calculator, ArrowUpRight } from "lucide-react";
 const concerns = [
   {
     name: "ATEC",
-    tagline: "Advanced Technology Education Centre",
+    tagline: "Avenue To Excellent Careers",
     description: "Empowering the next generation with industry-ready tech education and certified training programs.",
     icon: GraduationCap,
     accent: "from-primary to-yellow-400",
@@ -36,7 +36,7 @@ export default function SisterConcerns() {
             Our Family
           </span>
           <h2 className="font-heading text-4xl md:text-6xl font-bold mb-4">
-            Meet Our <span className="text-vibrant">Sister Concerns</span>
+            Meet Our <span className="text-vibrant">Extended Ventures</span>
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             A trusted network of brands committed to education, technology, and global opportunities.

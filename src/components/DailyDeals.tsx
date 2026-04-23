@@ -1,4 +1,5 @@
 import { useDailyDeals, useSiteSettings, useSectionHeadings, getHeading } from "@/hooks/use-site-data";
+import { useWhatsappTemplates, getTemplateMessage } from "@/hooks/use-whatsapp-templates";
 import { Flame, Clock, MessageCircle } from "lucide-react";
 import dealFallback from "@/assets/deal-laptop.jpg";
 
@@ -8,6 +9,7 @@ const DailyDeals = () => {
   const { data: deals, isLoading } = useDailyDeals();
   const { data: settings } = useSiteSettings();
   const { data: headings } = useSectionHeadings();
+  const { data: waTemplates } = useWhatsappTemplates();
   const whatsapp = settings?.shop_whatsapp || settings?.whatsapp || "919876543210";
   const { heading, subheading, visible } = getHeading(headings, "deals", "Today Deals", "Best prices updated every day | Offers for Today only");
 
@@ -22,7 +24,9 @@ const DailyDeals = () => {
     Math.ceil((new Date(dateStr).getTime() - new Date(new Date().toDateString()).getTime()) / (1000 * 60 * 60 * 24));
 
   const enquire = (d: typeof activeDeals[number]) => {
-    const msg = d.whatsapp_msg || `Hi! I want to grab the deal on ${d.title || d.name}.`;
+    const dealName = d.title || d.name;
+    const fallback = `Hi! I want to grab the deal on ${dealName}.`;
+    const msg = d.whatsapp_msg || getTemplateMessage(waTemplates, "daily_deal", { deal: dealName, price: d.deal_price || "" }, fallback);
     window.open(`https://wa.me/${whatsapp}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 

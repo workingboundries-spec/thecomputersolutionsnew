@@ -1,4 +1,5 @@
 import { useProducts, useSiteSettings } from "@/hooks/use-site-data";
+import { useWhatsappTemplates, getTemplateMessage } from "@/hooks/use-whatsapp-templates";
 import { ShoppingCart, Star, MessageCircle } from "lucide-react";
 import { useState } from "react";
 import productBusiness from "@/assets/product-business.jpg";
@@ -17,6 +18,7 @@ const fmt = (n?: number | null) => (n != null ? `₹${Number(n).toLocaleString("
 export default function Products() {
   const { data: products = [] } = useProducts();
   const { data: settings } = useSiteSettings();
+  const { data: waTemplates } = useWhatsappTemplates();
   const whatsapp = settings?.shop_whatsapp || settings?.whatsapp || "919876543210";
   const categoriesStr = settings?.product_categories || "Business,Gaming,Student,Budget,Premium";
   const categories = ["All", ...categoriesStr.split(",").map(c => c.trim()).filter(Boolean)];
@@ -27,7 +29,8 @@ export default function Products() {
   const filtered = activeCategory === "All" ? visibleProducts : visibleProducts.filter((p) => p.category === activeCategory);
 
   const enquire = (p: typeof products[number]) => {
-    const msg = p.whatsapp_enquiry_msg || `Hi! I'm interested in ${p.name}. Please share details and price.`;
+    const fallback = `Hi! I'm interested in ${p.name}. Please share details and price.`;
+    const msg = p.whatsapp_enquiry_msg || getTemplateMessage(waTemplates, "product_enquiry", { product: p.name }, fallback);
     window.open(`https://wa.me/${whatsapp}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 

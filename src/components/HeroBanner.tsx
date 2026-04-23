@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
 import { useBannerSlides, useSiteSettings } from "@/hooks/use-site-data";
+import { useWhatsappTemplates, getTemplateMessage } from "@/hooks/use-whatsapp-templates";
 import heroBannerDefault from "@/assets/hero-yellow.jpg";
 import { Phone, Zap, ArrowRight } from "lucide-react";
 
 export default function HeroBanner() {
   const { data: settings } = useSiteSettings();
   const { data: slides = [] } = useBannerSlides();
+  const { data: waTemplates } = useWhatsappTemplates();
   const [active, setActive] = useState(0);
 
   const whatsapp = settings?.shop_whatsapp || settings?.whatsapp || "919876543210";
+  const heroMsg = getTemplateMessage(waTemplates, "hero_whatsapp", {}, "Hi! I would like to know more about your products and services.");
 
   // Auto-advance every 5s
   useEffect(() => {
@@ -125,7 +128,7 @@ export default function HeroBanner() {
               <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
             </button>
             <button
-              onClick={() => window.open(`https://wa.me/${whatsapp}`, "_blank")}
+              onClick={() => window.open(`https://wa.me/${whatsapp}?text=${encodeURIComponent(heroMsg)}`, "_blank")}
               className="flex items-center justify-center gap-2 bg-foreground/5 backdrop-blur-md border-2 border-primary/40 text-foreground px-8 py-4 rounded-xl font-heading font-bold text-lg hover:bg-primary/10 hover:border-primary transition-all"
             >
               <Phone className="h-5 w-5 text-primary" /> WhatsApp Us

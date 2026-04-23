@@ -1,5 +1,5 @@
 import { useSiteSettings, useSectionHeadings, getHeading } from "@/hooks/use-site-data";
-import { Instagram, Facebook, Youtube, ArrowRight } from "lucide-react";
+import { Instagram, Facebook, Youtube, MapPin, ArrowRight } from "lucide-react";
 
 export default function SocialLinks() {
   const { data: settings } = useSiteSettings();
@@ -9,8 +9,9 @@ export default function SocialLinks() {
   const youtube = settings?.youtube_url;
   const instagram = settings?.instagram_url;
   const facebook = settings?.facebook_url;
+  const googleBusiness = settings?.google_business_url;
 
-  if (!visible || (!youtube && !instagram && !facebook)) return null;
+  if (!visible || (!youtube && !instagram && !facebook && !googleBusiness)) return null;
 
   const platforms = [
     {
@@ -31,6 +32,12 @@ export default function SocialLinks() {
       cta: "Like Page",
       color: "#1877F2",
     },
+    {
+      key: "gmb", name: "Google", url: googleBusiness, icon: MapPin,
+      desc: "Reviews, location & timings",
+      cta: "View & Review",
+      color: "#4285F4",
+    },
   ].filter((p) => p.url);
 
   return (
@@ -41,7 +48,7 @@ export default function SocialLinks() {
           {subheading && <p className="text-muted-foreground mt-2 text-sm md:text-base">{subheading}</p>}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-4xl mx-auto">
           {platforms.map((p) => (
             <a
               key={p.key}

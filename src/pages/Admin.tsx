@@ -607,6 +607,7 @@ export default function Admin() {
             <div><label className="text-sm text-muted-foreground mb-1 block">Instagram Thumbnail URL</label><input className={inputClass} value={settings.instagram_thumbnail || ""} onChange={(e) => updateSetting("instagram_thumbnail", e.target.value)} placeholder="https://image-url.com/insta-thumb.jpg" /></div>
             <div><label className="text-sm text-muted-foreground mb-1 block">Facebook URL</label><input className={inputClass} value={settings.facebook_url || ""} onChange={(e) => updateSetting("facebook_url", e.target.value)} placeholder="https://facebook.com/yourpage" /></div>
             <div><label className="text-sm text-muted-foreground mb-1 block">Facebook Thumbnail URL</label><input className={inputClass} value={settings.facebook_thumbnail || ""} onChange={(e) => updateSetting("facebook_thumbnail", e.target.value)} placeholder="https://image-url.com/fb-thumb.jpg" /></div>
+            <div><label className="text-sm text-muted-foreground mb-1 block">Google My Business URL</label><input className={inputClass} value={settings.google_business_url || ""} onChange={(e) => updateSetting("google_business_url", e.target.value)} placeholder="https://g.page/your-business" /></div>
           </div>
         )}
 

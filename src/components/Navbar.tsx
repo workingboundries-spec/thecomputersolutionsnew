@@ -24,7 +24,7 @@ export default function Navbar() {
   const { data: navItems } = useNavItems();
   const { data: settings } = useSiteSettings();
   const links = (navItems && navItems.length > 0) ? navItems : fallbackLinks;
-  const shopName = settings?.shop_name || "Computer Solutions";
+  const shopName = settings?.shop_name || "";
   const shopLogo = settings?.shop_logo_url;
 
   const adminDefault = parseInt(settings?.navbar_logo_size || "80", 10);

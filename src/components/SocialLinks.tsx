@@ -48,7 +48,7 @@ export default function SocialLinks() {
           {subheading && <p className="text-muted-foreground mt-2 text-sm md:text-base">{subheading}</p>}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-4xl mx-auto">
           {platforms.map((p) => (
             <a
               key={p.key}

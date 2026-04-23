@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Save, Plus, Trash2, LogOut, Flame, Camera, Menu, Image as ImageIcon, Tag, Award, Instagram, MessageSquare, Inbox, Eye, EyeOff, Users, Video } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, LogOut, Flame, Camera, Menu, Image as ImageIcon, Tag, Award, Instagram, MessageSquare, Inbox, Eye, EyeOff, Users, Video, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
@@ -69,6 +69,7 @@ interface TestimonialVideo { id: string; customer_name: string; location: string
 interface Enquiry { id: string; name: string; phone: string; message: string | null; status: string; created_at: string; }
 interface SisterConcern { id: string; name: string; tagline: string | null; description: string | null; thumbnail_url: string | null; website_url: string | null; sort_order: number; is_active: boolean; }
 interface IntroSectionRow { id: string; heading: string; subheading: string | null; body_text: string | null; youtube_url: string | null; is_visible: boolean; }
+interface SiteWaTemplateRow { id: string; template_key: string; label: string; description: string | null; message_body: string; placeholders: string | null; sort_order: number; is_active: boolean; }
 
 type Settings = Record<string, string>;
 
@@ -90,6 +91,7 @@ export default function Admin() {
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [sisterConcerns, setSisterConcerns] = useState<SisterConcern[]>([]);
   const [introSection, setIntroSection] = useState<IntroSectionRow | null>(null);
+  const [waTemplates, setWaTemplates] = useState<SiteWaTemplateRow[]>([]);
   const [loading, setLoading] = useState(true);
   const queryClient = useQueryClient();
   const { signOut } = useAuth();
@@ -107,7 +109,7 @@ export default function Admin() {
 
   const loadAll = async () => {
     setLoading(true);
-    const [s, p, sv, v, g, d, cc, ni, bs, sh, db, ir, tv, eq, sc, intro] = await Promise.all([
+    const [s, p, sv, v, g, d, cc, ni, bs, sh, db, ir, tv, eq, sc, intro, wat] = await Promise.all([
       supabase.from("site_settings").select("*"),
       supabase.from("products").select("*").order("display_order"),
       supabase.from("services").select("*").order("display_order"),
@@ -124,6 +126,7 @@ export default function Admin() {
       supabase.from("enquiries").select("*").order("created_at", { ascending: false }),
       (supabase as any).from("sister_concerns").select("*").order("sort_order"),
       (supabase as any).from("intro_section").select("*").limit(1).maybeSingle(),
+      (supabase as any).from("site_whatsapp_templates").select("*").order("sort_order"),
     ]);
     const settingsMap: Settings = {};
     s.data?.forEach((r) => { settingsMap[r.key] = r.value; });
@@ -143,6 +146,7 @@ export default function Admin() {
     setEnquiries((eq.data as Enquiry[]) || []);
     setSisterConcerns(((sc as any).data as SisterConcern[]) || []);
     setIntroSection(((intro as any).data as IntroSectionRow) || null);
+    setWaTemplates(((wat as any).data as SiteWaTemplateRow[]) || []);
     setLoading(false);
   };
 

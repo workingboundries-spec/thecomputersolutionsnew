@@ -3,7 +3,7 @@ import { useSiteSettings } from "@/hooks/use-site-data";
 
 export default function EmiBanner() {
   const { data: settings } = useSiteSettings();
-  const text = settings?.emi_banner_text || "Easy EMI Available  |  0% Interest  |  All Major Banks";
+  const text = settings?.emi_banner_text || "Easy EMI Available  |  0% Interest  |  All Major Banks | Conditions Apply";
 
   return (
     <section className="vibrant-gradient py-4 px-4 overflow-hidden">

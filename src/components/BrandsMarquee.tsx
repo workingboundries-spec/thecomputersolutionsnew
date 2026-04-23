@@ -4,7 +4,7 @@ export default function BrandsMarquee() {
   const { data: brands = [] } = useDealerBrands();
   const { data: headings } = useSectionHeadings();
   const dealers = brands.filter((b) => b.brand_type !== "service");
-  const { heading, subheading, visible } = getHeading(headings, "authorized_dealers", "Our Authorized Brands", "Trusted by leading technology brands");
+  const { heading, subheading, visible } = getHeading(headings, "authorized_dealers", "Our Partner Brands", "Trusted by leading technology brands");
 
   if (!visible) return null;
 

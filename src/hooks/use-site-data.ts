@@ -135,6 +135,26 @@ export interface SectionHeading {
   is_visible: boolean;
 }
 
+export interface SisterConcern {
+  id: string;
+  name: string;
+  tagline: string | null;
+  description: string | null;
+  thumbnail_url: string | null;
+  website_url: string | null;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export interface IntroSection {
+  id: string;
+  heading: string;
+  subheading: string | null;
+  body_text: string | null;
+  youtube_url: string | null;
+  is_visible: boolean;
+}
+
 export type SiteSettings = Record<string, string>;
 export type SectionHeadingsMap = Record<string, SectionHeading>;
 
@@ -293,4 +313,26 @@ export function getHeading(map: SectionHeadingsMap | undefined, key: string, fal
     subheading: row?.subheading ?? fallbackSub ?? "",
     visible: row ? row.is_visible : true,
   };
+}
+
+export function useSisterConcerns() {
+  return useQuery({
+    queryKey: ["sister-concerns"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("sister_concerns").select("*").order("sort_order");
+      if (error) throw error;
+      return ((data as SisterConcern[]) || []).filter((c) => c.is_active);
+    },
+  });
+}
+
+export function useIntroSection() {
+  return useQuery({
+    queryKey: ["intro-section"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("intro_section").select("*").limit(1).maybeSingle();
+      if (error) throw error;
+      return data as IntroSection | null;
+    },
+  });
 }

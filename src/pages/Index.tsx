@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import HeroBanner from "@/components/HeroBanner";
+import IntroSection from "@/components/IntroSection";
 import WhyChooseUs from "@/components/WhyChooseUs";
 import EmiBanner from "@/components/EmiBanner";
 import BrandsMarquee from "@/components/BrandsMarquee";
@@ -28,6 +29,7 @@ const Index = () => {
     <div className="min-h-screen">
       <Navbar />
       <HeroBanner />
+      <IntroSection />
       <WhyChooseUs />
       <EmiBanner />
       <BrandsMarquee />

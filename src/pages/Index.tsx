@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import SEO from "@/components/SEO";
 import Navbar from "@/components/Navbar";
 import HeroBanner from "@/components/HeroBanner";
 import IntroSection from "@/components/IntroSection";
@@ -21,12 +21,9 @@ import Footer from "@/components/Footer";
 import FloatingWhatsApp from "@/components/FloatingWhatsApp";
 
 const Index = () => {
-  useEffect(() => {
-    document.title = "Computer Solutions — Premium Laptops, CCTV & Tech";
-  }, []);
-
   return (
     <div className="min-h-screen">
+      <SEO pageKey="home" fallbackTitle="Computer Solutions — Premium Laptops, CCTV & Tech" />
       <Navbar />
       <HeroBanner />
       <IntroSection />

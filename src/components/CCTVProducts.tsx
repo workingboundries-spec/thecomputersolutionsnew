@@ -1,4 +1,5 @@
 import { useCCTVProducts, useSiteSettings, useSectionHeadings, getHeading } from "@/hooks/use-site-data";
+import { useWhatsappTemplates, getTemplateMessage } from "@/hooks/use-whatsapp-templates";
 import { Camera, ShieldCheck, MessageCircle, Check } from "lucide-react";
 import cctvDome from "@/assets/cctv-dome.jpg";
 import cctvBullet from "@/assets/cctv-bullet.jpg";
@@ -12,13 +13,14 @@ export default function CCTVProducts() {
   const { data: products = [] } = useCCTVProducts();
   const { data: settings } = useSiteSettings();
   const { data: headings } = useSectionHeadings();
+  const { data: waTemplates } = useWhatsappTemplates();
   const whatsapp = settings?.shop_whatsapp || settings?.whatsapp || "919876543210";
   const { heading, subheading, visible } = getHeading(headings, "cctv", "CCTV & Surveillance", "Secure your home and business");
 
   if (!visible) return null;
 
-  const enquire = (name: string) => {
-    const msg = `Hi! I'm interested in ${name}. Please share details and price.`;
+  const enquire = (name: string, price: string) => {
+    const msg = getTemplateMessage(waTemplates, "cctv_enquiry", { product: name, price }, `Hi! I'm interested in ${name}. Please share details and price.`);
     window.open(`https://wa.me/${whatsapp}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
@@ -79,7 +81,7 @@ export default function CCTVProducts() {
 
                   <div className="border-t border-white/10 pt-4 flex items-center justify-between gap-3">
                     <span className="text-xl font-heading font-black text-emerald-400">{p.price}</span>
-                    <button onClick={() => enquire(p.name)} className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl text-sm font-semibold font-heading transition-colors">
+                    <button onClick={() => enquire(p.name, p.price)} className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl text-sm font-semibold font-heading transition-colors">
                       <MessageCircle className="h-4 w-4" /> WhatsApp
                     </button>
                   </div>

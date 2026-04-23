@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Save, Plus, Trash2, LogOut, Flame, Camera, Menu, Image as ImageIcon, Tag, Award, Instagram, MessageSquare, Inbox, Eye, EyeOff, Users, Video } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, LogOut, Flame, Camera, Menu, Image as ImageIcon, Tag, Award, Instagram, MessageSquare, Inbox, Eye, EyeOff, Users, Video, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
@@ -69,6 +69,7 @@ interface TestimonialVideo { id: string; customer_name: string; location: string
 interface Enquiry { id: string; name: string; phone: string; message: string | null; status: string; created_at: string; }
 interface SisterConcern { id: string; name: string; tagline: string | null; description: string | null; thumbnail_url: string | null; website_url: string | null; sort_order: number; is_active: boolean; }
 interface IntroSectionRow { id: string; heading: string; subheading: string | null; body_text: string | null; youtube_url: string | null; is_visible: boolean; }
+interface SiteWaTemplateRow { id: string; template_key: string; label: string; description: string | null; message_body: string; placeholders: string | null; sort_order: number; is_active: boolean; }
 
 type Settings = Record<string, string>;
 
@@ -90,6 +91,7 @@ export default function Admin() {
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [sisterConcerns, setSisterConcerns] = useState<SisterConcern[]>([]);
   const [introSection, setIntroSection] = useState<IntroSectionRow | null>(null);
+  const [waTemplates, setWaTemplates] = useState<SiteWaTemplateRow[]>([]);
   const [loading, setLoading] = useState(true);
   const queryClient = useQueryClient();
   const { signOut } = useAuth();
@@ -107,7 +109,7 @@ export default function Admin() {
 
   const loadAll = async () => {
     setLoading(true);
-    const [s, p, sv, v, g, d, cc, ni, bs, sh, db, ir, tv, eq, sc, intro] = await Promise.all([
+    const [s, p, sv, v, g, d, cc, ni, bs, sh, db, ir, tv, eq, sc, intro, wat] = await Promise.all([
       supabase.from("site_settings").select("*"),
       supabase.from("products").select("*").order("display_order"),
       supabase.from("services").select("*").order("display_order"),
@@ -124,6 +126,7 @@ export default function Admin() {
       supabase.from("enquiries").select("*").order("created_at", { ascending: false }),
       (supabase as any).from("sister_concerns").select("*").order("sort_order"),
       (supabase as any).from("intro_section").select("*").limit(1).maybeSingle(),
+      (supabase as any).from("site_whatsapp_templates").select("*").order("sort_order"),
     ]);
     const settingsMap: Settings = {};
     s.data?.forEach((r) => { settingsMap[r.key] = r.value; });
@@ -143,6 +146,7 @@ export default function Admin() {
     setEnquiries((eq.data as Enquiry[]) || []);
     setSisterConcerns(((sc as any).data as SisterConcern[]) || []);
     setIntroSection(((intro as any).data as IntroSectionRow) || null);
+    setWaTemplates(((wat as any).data as SiteWaTemplateRow[]) || []);
     setLoading(false);
   };
 
@@ -182,6 +186,19 @@ export default function Admin() {
       // Intro section: single row upsert
       if (introSection) {
         await (supabase as any).from("intro_section").upsert(introSection);
+      }
+      // WhatsApp templates: upsert each (no deletes — they're a fixed seeded set, but allow new)
+      for (const t of waTemplates) {
+        await (supabase as any).from("site_whatsapp_templates").upsert({
+          id: t.id,
+          template_key: t.template_key,
+          label: t.label,
+          description: t.description,
+          message_body: t.message_body,
+          placeholders: t.placeholders,
+          sort_order: t.sort_order,
+          is_active: t.is_active,
+        });
       }
 
       await Promise.all([
@@ -240,6 +257,7 @@ export default function Admin() {
     { id: "contact", label: "Contact" },
     { id: "intro", label: "🎬 Intro Video" },
     { id: "family", label: "👥 Our Family" },
+    { id: "wa_templates", label: "💬 WhatsApp Templates" },
   ];
 
   const inputClass = "w-full bg-secondary rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50";
@@ -863,6 +881,41 @@ export default function Admin() {
               </div>
             ))}
             {sisterConcerns.length === 0 && <p className="text-muted-foreground text-center py-8">No cards yet. Click "Add Card".</p>}
+          </div>
+        )}
+
+        {/* WhatsApp Templates Tab */}
+        {activeTab === "wa_templates" && (
+          <div className="space-y-5">
+            <div>
+              <h2 className="font-heading text-2xl font-semibold flex items-center gap-2"><MessageCircle className="h-6 w-6 text-primary" /> WhatsApp Message Templates</h2>
+              <p className="text-sm text-muted-foreground mt-1">Edit the WhatsApp messages sent from every section of the public website. Use placeholders like <code className="bg-secondary px-1 rounded">{"{product}"}</code>, <code className="bg-secondary px-1 rounded">{"{price}"}</code>, <code className="bg-secondary px-1 rounded">{"{name}"}</code>, <code className="bg-secondary px-1 rounded">{"{phone}"}</code>, <code className="bg-secondary px-1 rounded">{"{message}"}</code>, <code className="bg-secondary px-1 rounded">{"{deal}"}</code> — they'll be replaced automatically.</p>
+            </div>
+            {waTemplates.map((t) => (
+              <div key={t.id} className="glass rounded-2xl p-5 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-heading font-semibold">{t.label}</h3>
+                    {t.description && <p className="text-xs text-muted-foreground mt-1">{t.description}</p>}
+                    <code className="text-xs text-primary/80">key: {t.template_key}</code>
+                  </div>
+                  <label className="flex items-center gap-2 text-sm shrink-0">
+                    <input type="checkbox" checked={t.is_active} onChange={(e) => setWaTemplates(waTemplates.map((x) => x.id === t.id ? { ...x, is_active: e.target.checked } : x))} className="accent-primary" />
+                    Active
+                  </label>
+                </div>
+                <textarea
+                  rows={3}
+                  className={inputClass + " resize-none font-mono text-sm"}
+                  value={t.message_body}
+                  onChange={(e) => setWaTemplates(waTemplates.map((x) => x.id === t.id ? { ...x, message_body: e.target.value } : x))}
+                />
+                {t.placeholders && (
+                  <p className="text-xs text-muted-foreground">Available placeholders: <span className="text-primary">{t.placeholders}</span></p>
+                )}
+              </div>
+            ))}
+            {waTemplates.length === 0 && <p className="text-muted-foreground text-center py-8">No templates loaded.</p>}
           </div>
         )}
       </div>

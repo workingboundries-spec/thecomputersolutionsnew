@@ -1,4 +1,5 @@
 import { useProducts, useSiteSettings, useSectionHeadings, getHeading } from "@/hooks/use-site-data";
+import { useWhatsappTemplates, getTemplateMessage } from "@/hooks/use-whatsapp-templates";
 import { Sparkles, MessageCircle } from "lucide-react";
 import newArrival1 from "@/assets/new-arrival-1.jpg";
 import newArrival2 from "@/assets/new-arrival-2.jpg";
@@ -13,6 +14,7 @@ export default function NewArrivals() {
   const { data: products = [] } = useProducts();
   const { data: settings } = useSiteSettings();
   const { data: headings } = useSectionHeadings();
+  const { data: waTemplates } = useWhatsappTemplates();
   const whatsapp = settings?.shop_whatsapp || settings?.whatsapp || "919876543210";
   const { heading, subheading, visible } = getHeading(headings, "new_arrivals", "New Arrivals", "Latest products just landed");
 
@@ -21,7 +23,8 @@ export default function NewArrivals() {
   if (!visible || newItems.length === 0) return null;
 
   const enquire = (p: typeof newItems[number]) => {
-    const msg = p.whatsapp_enquiry_msg || `Hi! I am interested in ${p.name}. Please share details and price.`;
+    const fallback = `Hi! I am interested in ${p.name}. Please share details and price.`;
+    const msg = p.whatsapp_enquiry_msg || getTemplateMessage(waTemplates, "new_arrival_enquiry", { product: p.name }, fallback);
     window.open(`https://wa.me/${whatsapp}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 

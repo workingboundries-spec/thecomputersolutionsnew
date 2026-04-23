@@ -1,10 +1,12 @@
 import { MessageCircle } from "lucide-react";
 import { useSiteSettings } from "@/hooks/use-site-data";
+import { useWhatsappTemplates, getTemplateMessage } from "@/hooks/use-whatsapp-templates";
 
 export default function FloatingWhatsApp() {
   const { data: settings } = useSiteSettings();
+  const { data: templates } = useWhatsappTemplates();
   const wa = settings?.shop_whatsapp || settings?.whatsapp || "919876543210";
-  const msg = settings?.whatsapp_default_msg || "Hi! I am interested in your products.";
+  const msg = getTemplateMessage(templates, "floating_button", {}, settings?.whatsapp_default_msg || "Hi! I am interested in your products.");
 
   return (
     <a

@@ -1765,6 +1765,45 @@ export type Database = {
         }
         Relationships: []
       }
+      site_whatsapp_templates: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          label: string
+          message_body: string
+          placeholders: string | null
+          sort_order: number
+          template_key: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          label: string
+          message_body?: string
+          placeholders?: string | null
+          sort_order?: number
+          template_key: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          message_body?: string
+          placeholders?: string | null
+          sort_order?: number
+          template_key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       testimonial_videos: {
         Row: {
           created_at: string | null

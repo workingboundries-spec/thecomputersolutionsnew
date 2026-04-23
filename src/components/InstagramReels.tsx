@@ -4,7 +4,7 @@ import { Instagram, Play } from "lucide-react";
 export default function InstagramReels() {
   const { data: reels = [] } = useInstagramReels();
   const { data: headings } = useSectionHeadings();
-  const { heading, subheading, visible } = getHeading(headings, "instagram", "Latest Reels", "Follow us for daily tech updates");
+  const { heading, subheading, visible } = getHeading(headings, "instagram", "Instagram Updates", "Follow us for daily tech updates");
 
   if (!visible || reels.length === 0) return null;
 

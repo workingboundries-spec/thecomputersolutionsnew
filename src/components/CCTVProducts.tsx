@@ -81,7 +81,7 @@ export default function CCTVProducts() {
 
                   <div className="border-t border-white/10 pt-4 flex items-center justify-between gap-3">
                     <span className="text-xl font-heading font-black text-emerald-400">{p.price}</span>
-                    <button onClick={() => enquire(p.name)} className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl text-sm font-semibold font-heading transition-colors">
+                    <button onClick={() => enquire(p.name, p.price)} className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl text-sm font-semibold font-heading transition-colors">
                       <MessageCircle className="h-4 w-4" /> WhatsApp
                     </button>
                   </div>

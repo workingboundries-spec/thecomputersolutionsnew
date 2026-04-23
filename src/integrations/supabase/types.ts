@@ -1666,6 +1666,66 @@ export type Database = {
         }
         Relationships: []
       }
+      seo_meta_tags: {
+        Row: {
+          canonical_url: string | null
+          created_at: string
+          description: string
+          id: string
+          is_active: boolean
+          keywords: string | null
+          og_description: string | null
+          og_image: string | null
+          og_title: string | null
+          og_url: string | null
+          page_key: string
+          page_label: string
+          sort_order: number
+          structured_data: Json | null
+          title: string
+          twitter_card: string | null
+          updated_at: string
+        }
+        Insert: {
+          canonical_url?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          is_active?: boolean
+          keywords?: string | null
+          og_description?: string | null
+          og_image?: string | null
+          og_title?: string | null
+          og_url?: string | null
+          page_key: string
+          page_label: string
+          sort_order?: number
+          structured_data?: Json | null
+          title?: string
+          twitter_card?: string | null
+          updated_at?: string
+        }
+        Update: {
+          canonical_url?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          is_active?: boolean
+          keywords?: string | null
+          og_description?: string | null
+          og_image?: string | null
+          og_title?: string | null
+          og_url?: string | null
+          page_key?: string
+          page_label?: string
+          sort_order?: number
+          structured_data?: Json | null
+          title?: string
+          twitter_card?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       services: {
         Row: {
           created_at: string

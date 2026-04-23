@@ -70,6 +70,7 @@ interface Enquiry { id: string; name: string; phone: string; message: string | n
 interface SisterConcern { id: string; name: string; tagline: string | null; description: string | null; thumbnail_url: string | null; website_url: string | null; sort_order: number; is_active: boolean; }
 interface IntroSectionRow { id: string; heading: string; subheading: string | null; body_text: string | null; youtube_url: string | null; is_visible: boolean; }
 interface SiteWaTemplateRow { id: string; template_key: string; label: string; description: string | null; message_body: string; placeholders: string | null; sort_order: number; is_active: boolean; }
+interface SeoTagRow { id: string; page_key: string; page_label: string; title: string; description: string; keywords: string | null; og_title: string | null; og_description: string | null; og_image: string | null; og_url: string | null; twitter_card: string | null; canonical_url: string | null; structured_data: any; is_active: boolean; sort_order: number; }
 
 type Settings = Record<string, string>;
 
@@ -92,6 +93,7 @@ export default function Admin() {
   const [sisterConcerns, setSisterConcerns] = useState<SisterConcern[]>([]);
   const [introSection, setIntroSection] = useState<IntroSectionRow | null>(null);
   const [waTemplates, setWaTemplates] = useState<SiteWaTemplateRow[]>([]);
+  const [seoTags, setSeoTags] = useState<SeoTagRow[]>([]);
   const [loading, setLoading] = useState(true);
   const queryClient = useQueryClient();
   const { signOut } = useAuth();
@@ -109,7 +111,7 @@ export default function Admin() {
 
   const loadAll = async () => {
     setLoading(true);
-    const [s, p, sv, v, g, d, cc, ni, bs, sh, db, ir, tv, eq, sc, intro, wat] = await Promise.all([
+    const [s, p, sv, v, g, d, cc, ni, bs, sh, db, ir, tv, eq, sc, intro, wat, seo] = await Promise.all([
       supabase.from("site_settings").select("*"),
       supabase.from("products").select("*").order("display_order"),
       supabase.from("services").select("*").order("display_order"),
@@ -127,6 +129,7 @@ export default function Admin() {
       (supabase as any).from("sister_concerns").select("*").order("sort_order"),
       (supabase as any).from("intro_section").select("*").limit(1).maybeSingle(),
       (supabase as any).from("site_whatsapp_templates").select("*").order("sort_order"),
+      (supabase as any).from("seo_meta_tags").select("*").order("sort_order"),
     ]);
     const settingsMap: Settings = {};
     s.data?.forEach((r) => { settingsMap[r.key] = r.value; });
@@ -147,6 +150,7 @@ export default function Admin() {
     setSisterConcerns(((sc as any).data as SisterConcern[]) || []);
     setIntroSection(((intro as any).data as IntroSectionRow) || null);
     setWaTemplates(((wat as any).data as SiteWaTemplateRow[]) || []);
+    setSeoTags(((seo as any).data as SeoTagRow[]) || []);
     setLoading(false);
   };
 
@@ -198,6 +202,26 @@ export default function Admin() {
           placeholders: t.placeholders,
           sort_order: t.sort_order,
           is_active: t.is_active,
+        });
+      }
+      // SEO meta tags: upsert each
+      for (const tag of seoTags) {
+        await (supabase as any).from("seo_meta_tags").upsert({
+          id: tag.id,
+          page_key: tag.page_key,
+          page_label: tag.page_label,
+          title: tag.title,
+          description: tag.description,
+          keywords: tag.keywords,
+          og_title: tag.og_title,
+          og_description: tag.og_description,
+          og_image: tag.og_image,
+          og_url: tag.og_url,
+          twitter_card: tag.twitter_card,
+          canonical_url: tag.canonical_url,
+          structured_data: tag.structured_data,
+          is_active: tag.is_active,
+          sort_order: tag.sort_order,
         });
       }
 
@@ -258,6 +282,7 @@ export default function Admin() {
     { id: "intro", label: "🎬 Intro Video" },
     { id: "family", label: "👥 Our Family" },
     { id: "wa_templates", label: "💬 WhatsApp Templates" },
+    { id: "seo", label: "🔎 SEO Meta Tags" },
   ];
 
   const inputClass = "w-full bg-secondary rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50";
@@ -916,6 +941,232 @@ export default function Admin() {
               </div>
             ))}
             {waTemplates.length === 0 && <p className="text-muted-foreground text-center py-8">No templates loaded.</p>}
+          </div>
+        )}
+
+        {/* SEO Meta Tags Tab */}
+        {activeTab === "seo" && (
+          <div className="space-y-5">
+            <div>
+              <h2 className="font-heading text-2xl font-semibold">🔎 SEO Meta Tags</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Manage page titles, descriptions, keywords, OpenGraph image and structured data for better
+                visibility on Google, Bing and AI search engines like ChatGPT & Perplexity.
+                Use specific, keyword-rich descriptions (50–160 characters).
+              </p>
+            </div>
+            <button
+              onClick={() => setSeoTags([
+                ...seoTags,
+                {
+                  id: crypto.randomUUID(),
+                  page_key: `page_${Date.now()}`,
+                  page_label: "New Page",
+                  title: "",
+                  description: "",
+                  keywords: "",
+                  og_title: "",
+                  og_description: "",
+                  og_image: "",
+                  og_url: "",
+                  twitter_card: "summary_large_image",
+                  canonical_url: "",
+                  structured_data: {},
+                  is_active: true,
+                  sort_order: (seoTags[seoTags.length - 1]?.sort_order || 0) + 10,
+                },
+              ])}
+              className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90"
+            >
+              <Plus className="h-4 w-4" /> Add SEO Entry
+            </button>
+            {seoTags.map((tag) => {
+              const setTag = (patch: Partial<SeoTagRow>) =>
+                setSeoTags(seoTags.map((x) => (x.id === tag.id ? { ...x, ...patch } : x)));
+              const titleLen = tag.title?.length || 0;
+              const descLen = tag.description?.length || 0;
+              return (
+                <div key={tag.id} className="glass rounded-2xl p-5 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <input
+                          className={inputClass + " max-w-xs"}
+                          value={tag.page_label}
+                          onChange={(e) => setTag({ page_label: e.target.value })}
+                          placeholder="Page label (e.g. Homepage)"
+                        />
+                        <code className="text-xs text-primary/80">key: {tag.page_key}</code>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={tag.is_active}
+                          onChange={(e) => setTag({ is_active: e.target.checked })}
+                          className="accent-primary"
+                        />
+                        Active
+                      </label>
+                      <button
+                        onClick={() => {
+                          if (confirm("Delete this SEO entry?")) {
+                            (supabase as any).from("seo_meta_tags").delete().eq("id", tag.id);
+                            setSeoTags(seoTags.filter((x) => x.id !== tag.id));
+                          }
+                        }}
+                        className="text-destructive hover:opacity-80"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-muted-foreground">
+                        Page Key (URL identifier) <span className="text-primary">*</span>
+                      </label>
+                      <input
+                        className={inputClass}
+                        value={tag.page_key}
+                        onChange={(e) => setTag({ page_key: e.target.value })}
+                        placeholder="home, products, contact..."
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Sort Order</label>
+                      <input
+                        type="number"
+                        className={inputClass}
+                        value={tag.sort_order}
+                        onChange={(e) => setTag({ sort_order: parseInt(e.target.value) || 0 })}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-muted-foreground flex justify-between">
+                      <span>Page Title (50–60 chars ideal)</span>
+                      <span className={titleLen > 60 ? "text-destructive" : "text-muted-foreground"}>{titleLen}/60</span>
+                    </label>
+                    <input
+                      className={inputClass}
+                      value={tag.title}
+                      onChange={(e) => setTag({ title: e.target.value })}
+                      placeholder="Best Laptops, Desktops & CCTV — Computer Solutions"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-muted-foreground flex justify-between">
+                      <span>Meta Description (140–160 chars ideal)</span>
+                      <span className={descLen > 160 ? "text-destructive" : "text-muted-foreground"}>{descLen}/160</span>
+                    </label>
+                    <textarea
+                      rows={2}
+                      className={inputClass + " resize-none"}
+                      value={tag.description}
+                      onChange={(e) => setTag({ description: e.target.value })}
+                      placeholder="Describe this page in 1–2 keyword-rich sentences."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-muted-foreground">Keywords (comma-separated)</label>
+                    <textarea
+                      rows={2}
+                      className={inputClass + " resize-none"}
+                      value={tag.keywords || ""}
+                      onChange={(e) => setTag({ keywords: e.target.value })}
+                      placeholder="laptop dealer, cctv installation, computer repair near me..."
+                    />
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-muted-foreground">OG Title (social share)</label>
+                      <input
+                        className={inputClass}
+                        value={tag.og_title || ""}
+                        onChange={(e) => setTag({ og_title: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">OG Image URL (1200×630 recommended)</label>
+                      <input
+                        className={inputClass}
+                        value={tag.og_image || ""}
+                        onChange={(e) => setTag({ og_image: e.target.value })}
+                        placeholder="https://..."
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-muted-foreground">OG Description</label>
+                    <textarea
+                      rows={2}
+                      className={inputClass + " resize-none"}
+                      value={tag.og_description || ""}
+                      onChange={(e) => setTag({ og_description: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-muted-foreground">Canonical URL</label>
+                      <input
+                        className={inputClass}
+                        value={tag.canonical_url || ""}
+                        onChange={(e) => setTag({ canonical_url: e.target.value })}
+                        placeholder="https://thecomputersolutions.in/"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Twitter Card Type</label>
+                      <select
+                        className={inputClass}
+                        value={tag.twitter_card || "summary_large_image"}
+                        onChange={(e) => setTag({ twitter_card: e.target.value })}
+                      >
+                        <option value="summary">summary</option>
+                        <option value="summary_large_image">summary_large_image</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <details className="mt-2">
+                    <summary className="text-xs text-muted-foreground cursor-pointer hover:text-primary">
+                      Advanced: Structured data (JSON-LD for Google + AI engines)
+                    </summary>
+                    <textarea
+                      rows={6}
+                      className={inputClass + " resize-none font-mono text-xs mt-2"}
+                      value={
+                        typeof tag.structured_data === "string"
+                          ? tag.structured_data
+                          : JSON.stringify(tag.structured_data || {}, null, 2)
+                      }
+                      onChange={(e) => {
+                        try {
+                          const parsed = JSON.parse(e.target.value || "{}");
+                          setTag({ structured_data: parsed });
+                        } catch {
+                          // store raw string while user is editing; will fail to save if invalid
+                          setTag({ structured_data: e.target.value as any });
+                        }
+                      }}
+                      placeholder='{"@context":"https://schema.org","@type":"LocalBusiness","name":"..."}'
+                    />
+                  </details>
+                </div>
+              );
+            })}
+            {seoTags.length === 0 && (
+              <p className="text-muted-foreground text-center py-8">No SEO entries yet. Click "Add SEO Entry".</p>
+            )}
           </div>
         )}
       </div>

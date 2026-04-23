@@ -187,6 +187,19 @@ export default function Admin() {
       if (introSection) {
         await (supabase as any).from("intro_section").upsert(introSection);
       }
+      // WhatsApp templates: upsert each (no deletes — they're a fixed seeded set, but allow new)
+      for (const t of waTemplates) {
+        await (supabase as any).from("site_whatsapp_templates").upsert({
+          id: t.id,
+          template_key: t.template_key,
+          label: t.label,
+          description: t.description,
+          message_body: t.message_body,
+          placeholders: t.placeholders,
+          sort_order: t.sort_order,
+          is_active: t.is_active,
+        });
+      }
 
       await Promise.all([
         saveSettings(),
@@ -244,6 +257,7 @@ export default function Admin() {
     { id: "contact", label: "Contact" },
     { id: "intro", label: "🎬 Intro Video" },
     { id: "family", label: "👥 Our Family" },
+    { id: "wa_templates", label: "💬 WhatsApp Templates" },
   ];
 
   const inputClass = "w-full bg-secondary rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50";

@@ -9,7 +9,7 @@ const DailyDeals = () => {
   const { data: settings } = useSiteSettings();
   const { data: headings } = useSectionHeadings();
   const whatsapp = settings?.shop_whatsapp || settings?.whatsapp || "919876543210";
-  const { heading, subheading, visible } = getHeading(headings, "deals", "Daily Deals", "Best prices updated every day | Offers for Today only");
+  const { heading, subheading, visible } = getHeading(headings, "deals", "Today Deals", "Best prices updated every day | Offers for Today only");
 
   const activeDeals = deals?.filter((d) => new Date(d.valid_until) >= new Date(new Date().toDateString()));
 

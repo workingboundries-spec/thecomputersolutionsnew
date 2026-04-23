@@ -40,7 +40,7 @@ export default function HeroBanner() {
           <div className="max-w-4xl">
             <div className="inline-flex items-center gap-2 glass-yellow rounded-full px-4 py-1.5 mb-6">
               <Zap className="h-4 w-4 text-primary" />
-              <span className="text-sm font-heading font-semibold text-primary tracking-wide">YOUR TECH GAME, LEVEL UP</span>
+              <span className="text-sm font-heading font-semibold text-primary tracking-wide">{" "}</span>
             </div>
             <h1 className="font-heading text-4xl md:text-7xl lg:text-8xl font-bold mb-6 leading-[1.05] text-foreground">
               {slide.heading || "Power Up Your Setup."}
@@ -103,7 +103,7 @@ export default function HeroBanner() {
         <div className="max-w-4xl">
           <div className="inline-flex items-center gap-2 glass-yellow rounded-full px-4 py-1.5 mb-6 animate-fade-in-up">
             <Zap className="h-4 w-4 text-primary" />
-            <span className="text-sm font-heading font-semibold text-primary tracking-wide">YOUR TECH GAME, LEVEL UP</span>
+            <span className="text-sm font-heading font-semibold text-primary tracking-wide">{" "}</span>
           </div>
 
           <h1 className="font-heading text-5xl md:text-7xl lg:text-8xl font-bold mb-6 leading-[1.05] animate-fade-in-up" style={{ animationDelay: "0.1s" }}>

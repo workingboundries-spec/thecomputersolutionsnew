@@ -134,10 +134,10 @@ export default function HeroBanner() {
 
           <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl animate-fade-in-up" style={{ animationDelay: "0.6s" }}>
             {[
-              { num: "500+", label: "Laptops Sold" },
-              { num: "50+", label: "Brands" },
+              { num: "5000+", label: "Laptops Sold" },
+              { num: "20+", label: "Brands" },
               { num: "4.8★", label: "Rating" },
-              { num: "24/7", label: "Support" },
+              { num: "250", label: "CCTV Projects" },
             ].map((s) => (
               <div key={s.label} className="glass-yellow rounded-2xl p-4 hover:scale-105 transition-transform">
                 <div className="text-2xl md:text-3xl font-heading font-bold text-primary">{s.num}</div>

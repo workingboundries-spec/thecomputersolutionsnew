@@ -1256,6 +1256,39 @@ export type Database = {
         }
         Relationships: []
       }
+      intro_section: {
+        Row: {
+          body_text: string | null
+          created_at: string
+          heading: string
+          id: string
+          is_visible: boolean
+          subheading: string | null
+          updated_at: string
+          youtube_url: string | null
+        }
+        Insert: {
+          body_text?: string | null
+          created_at?: string
+          heading?: string
+          id?: string
+          is_visible?: boolean
+          subheading?: string | null
+          updated_at?: string
+          youtube_url?: string | null
+        }
+        Update: {
+          body_text?: string | null
+          created_at?: string
+          heading?: string
+          id?: string
+          is_visible?: boolean
+          subheading?: string | null
+          updated_at?: string
+          youtube_url?: string | null
+        }
+        Relationships: []
+      }
       inventory_audits: {
         Row: {
           action_taken: string | null
@@ -1666,6 +1699,45 @@ export type Database = {
           thumbnail_url?: string | null
           title?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      sister_concerns: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          tagline: string | null
+          thumbnail_url: string | null
+          updated_at: string
+          website_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          tagline?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string
+          website_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          tagline?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string
+          website_url?: string | null
         }
         Relationships: []
       }

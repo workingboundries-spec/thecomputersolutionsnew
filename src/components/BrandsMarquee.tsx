@@ -19,7 +19,7 @@ export default function BrandsMarquee() {
     <section className="py-16 border-y border-primary/20 overflow-hidden bg-gradient-to-r from-background via-card to-background">
       <div className="container mx-auto text-center mb-8">
         <span className="inline-block bg-primary/15 text-primary font-heading text-xs font-bold tracking-[0.3em] uppercase px-4 py-1.5 rounded-full mb-3">
-          Authorized Dealer
+          AUTHORIZED DEALERS
         </span>
         <h2 className="font-heading text-2xl md:text-4xl font-bold">{heading}</h2>
         {subheading && <p className="text-muted-foreground mt-2">{subheading}</p>}

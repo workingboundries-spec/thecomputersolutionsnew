@@ -171,9 +171,9 @@ export default function Admin() {
     try {
       // Sister concerns: upsert/delete
       const existingSC = await (supabase as any).from("sister_concerns").select("id");
-      const existingSCIds = new Set((existingSC.data || []).map((r: any) => r.id));
-      const currentSCIds = new Set(sisterConcerns.map((i) => i.id));
-      for (const id of existingSCIds) {
+      const existingSCIds = new Set<string>(((existingSC.data || []) as any[]).map((r) => r.id as string));
+      const currentSCIds = new Set<string>(sisterConcerns.map((i) => i.id));
+      for (const id of Array.from(existingSCIds)) {
         if (!currentSCIds.has(id)) await (supabase as any).from("sister_concerns").delete().eq("id", id);
       }
       for (const item of sisterConcerns) {

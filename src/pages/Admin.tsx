@@ -761,6 +761,110 @@ export default function Admin() {
             ))}
           </div>
         )}
+
+        {/* Intro Video Tab */}
+        {activeTab === "intro" && (
+          <div className="max-w-2xl space-y-5">
+            <h2 className="font-heading text-2xl font-semibold flex items-center gap-2"><Video className="h-6 w-6 text-primary" /> About / Intro Video Section</h2>
+            <p className="text-sm text-muted-foreground">Shown right after the hero banner carousel.</p>
+            {!introSection && (
+              <button
+                onClick={() => setIntroSection({ id: crypto.randomUUID(), heading: "About Computer Solutions", subheading: "", body_text: "", youtube_url: "", is_visible: true })}
+                className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium"
+              >
+                <Plus className="h-4 w-4" /> Create Intro Section
+              </button>
+            )}
+            {introSection && (
+              <div className="glass rounded-2xl p-6 space-y-4">
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={introSection.is_visible} onChange={(e) => setIntroSection({ ...introSection, is_visible: e.target.checked })} className="accent-primary" />
+                  Show this section on the homepage
+                </label>
+                <div>
+                  <label className="text-xs text-muted-foreground">Heading</label>
+                  <input className={inputClass} value={introSection.heading} onChange={(e) => setIntroSection({ ...introSection, heading: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Subheading</label>
+                  <input className={inputClass} value={introSection.subheading || ""} onChange={(e) => setIntroSection({ ...introSection, subheading: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Body Text</label>
+                  <textarea rows={4} className={inputClass + " resize-none"} value={introSection.body_text || ""} onChange={(e) => setIntroSection({ ...introSection, body_text: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">YouTube URL (any format — embed, watch, youtu.be)</label>
+                  <input className={inputClass} value={introSection.youtube_url || ""} onChange={(e) => setIntroSection({ ...introSection, youtube_url: e.target.value })} placeholder="https://www.youtube.com/watch?v=..." />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Sister Concerns / Our Family Tab */}
+        {activeTab === "family" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="font-heading text-2xl font-semibold flex items-center gap-2"><Users className="h-6 w-6 text-primary" /> Our Family (Sister Concerns)</h2>
+              <button
+                onClick={() => setSisterConcerns([...sisterConcerns, { id: crypto.randomUUID(), name: "New Venture", tagline: "", description: "", thumbnail_url: "", website_url: "", sort_order: sisterConcerns.length + 1, is_active: true }])}
+                className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium"
+              >
+                <Plus className="h-4 w-4" /> Add Card
+              </button>
+            </div>
+            {sisterConcerns.map((c) => (
+              <div key={c.id} className="glass rounded-2xl p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="font-heading font-semibold">{c.name}</span>
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" checked={c.is_active} onChange={(e) => setSisterConcerns(sisterConcerns.map((x) => x.id === c.id ? { ...x, is_active: e.target.checked } : x))} className="accent-primary" />
+                      Visible
+                    </label>
+                    <button onClick={() => setSisterConcerns(sisterConcerns.filter((x) => x.id !== c.id))} className="text-destructive"><Trash2 className="h-4 w-4" /></button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div><label className="text-xs text-muted-foreground">Name</label><input className={inputClass} value={c.name} onChange={(e) => setSisterConcerns(sisterConcerns.map((x) => x.id === c.id ? { ...x, name: e.target.value } : x))} /></div>
+                  <div><label className="text-xs text-muted-foreground">Tagline</label><input className={inputClass} value={c.tagline || ""} onChange={(e) => setSisterConcerns(sisterConcerns.map((x) => x.id === c.id ? { ...x, tagline: e.target.value } : x))} /></div>
+                  <div className="md:col-span-2"><label className="text-xs text-muted-foreground">Description</label><textarea rows={2} className={inputClass + " resize-none"} value={c.description || ""} onChange={(e) => setSisterConcerns(sisterConcerns.map((x) => x.id === c.id ? { ...x, description: e.target.value } : x))} /></div>
+                  <div><label className="text-xs text-muted-foreground">Website URL (Learn More link)</label><input className={inputClass} value={c.website_url || ""} onChange={(e) => setSisterConcerns(sisterConcerns.map((x) => x.id === c.id ? { ...x, website_url: e.target.value } : x))} placeholder="https://..." /></div>
+                  <div><label className="text-xs text-muted-foreground">Sort Order</label><input type="number" className={inputClass} value={c.sort_order} onChange={(e) => setSisterConcerns(sisterConcerns.map((x) => x.id === c.id ? { ...x, sort_order: parseInt(e.target.value) || 0 } : x))} /></div>
+                  <div className="md:col-span-2">
+                    <label className="text-xs text-muted-foreground">Thumbnail Image (landscape, 16:9 ideal)</label>
+                    <div className="flex flex-col md:flex-row gap-3 items-start mt-1">
+                      <div className="flex-1 w-full space-y-2">
+                        <input className={inputClass} value={c.thumbnail_url || ""} placeholder="https://..." onChange={(e) => setSisterConcerns(sisterConcerns.map((x) => x.id === c.id ? { ...x, thumbnail_url: e.target.value } : x))} />
+                        <label className="inline-flex items-center gap-2 text-xs cursor-pointer bg-secondary text-secondary-foreground px-3 py-2 rounded-lg hover:opacity-90">
+                          <ImageIcon className="h-4 w-4" /> Upload image
+                          <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                            const file = e.target.files?.[0]; if (!file) return;
+                            const ext = file.name.split(".").pop() || "jpg";
+                            const path = `sister-concerns/${c.id}-${Date.now()}.${ext}`;
+                            const t = toast.loading("Uploading...");
+                            const { error } = await supabase.storage.from("shop-assets").upload(path, file, { upsert: true, contentType: file.type });
+                            if (error) { toast.error(error.message, { id: t }); return; }
+                            const { data } = supabase.storage.from("shop-assets").getPublicUrl(path);
+                            setSisterConcerns(sisterConcerns.map((x) => x.id === c.id ? { ...x, thumbnail_url: data.publicUrl } : x));
+                            toast.success("Uploaded", { id: t });
+                          }} />
+                        </label>
+                      </div>
+                      {c.thumbnail_url ? (
+                        <img src={c.thumbnail_url} alt="" className="h-24 w-40 object-cover rounded-lg border border-border" />
+                      ) : (
+                        <div className="h-24 w-40 rounded-lg border border-dashed border-border flex items-center justify-center text-xs text-muted-foreground">No image</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {sisterConcerns.length === 0 && <p className="text-muted-foreground text-center py-8">No cards yet. Click "Add Card".</p>}
+          </div>
+        )}
       </div>
     </div>
   );

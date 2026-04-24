@@ -1,5 +1,11 @@
+import { useState } from "react";
 import { useIntroSection } from "@/hooks/use-site-data";
 import { Play, Sparkles } from "lucide-react";
+
+function getYouTubeThumb(url: string): string | null {
+  const m = url.match(/\/embed\/([A-Za-z0-9_-]{11})/);
+  return m?.[1] ? `https://img.youtube.com/vi/${m[1]}/hqdefault.jpg` : null;
+}
 
 function toEmbed(url: string | null | undefined): string | null {
   if (!url) return null;
@@ -21,9 +27,11 @@ function toEmbed(url: string | null | undefined): string | null {
 
 export default function IntroSection() {
   const { data: intro } = useIntroSection();
+  const [playVideo, setPlayVideo] = useState(false);
 
   if (!intro || !intro.is_visible) return null;
   const embed = toEmbed(intro.youtube_url);
+  const thumb = embed ? getYouTubeThumb(embed) : null;
 
   return (
     <section id="about-cs" className="section-padding relative overflow-hidden">
@@ -41,14 +49,33 @@ export default function IntroSection() {
               {/* Glow accents */}
               <div className="absolute -inset-1 bg-gradient-to-tr from-primary via-yellow-400/40 to-transparent rounded-[2rem] blur-xl opacity-50 group-hover:opacity-80 transition-opacity duration-700" />
               <div className="relative aspect-video rounded-[1.75rem] overflow-hidden border border-primary/30 bg-card shadow-[var(--shadow-yellow)]">
-                {embed ? (
+                {embed && playVideo ? (
                   <iframe
-                    src={embed}
+                    src={`${embed}${embed.includes("?") ? "&" : "?"}autoplay=1`}
                     title={intro.heading}
                     className="w-full h-full"
+                    loading="lazy"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
                   />
+                ) : embed ? (
+                  <button
+                    type="button"
+                    onClick={() => setPlayVideo(true)}
+                    className="w-full h-full relative group/play"
+                    aria-label="Play video"
+                  >
+                    {thumb ? (
+                      <img src={thumb} alt={intro.heading} className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                    ) : (
+                      <div className="w-full h-full bg-secondary" />
+                    )}
+                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                      <div className="w-20 h-20 rounded-full bg-primary/95 flex items-center justify-center group-hover/play:scale-110 transition-transform shadow-2xl">
+                        <Play className="h-8 w-8 text-primary-foreground fill-current ml-1" />
+                      </div>
+                    </div>
+                  </button>
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-secondary">
                     <Play className="h-16 w-16 text-primary/60" />

@@ -47,15 +47,16 @@ export default function NewArrivals() {
             return (
               <article
                 key={p.id}
-                className="snap-start shrink-0 w-[260px] md:w-auto glass rounded-2xl p-5 hover:border-primary/60 hover:shadow-[var(--shadow-yellow)] transition-all duration-300 group animate-fade-in-up flex flex-col"
+                className="snap-start shrink-0 w-[220px] md:w-auto glass rounded-2xl p-4 hover:border-primary/60 hover:shadow-[var(--shadow-yellow)] transition-all duration-300 group animate-fade-in-up flex flex-col"
                 style={{ animationDelay: `${i * 0.08}s` }}
               >
-                <div className="aspect-square rounded-xl bg-secondary/50 flex items-center justify-center mb-4 overflow-hidden relative">
+                <div className="h-44 md:h-48 rounded-xl bg-secondary/50 flex items-center justify-center mb-3 overflow-hidden relative">
                   <img
                     src={p.image || fallbackImages[i % fallbackImages.length]}
                     alt={p.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                     loading="lazy"
+                    decoding="async"
                   />
                   <span className="absolute top-2 right-2 vibrant-gradient text-primary-foreground text-[10px] font-black px-2.5 py-1 rounded-full tracking-wider">
                     NEW

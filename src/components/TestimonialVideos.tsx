@@ -21,7 +21,7 @@ export default function TestimonialVideos() {
           {items.map((t) => (
             <article
               key={t.id}
-              className="snap-start shrink-0 w-[280px] sm:w-[320px] bg-card border border-primary/20 rounded-3xl overflow-hidden hover:border-primary/60 hover:shadow-[var(--shadow-yellow)] transition-all"
+              className="snap-start shrink-0 w-[240px] sm:w-[260px] bg-card border border-primary/20 rounded-2xl overflow-hidden hover:border-primary/60 hover:shadow-[var(--shadow-yellow)] transition-all"
             >
               <a
                 href={t.video_url || "#"}
@@ -30,7 +30,7 @@ export default function TestimonialVideos() {
                 className="block relative aspect-video bg-secondary group"
               >
                 {t.thumbnail_url ? (
-                  <img src={t.thumbnail_url} alt={t.customer_name} className="w-full h-full object-cover" loading="lazy" />
+                  <img src={t.thumbnail_url} alt={t.customer_name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                 ) : (
                   <div className="w-full h-full vibrant-gradient" />
                 )}

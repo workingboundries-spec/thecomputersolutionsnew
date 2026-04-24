@@ -56,16 +56,16 @@ export default function Products() {
           ))}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {filtered.map((p, i) => {
             const sale = fmt(p.sale_price);
             const reg = fmt(p.regular_price);
             const mrp = fmt(p.mrp);
             return (
               <article key={p.id} className="glass rounded-2xl overflow-hidden group hover:border-primary/60 hover:shadow-[var(--shadow-yellow)] transition-all duration-300 animate-fade-in-up flex flex-col" style={{ animationDelay: `${i * 0.08}s` }}>
-                <div className="aspect-[4/3] bg-secondary/50 flex items-center justify-center relative overflow-hidden">
+                <div className="h-40 md:h-48 bg-secondary/50 flex items-center justify-center relative overflow-hidden">
                   {(p.image || categoryFallbacks[p.category]) ? (
-                    <img src={p.image || categoryFallbacks[p.category]} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                    <img src={p.image || categoryFallbacks[p.category]} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" decoding="async" />
                   ) : (
                     <div className="text-center p-4">
                       <ShoppingCart className="h-12 w-12 text-muted-foreground/30 mx-auto mb-2" />
@@ -79,7 +79,7 @@ export default function Products() {
                     <span className="absolute top-3 left-3 bg-destructive text-destructive-foreground text-xs font-bold px-3 py-1 rounded-full">{p.badge}</span>
                   )}
                 </div>
-                <div className="p-6 flex flex-col flex-1">
+                <div className="p-4 flex flex-col flex-1">
                   <div className="flex items-center gap-1 mb-2">
                     {[...Array(5)].map((_, j) => <Star key={j} className="h-3.5 w-3.5 fill-primary text-primary" />)}
                   </div>

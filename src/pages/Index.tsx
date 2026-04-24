@@ -1,24 +1,29 @@
+import { lazy, Suspense } from "react";
 import SEO from "@/components/SEO";
 import Navbar from "@/components/Navbar";
 import HeroBanner from "@/components/HeroBanner";
 import IntroSection from "@/components/IntroSection";
-import WhyChooseUs from "@/components/WhyChooseUs";
-import EmiBanner from "@/components/EmiBanner";
-import BrandsMarquee from "@/components/BrandsMarquee";
-import NewArrivals from "@/components/NewArrivals";
-import DailyDeals from "@/components/DailyDeals";
-import Services from "@/components/Services";
-import Products from "@/components/Products";
-import CCTVProducts from "@/components/CCTVProducts";
-import TestimonialVideos from "@/components/TestimonialVideos";
-import YouTubeVideos from "@/components/YouTubeVideos";
-import InstagramReels from "@/components/InstagramReels";
-import SisterConcerns from "@/components/SisterConcerns";
-import Gallery from "@/components/Gallery";
-import SocialLinks from "@/components/SocialLinks";
-import ContactUs from "@/components/ContactUs";
-import Footer from "@/components/Footer";
-import FloatingWhatsApp from "@/components/FloatingWhatsApp";
+
+// Lazy-load below-the-fold sections to shrink initial JS bundle
+const WhyChooseUs = lazy(() => import("@/components/WhyChooseUs"));
+const BrandsMarquee = lazy(() => import("@/components/BrandsMarquee"));
+const EmiBanner = lazy(() => import("@/components/EmiBanner"));
+const NewArrivals = lazy(() => import("@/components/NewArrivals"));
+const DailyDeals = lazy(() => import("@/components/DailyDeals"));
+const Services = lazy(() => import("@/components/Services"));
+const Products = lazy(() => import("@/components/Products"));
+const CCTVProducts = lazy(() => import("@/components/CCTVProducts"));
+const TestimonialVideos = lazy(() => import("@/components/TestimonialVideos"));
+const YouTubeVideos = lazy(() => import("@/components/YouTubeVideos"));
+const InstagramReels = lazy(() => import("@/components/InstagramReels"));
+const SisterConcerns = lazy(() => import("@/components/SisterConcerns"));
+const Gallery = lazy(() => import("@/components/Gallery"));
+const SocialLinks = lazy(() => import("@/components/SocialLinks"));
+const ContactUs = lazy(() => import("@/components/ContactUs"));
+const Footer = lazy(() => import("@/components/Footer"));
+const FloatingWhatsApp = lazy(() => import("@/components/FloatingWhatsApp"));
+
+const SectionFallback = () => <div className="h-32" aria-hidden />;
 
 const Index = () => {
   return (
@@ -27,23 +32,25 @@ const Index = () => {
       <Navbar />
       <HeroBanner />
       <IntroSection />
-      <WhyChooseUs />
-      <BrandsMarquee />
-      <EmiBanner />
-      <NewArrivals />
-      <DailyDeals />
-      <Services />
-      <Products />
-      <CCTVProducts />
-      <TestimonialVideos />
-      <YouTubeVideos />
-      <InstagramReels />
-      <SisterConcerns />
-      <Gallery />
-      <SocialLinks />
-      <ContactUs />
-      <Footer />
-      <FloatingWhatsApp />
+      <Suspense fallback={<SectionFallback />}>
+        <WhyChooseUs />
+        <BrandsMarquee />
+        <EmiBanner />
+        <NewArrivals />
+        <DailyDeals />
+        <Services />
+        <Products />
+        <CCTVProducts />
+        <TestimonialVideos />
+        <YouTubeVideos />
+        <InstagramReels />
+        <SisterConcerns />
+        <Gallery />
+        <SocialLinks />
+        <ContactUs />
+        <Footer />
+        <FloatingWhatsApp />
+      </Suspense>
     </div>
   );
 };

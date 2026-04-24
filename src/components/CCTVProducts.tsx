@@ -41,21 +41,22 @@ export default function CCTVProducts() {
           {subheading && <p className="text-white/60 mt-3 max-w-xl mx-auto">{subheading}</p>}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {list.map((p, i) => {
             const specs = (p.description || "").split(/[,;\n]/).map((s: string) => s.trim()).filter(Boolean).slice(0, 4);
             return (
               <article
                 key={p.id}
-                className="bg-[#0f1a0f] border border-emerald-500/20 hover:border-emerald-500/60 rounded-2xl overflow-hidden flex flex-col sm:flex-row group hover:shadow-[0_8px_32px_rgba(16,185,129,0.3)] transition-all animate-fade-in-up"
+                className="bg-[#0f1a0f] border border-emerald-500/20 hover:border-emerald-500/60 rounded-2xl overflow-hidden flex flex-col group hover:shadow-[0_8px_32px_rgba(16,185,129,0.3)] transition-all animate-fade-in-up"
                 style={{ animationDelay: `${i * 0.1}s` }}
               >
-                <div className="sm:w-2/5 aspect-[4/3] sm:aspect-auto relative overflow-hidden bg-secondary/50">
+                <div className="h-44 md:h-48 relative overflow-hidden bg-secondary/50">
                   <img
                     src={p.image || categoryFallbacks[p.category] || cctvDome}
                     alt={p.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     loading="lazy"
+                    decoding="async"
                   />
                   {/* Surveillance green tint */}
                   <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/15 to-transparent mix-blend-overlay" />
@@ -64,7 +65,7 @@ export default function CCTVProducts() {
                   </span>
                 </div>
 
-                <div className="sm:w-3/5 p-5 flex flex-col text-white">
+                <div className="p-4 flex flex-col text-white flex-1">
                   <h3 className="font-heading text-xl font-bold mb-1">{p.name}</h3>
                   {specs.length > 0 ? (
                     <ul className="space-y-1 my-3 flex-1">

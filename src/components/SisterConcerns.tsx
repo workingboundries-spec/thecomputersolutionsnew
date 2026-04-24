@@ -8,10 +8,10 @@ export default function SisterConcerns() {
 
   return (
     <section id="sister-concerns" className="section-padding relative overflow-hidden">
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[120px]" />
+      <div className="hidden md:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[120px]" />
 
       <div className="container mx-auto relative z-10">
-        <div className="text-center mb-14">
+        <div className="text-center mb-10">
           <span className="inline-block glass-yellow rounded-full px-4 py-1.5 text-primary font-heading text-xs font-bold tracking-[0.3em] uppercase mb-4">
             Our Family
           </span>
@@ -23,7 +23,7 @@ export default function SisterConcerns() {
           </p>
         </div>
 
-        <div className="space-y-6 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 max-w-6xl mx-auto">
           {concerns.map((c) => {
             const CardWrapper: any = c.website_url ? "a" : "div";
             const linkProps = c.website_url
@@ -34,46 +34,40 @@ export default function SisterConcerns() {
               <CardWrapper
                 key={c.id}
                 {...linkProps}
-                className="group relative grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-8 items-stretch bg-card border border-primary/20 rounded-3xl p-5 md:p-6 hover:border-primary/60 hover:-translate-y-1 hover:shadow-[var(--shadow-yellow)] transition-all duration-500 overflow-hidden"
+                className="group relative flex flex-col bg-card border border-primary/20 rounded-2xl overflow-hidden hover:border-primary/60 hover:-translate-y-1 hover:shadow-[var(--shadow-yellow)] transition-all duration-500"
               >
-                {/* Hover gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-r from-primary/0 to-primary/0 group-hover:from-primary/10 group-hover:to-transparent transition-all duration-500 pointer-events-none" />
-
-                {/* Landscape thumbnail */}
-                <div className="md:col-span-5 relative">
-                  <div className="aspect-[16/9] md:aspect-[16/10] rounded-2xl overflow-hidden bg-background/50 border border-primary/20 group-hover:border-primary/50 transition-colors">
-                    {c.thumbnail_url ? (
-                      <img
-                        src={c.thumbnail_url}
-                        alt={c.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-yellow-400/10">
-                        <Building2 className="h-12 w-12 text-primary/40" strokeWidth={1.5} />
-                      </div>
-                    )}
-                  </div>
+                <div className="aspect-video overflow-hidden bg-background/50">
+                  {c.thumbnail_url ? (
+                    <img
+                      src={c.thumbnail_url}
+                      alt={c.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-yellow-400/10">
+                      <Building2 className="h-12 w-12 text-primary/40" strokeWidth={1.5} />
+                    </div>
+                  )}
                 </div>
 
-                {/* Content */}
-                <div className="md:col-span-7 relative flex flex-col justify-center">
-                  <h3 className="font-heading text-2xl md:text-3xl font-bold mb-2 group-hover:text-primary transition-colors">
+                <div className="p-5 flex flex-col flex-1">
+                  <h3 className="font-heading text-xl font-bold mb-1 group-hover:text-primary transition-colors">
                     {c.name}
                   </h3>
                   {c.tagline && (
-                    <p className="text-primary text-sm md:text-base font-heading font-semibold mb-3">
+                    <p className="text-primary text-sm font-heading font-semibold mb-2">
                       {c.tagline}
                     </p>
                   )}
                   {c.description && (
-                    <p className="text-muted-foreground text-sm md:text-base leading-relaxed mb-5">
+                    <p className="text-muted-foreground text-sm leading-relaxed mb-3 line-clamp-3">
                       {c.description}
                     </p>
                   )}
 
-                  <div className="inline-flex items-center gap-1.5 text-foreground font-heading font-semibold text-sm">
+                  <div className="mt-auto inline-flex items-center gap-1.5 text-foreground font-heading font-semibold text-sm">
                     {c.website_url ? "Visit Website" : "Learn More"}
                     <ArrowUpRight className="h-4 w-4 text-primary group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                   </div>

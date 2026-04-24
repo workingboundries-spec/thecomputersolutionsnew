@@ -24,20 +24,20 @@ export default function HeroBanner() {
   if (slides.length > 0) {
     const slide = slides[active];
     return (
-      <section id="home" className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
+      <section id="home" className="relative min-h-[85vh] flex items-center justify-center overflow-hidden pt-20">
         <div className="absolute inset-0">
           <img
             src={slide.image_url || heroBannerDefault}
             alt={slide.heading || "Computer Solutions"}
             className="w-full h-full object-cover transition-opacity duration-700"
             loading="eager"
+            decoding="async"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-background/85 via-background/40 to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
         </div>
 
-        <div className="absolute top-20 right-10 w-72 h-72 bg-primary/30 rounded-full blur-[100px] animate-glow-pulse" />
-        <div className="absolute bottom-20 left-10 w-96 h-96 bg-primary/20 rounded-full blur-[120px]" />
+        <div className="hidden md:block absolute top-20 right-10 w-72 h-72 bg-primary/30 rounded-full blur-[100px] animate-glow-pulse" />
 
         <div className="relative z-10 container mx-auto px-4">
           <div className="max-w-4xl">
@@ -92,15 +92,14 @@ export default function HeroBanner() {
   const bgImage = settings?.banner_image || heroBannerDefault;
 
   return (
-    <section id="home" className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
+    <section id="home" className="relative min-h-[85vh] flex items-center justify-center overflow-hidden pt-20">
       <div className="absolute inset-0">
-        <img src={bgImage} alt="Computer Solutions" className="w-full h-full object-cover" loading="eager" />
+        <img src={bgImage} alt="Computer Solutions" className="w-full h-full object-cover" loading="eager" decoding="async" />
         <div className="absolute inset-0 bg-gradient-to-r from-background/85 via-background/40 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
       </div>
 
-      <div className="absolute top-20 right-10 w-72 h-72 bg-primary/30 rounded-full blur-[100px] animate-glow-pulse" />
-      <div className="absolute bottom-20 left-10 w-96 h-96 bg-primary/20 rounded-full blur-[120px]" />
+      <div className="hidden md:block absolute top-20 right-10 w-72 h-72 bg-primary/30 rounded-full blur-[100px] animate-glow-pulse" />
 
       <div className="relative z-10 container mx-auto px-4">
         <div className="max-w-4xl">
@@ -135,7 +134,7 @@ export default function HeroBanner() {
             </button>
           </div>
 
-          <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl animate-fade-in-up" style={{ animationDelay: "0.6s" }}>
+          <div className="mt-10 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl animate-fade-in-up" style={{ animationDelay: "0.6s" }}>
             {[
               { num: "5000+", label: "Laptops Sold" },
               { num: "20+", label: "Brands" },

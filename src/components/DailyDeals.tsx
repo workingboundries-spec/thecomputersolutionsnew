@@ -31,7 +31,7 @@ const DailyDeals = () => {
   };
 
   return (
-    <section id="deals" className="py-20 bg-[#0a0a0a]">
+    <section id="deals" className="py-12 md:py-16 bg-[#0a0a0a]">
       <div className="container mx-auto px-4">
         <div className="text-center mb-10">
           <div className="flex items-center justify-center gap-3 mb-3">
@@ -57,7 +57,7 @@ const DailyDeals = () => {
             return (
               <article
                 key={deal.id}
-                className="snap-start shrink-0 w-[260px] md:w-auto bg-white text-[#0a0a0a] rounded-2xl overflow-hidden group hover:shadow-[var(--shadow-yellow)] transition-all relative flex flex-col"
+                className="snap-start shrink-0 w-[220px] md:w-auto bg-white text-[#0a0a0a] rounded-2xl overflow-hidden group hover:shadow-[var(--shadow-yellow)] transition-all relative flex flex-col"
               >
                 {/* Discount badge */}
                 {auto && auto > 0 && (
@@ -72,16 +72,17 @@ const DailyDeals = () => {
                   {remaining <= 1 ? "Last Day!" : `${remaining}d left`}
                 </div>
 
-                <div className="aspect-[4/3] overflow-hidden bg-secondary">
+                <div className="h-44 md:h-48 overflow-hidden bg-secondary">
                   <img
                     src={deal.image || dealFallback}
                     alt={deal.title || deal.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     loading="lazy"
+                    decoding="async"
                   />
                 </div>
 
-                <div className="p-5 flex flex-col flex-1">
+                <div className="p-4 flex flex-col flex-1">
                   <h3 className="font-heading font-bold text-base mb-1 line-clamp-2">{deal.title || deal.name}</h3>
                   {deal.description && <p className="text-xs text-gray-600 line-clamp-2 mb-3">{deal.description}</p>}
 

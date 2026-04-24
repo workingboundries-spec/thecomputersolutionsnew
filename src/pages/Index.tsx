@@ -66,13 +66,13 @@ const Index = () => {
       <SEO pageKey="home" fallbackTitle="Computer Solutions — Premium Laptops, CCTV & Tech" />
       <Navbar />
       <HeroBanner />
+      <LazySection preload={loadDailyDeals}><DailyDeals /></LazySection>
       <IntroSection />
 
       <LazySection preload={loadWhyChooseUs}><WhyChooseUs /></LazySection>
       <LazySection preload={loadBrandsMarquee}><BrandsMarquee /></LazySection>
       <LazySection preload={loadEmiBanner}><EmiBanner /></LazySection>
       <LazySection preload={loadNewArrivals}><NewArrivals /></LazySection>
-      <LazySection preload={loadDailyDeals}><DailyDeals /></LazySection>
       <LazySection preload={loadServices}><Services /></LazySection>
       <LazySection preload={loadProducts}><Products /></LazySection>
       <LazySection preload={loadCCTVProducts}><CCTVProducts /></LazySection>

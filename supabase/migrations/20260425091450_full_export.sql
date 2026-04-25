@@ -1,5 +1,5 @@
 -- Full database bootstrap export (idempotent)
--- Generated: 2026-04-25T09:14:24.969306Z
+-- Generated: 2026-04-25T09:14:50.860856Z
 -- Safe to run on a fresh Supabase project OR re-run on existing.
 
 BEGIN;

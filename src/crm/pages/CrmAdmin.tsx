@@ -7,8 +7,9 @@ import CustomerSettingsTab from "@/crm/components/CustomerSettingsTab";
 import { clearTemplateCache } from "@/crm/lib/whatsapp";
 import { toast } from "sonner";
 import { Save, X, Plus, Download, Upload, Eye } from "lucide-react";
+import CrmImportPanel from "@/crm/components/CrmImportPanel";
 
-const TABS = ["Shop Info", "Branding & Quotation Style", "Dropdowns", "WhatsApp Templates", "Quotation", "Customer Settings", "Reminders", "Stock", "Data Export", "Danger Zone"] as const;
+const TABS = ["Shop Info", "Branding & Quotation Style", "Dropdowns", "WhatsApp Templates", "Quotation", "Customer Settings", "Reminders", "Stock", "Data Export", "Import CRM Data", "Danger Zone"] as const;
 
 const TEMPLATE_KEYS = [
   { key: "whatsapp_week_template", label: "After 1 Week" },
@@ -116,6 +117,7 @@ export default function CrmAdmin() {
           {tab === "Reminders" && <ReminderSettings />}
           {tab === "Stock" && <StockSettings get={get} onSave={saveMany} />}
           {tab === "Data Export" && <DataExport />}
+          {tab === "Import CRM Data" && <CrmImportPanel />}
           {tab === "Danger Zone" && <DangerZone />}
         </div>
       </div>

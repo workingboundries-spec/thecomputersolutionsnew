@@ -1,106 +1,58 @@
-I’ll create a new `full_export_v3.sql` that exports the complete database schema plus all currently stored data, not just selected config rows.
+## Goal
+Populate this remix's empty database with content from the original project ([thecomputersolutions.in](/projects/b85a8f8b-0269-4c96-8bd7-c787c8985760)) so the homepage sections (banners, products, services, gallery, YouTube, deals, etc.) render exactly the same. Re-establish login users on the new backend.
 
-Current finding: `full_export_v2.sql` does include all 43 public tables by schema, including the “last” tables:
+## Important constraints (please read)
 
-```text
-reminders_queue
-section_headings
-seo_meta_tags
-services
-sister_concerns
-site_settings
-site_whatsapp_templates
-testimonial_videos
-youtube_videos
-```
+1. **Cross-project DB read isn't available to me.** I can't directly `SELECT` from the original project's Supabase from this project. You'll need to run **one export script** I provide on the original project, which will produce a single SQL/JSON dump. You paste/upload it here and I bulk-insert.
+2. **Passwords cannot be migrated.** Supabase password hashes are tied to each project's signing keys and the `auth` schema is not writable via migrations. We must either (a) recreate users with new passwords you choose, or (b) trigger password-reset emails so each user sets their own.
 
-The issue is likely that v2 only seeded 14 config/template tables. It did not include row data for many visible admin tables such as `products`, `daily_deals`, `dealer_brands`, `cctv_products`, `instagram_reels`, `testimonial_videos`, `youtube_videos`, etc. So after applying it to a new/old database, tables may exist but appear empty in admin.
+---
 
-## Plan
+## Phase 1 — Export data from the original project
 
-### 1. Generate a full data-inclusive export
-Create a new file:
+I'll give you a single SQL command to run via the original project's Lovable chat ("run this query and give me the JSON"). It will dump every public content table to one JSON blob:
 
-```text
-supabase/migrations/<timestamp>_full_export_v3_all_data.sql
-/mnt/documents/full_export_v3_all_data.sql
-```
+Tables to export:
+- `banner_slides`, `nav_items`, `site_settings`, `section_headings`
+- `products`, `daily_deals`, `cctv_products`
+- `services`, `gallery_images`, `youtube_videos`
+- `dealer_brands`, `instagram_reels`, `testimonial_videos`
+- `sister_concerns`, `intro_section`
+- (Optional CRM data — ask separately if you also want customers/sales/quotations/catalogue copied)
 
-It will include:
-- All extensions
-- All enums
-- All sequences
-- All 43 public tables
-- All columns/defaults/nullability as safely as possible
-- Primary keys, unique constraints, foreign keys if present
-- Indexes
-- Functions
-- Triggers
-- RLS policies
-- Storage buckets and storage object policies
-- Realtime publication setup
-- Data inserts for every public table that currently has rows
+You paste the resulting JSON back to me (or save as `dump.json` and upload).
 
-### 2. Include every table’s rows, not only settings
-The data section will include rows from all tables with data, including:
+## Phase 2 — Import into this remix
 
-```text
-admin_customer_settings
-admin_reminder_settings
-campaign_templates
-cctv_products
-crm_admin_settings
-crm_catalogue
-crm_enquiries
-crm_quotations
-crm_quote_shares
-crm_settings
-crm_user_roles
-crm_whatsapp_templates
-daily_deals
-dealer_brands
-instagram_reels
-intro_section
-nav_items
-products
-quotation_templates
-section_headings
-seo_meta_tags
-services
-sister_concerns
-site_settings
-site_whatsapp_templates
-testimonial_videos
-youtube_videos
-```
+I will:
+1. Validate the JSON against this remix's table schemas (already confirmed identical above).
+2. Run bulk `INSERT` statements (via the data-insert tool) into each table, preserving `id`, `sort_order`, `display_order`, and `is_active` flags so order/visibility match exactly.
+3. Verify counts after each insert.
+4. Reload the homepage and confirm Banners, Products, Services, Gallery, YouTube, Daily Deals, Brands, Reels, Testimonials, Sister Concerns, Intro section all render.
 
-And if any currently-empty tables later contain rows during generation, they will be included too.
+Storage assets (images uploaded to the `shop-assets` / `customer-photos` buckets in the old project) — if image URLs in the dump point to the old project's storage URL, they'll continue to work as long as those buckets remain public on the old project. If you want images physically copied into this remix's storage too, I'll add a Phase 2b that downloads each URL and re-uploads under the same path here, then rewrites the URLs.
 
-### 3. Use safe/idempotent data restore rules
-For each row:
-- Use `INSERT ... ON CONFLICT (id) DO UPDATE SET ...` where the table has an `id` primary key.
-- For key-based tables like `site_settings`, `crm_settings`, `seo_meta_tags`, etc., keep the `id` but also rely on existing unique constraints where needed.
-- Avoid destructive statements: no `DROP TABLE`, no `TRUNCATE`, no `DELETE`.
+## Phase 3 — Recreate users (no password transfer possible)
 
-Important note: `ON CONFLICT DO UPDATE` means if you run v3 on an existing database, matching rows will be refreshed to the export’s values. This is better for fixing missing/blank admin content. It will not delete extra rows you already have.
+The auth-logs show `admin@thecomputersolutions.in` is failing login on this remix because that user **doesn't exist yet** in this project. You'll need to choose one:
 
-### 4. Verify before delivery
-I’ll verify:
-- The live database table count equals the export’s `CREATE TABLE IF NOT EXISTS` count.
-- Every table is represented in the schema section.
-- Every table with row count > 0 has a data section.
-- Specific checks for the last/admin tables: `seo_meta_tags`, `section_headings`, `services`, `sister_concerns`, `site_whatsapp_templates`, `testimonial_videos`, `youtube_videos`.
-- Safety check confirms no `DROP TABLE`, `TRUNCATE`, or `DELETE FROM`.
+- **Option A (fastest):** Tell me which user emails to create and a temporary password for each. I'll create them via an edge function that uses the service role key, then assign the proper `crm_user_roles` (`crm_admin` / `crm_user`).
+- **Option B (most secure):** I scaffold a "Forgot password" page; you visit it for each email and set a new password via the reset link sent to that inbox.
 
-### 5. Deliver with download button
-I’ll provide the new file as a downloadable artifact:
+Default if you don't specify: **Option A** for `admin@thecomputersolutions.in` with a password you provide privately, plus the `crm_admin` role.
 
-```text
-full_export_v3_all_data.sql
-```
+## Phase 4 — Sanity checks
 
-## Technical notes
+- Run security linter on the new tables (no schema changes, but confirms RLS still healthy).
+- Browser-check the live preview to confirm sections are populated.
+- If anything is still empty, re-export just that table and re-insert.
 
-- Auth users are still not exportable through this SQL file. If rebuilding a brand-new backend, users must be recreated and `crm_user_roles` may need user IDs adjusted to the new auth user IDs.
-- Storage bucket definitions will be included, but the actual uploaded image files are not inside SQL. The rows may contain image URLs from the old storage project; if you create a brand-new backend, images must be re-uploaded or URLs updated.
-- This will be designed for both existing databases and fresh databases.
+## What I will NOT do
+- Modify the `auth` schema (forbidden).
+- Copy password hashes (technically impossible across projects).
+- Touch your original project's data — exports are read-only.
+
+## What I need from you to start (after approval)
+1. Confirm you want the export-then-import flow (I'll send the export SQL for you to run on the original project).
+2. Pick **Option A or B** for users, and give me the email list (+ temp passwords if A).
+3. Confirm whether to also copy CRM operational data (customers, sales, quotations, catalogue, reminders) — not just public website content.

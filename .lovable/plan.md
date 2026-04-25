@@ -1,58 +1,41 @@
-## Goal
-Populate this remix's empty database with content from the original project ([thecomputersolutions.in](/projects/b85a8f8b-0269-4c96-8bd7-c787c8985760)) so the homepage sections (banners, products, services, gallery, YouTube, deals, etc.) render exactly the same. Re-establish login users on the new backend.
+## Plan
 
-## Important constraints (please read)
+1. Normalize the CRM login route
+- Add `/crm/login` as an explicit route alongside `/crm` so the CRM entry path matches what users expect.
+- Keep protected CRM pages redirecting to the same login route consistently.
 
-1. **Cross-project DB read isn't available to me.** I can't directly `SELECT` from the original project's Supabase from this project. You'll need to run **one export script** I provide on the original project, which will produce a single SQL/JSON dump. You paste/upload it here and I bulk-insert.
-2. **Passwords cannot be migrated.** Supabase password hashes are tied to each project's signing keys and the `auth` schema is not writable via migrations. We must either (a) recreate users with new passwords you choose, or (b) trigger password-reset emails so each user sets their own.
+2. Fix the CRM sign-in form behavior
+- Update the CRM login screen so it accepts the same working admin account credentials instead of forcing a special frontend-only username gate.
+- Either remove the hardcoded `username === "crm"` check or support both `crm` and the real email cleanly, with clearer form labels.
+- Show precise error messages so it is obvious whether the issue is the route, the identifier, or the password.
 
----
+3. Keep CRM access controlled by backend roles
+- Preserve the existing `crm_user_roles` check for CRM authorization after login.
+- Ensure the login step authenticates successfully first, then let `CrmProtected` and `CrmAdminProtected` decide what the signed-in user can access.
 
-## Phase 1 — Export data from the original project
+4. Align the UI copy
+- Update the CRM login page text so it no longer implies a separate username/password system if the same admin email account is being used.
+- Make the credentials guidance consistent across admin and CRM.
 
-I'll give you a single SQL command to run via the original project's Lovable chat ("run this query and give me the JSON"). It will dump every public content table to one JSON blob:
+5. Verify the full flow
+- Test these cases after the change:
+  - `/admin/login` with the admin email/password
+  - `/crm/login` with the same credentials
+  - `/crm` direct access
+  - redirect behavior for signed-out and signed-in users
+  - CRM admin page access when the user has `crm_admin`
 
-Tables to export:
-- `banner_slides`, `nav_items`, `site_settings`, `section_headings`
-- `products`, `daily_deals`, `cctv_products`
-- `services`, `gallery_images`, `youtube_videos`
-- `dealer_brands`, `instagram_reels`, `testimonial_videos`
-- `sister_concerns`, `intro_section`
-- (Optional CRM data — ask separately if you also want customers/sales/quotations/catalogue copied)
+## What I found
+- The code currently defines the CRM login page at `/crm`, not `/crm/login`.
+- The CRM login form only accepts the literal username `crm`, then silently maps that to `admin@thecomputersolutions.in`.
+- Your admin login uses a normal email/password form, which explains why the same credentials can work there but fail in the CRM flow depending on what you typed and which route you used.
+- The backend auth logs already show a successful password login for `admin@thecomputersolutions.in`, so this looks like a frontend CRM login mismatch rather than a broken account.
 
-You paste the resulting JSON back to me (or save as `dump.json` and upload).
-
-## Phase 2 — Import into this remix
-
-I will:
-1. Validate the JSON against this remix's table schemas (already confirmed identical above).
-2. Run bulk `INSERT` statements (via the data-insert tool) into each table, preserving `id`, `sort_order`, `display_order`, and `is_active` flags so order/visibility match exactly.
-3. Verify counts after each insert.
-4. Reload the homepage and confirm Banners, Products, Services, Gallery, YouTube, Daily Deals, Brands, Reels, Testimonials, Sister Concerns, Intro section all render.
-
-Storage assets (images uploaded to the `shop-assets` / `customer-photos` buckets in the old project) — if image URLs in the dump point to the old project's storage URL, they'll continue to work as long as those buckets remain public on the old project. If you want images physically copied into this remix's storage too, I'll add a Phase 2b that downloads each URL and re-uploads under the same path here, then rewrites the URLs.
-
-## Phase 3 — Recreate users (no password transfer possible)
-
-The auth-logs show `admin@thecomputersolutions.in` is failing login on this remix because that user **doesn't exist yet** in this project. You'll need to choose one:
-
-- **Option A (fastest):** Tell me which user emails to create and a temporary password for each. I'll create them via an edge function that uses the service role key, then assign the proper `crm_user_roles` (`crm_admin` / `crm_user`).
-- **Option B (most secure):** I scaffold a "Forgot password" page; you visit it for each email and set a new password via the reset link sent to that inbox.
-
-Default if you don't specify: **Option A** for `admin@thecomputersolutions.in` with a password you provide privately, plus the `crm_admin` role.
-
-## Phase 4 — Sanity checks
-
-- Run security linter on the new tables (no schema changes, but confirms RLS still healthy).
-- Browser-check the live preview to confirm sections are populated.
-- If anything is still empty, re-export just that table and re-insert.
-
-## What I will NOT do
-- Modify the `auth` schema (forbidden).
-- Copy password hashes (technically impossible across projects).
-- Touch your original project's data — exports are read-only.
-
-## What I need from you to start (after approval)
-1. Confirm you want the export-then-import flow (I'll send the export SQL for you to run on the original project).
-2. Pick **Option A or B** for users, and give me the email list (+ temp passwords if A).
-3. Confirm whether to also copy CRM operational data (customers, sales, quotations, catalogue, reminders) — not just public website content.
+## Technical details
+- Files likely to update:
+  - `src/App.tsx`
+  - `src/crm/pages/CrmLogin.tsx`
+  - `src/crm/lib/auth.ts`
+  - possibly `src/crm/components/CrmProtected.tsx` for redirect consistency
+- No database schema changes should be needed for this fix.
+- Existing role-based access using `crm_user_roles` can remain in place.

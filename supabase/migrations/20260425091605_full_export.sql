@@ -1,5 +1,5 @@
 -- Full database bootstrap export (idempotent)
--- Generated: 2026-04-25T09:15:30.907345Z
+-- Generated: 2026-04-25T09:16:05.083078Z
 -- Safe to run on a fresh Supabase project OR re-run on existing.
 
 BEGIN;
@@ -1573,7 +1573,6 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 -- SEED DATA (config / templates only — no PII)
 -- ============================================================
 -- admin_customer_settings
-\restrict jYvjJZunXnUipA8ymQCnahnWvmzIYWawK0Ecp6uegFjYSrydRLrnJBJOVIEa4ye
 INSERT INTO public.admin_customer_settings VALUES
 	('65e6bfb1-3e49-4d4e-8152-e65efdd646e2', 'rank', 'Bronze', '#CD7F32', 1, true, '2026-04-19 10:22:11.064897+00', '2026-04-19 10:22:11.064897+00'),
 	('0c0e86e2-9bd9-4fa6-a2e6-42da2aa60fd1', 'rank', 'Silver', '#C0C0C0', 2, true, '2026-04-19 10:22:11.064897+00', '2026-04-19 10:22:11.064897+00'),
@@ -1601,9 +1600,7 @@ INSERT INTO public.admin_customer_settings VALUES
 	('1077d98c-0fab-4a3e-a66b-52727af77933', 'campaign_type', 'Thank You', NULL, 6, true, '2026-04-19 10:22:11.064897+00', '2026-04-19 10:22:11.064897+00'),
 	('140e2b6a-1ef5-4ccf-ae0d-d74021a927ea', 'campaign_type', 'Other', NULL, 7, true, '2026-04-19 10:22:11.064897+00', '2026-04-19 10:22:11.064897+00')
 ON CONFLICT DO NOTHING;
-\unrestrict jYvjJZunXnUipA8ymQCnahnWvmzIYWawK0Ecp6uegFjYSrydRLrnJBJOVIEa4ye
 -- admin_reminder_settings
-\restrict Vj1sRl5EcPYSiCLdewAhD5HKonIpUhOLqBVkv5AfZtwH4gcln4VlLsgIY8uAMci
 INSERT INTO public.admin_reminder_settings VALUES
 	('6a234648-2b74-4278-8f77-bdceda6e4dc1', 'reminder_lead_days', '1', '2026-04-19 10:22:11.064897+00', '2026-04-19 10:22:11.064897+00'),
 	('06145b60-d0e4-4137-a3a7-2c6f6358c103', 'birthday_enabled', 'true', '2026-04-19 10:22:11.064897+00', '2026-04-19 10:22:11.064897+00'),
@@ -1612,9 +1609,7 @@ INSERT INTO public.admin_reminder_settings VALUES
 	('1a03fb66-057c-4d4e-8335-532b7fdb2a7f', 'birthday_template', 'Dear {{customer_name}}, Wishing you a very Happy Birthday! May this day bring you joy and success.  Team {{business_name}}', '2026-04-19 10:22:11.064897+00', '2026-04-22 07:59:46.593879+00'),
 	('4be14a86-1e8f-41f5-8a6d-38ee0feb8261', 'anniversary_template', 'Dear {{customer_name}}, Wishing you a very Happy Anniversary! May your bond grow stronger every year.  Team {{business_name}}', '2026-04-19 10:22:11.064897+00', '2026-04-22 07:59:47.106067+00')
 ON CONFLICT DO NOTHING;
-\unrestrict Vj1sRl5EcPYSiCLdewAhD5HKonIpUhOLqBVkv5AfZtwH4gcln4VlLsgIY8uAMci
 -- campaign_templates
-\restrict gxmr4138nJKkxvZOO7ONmbY2PdpIIErOI8gIZ7HJh5dkPiV6ykECs4heAadxefx
 INSERT INTO public.campaign_templates VALUES
 	('15010feb-8754-493b-b2b4-2ce4ad442bc2', 'Diwali Wishes', 'Festival', 'Dear {{customer_name}}, Wishing you & your family a very Happy Diwali! May this festival bring light, prosperity & joy. - Team {{business_name}}', 'customer_name,business_name', true, '2026-04-19 10:22:11.064897+00', '2026-04-19 10:22:11.064897+00'),
 	('dcced173-672a-451c-b9c8-1e610918ed76', 'New Year Wishes', 'Festival', 'Dear {{customer_name}}, Wishing you a very Happy New Year! Thank you for being a valued customer. - Team {{business_name}}', 'customer_name,business_name', true, '2026-04-19 10:22:11.064897+00', '2026-04-19 10:22:11.064897+00'),
@@ -1624,9 +1619,7 @@ INSERT INTO public.campaign_templates VALUES
 	('8b906b82-08c4-43ad-9534-4b37210c9a9b', 'Win-Back Offer', 'Win-Back', 'Hi {{customer_name}}, We miss you! Your last visit was on {{last_purchase_date}}. Drop by {{business_name}} this week for a special returning-customer discount.', 'customer_name,business_name,last_purchase_date', true, '2026-04-19 10:22:11.064897+00', '2026-04-19 10:22:11.064897+00'),
 	('2f9ba025-622a-4dc2-b84e-498ca9171d33', 'Thank You (post purchase)', 'Thank You', 'Dear {{customer_name}}, Thank you for shopping with {{business_name}}! We truly appreciate your trust. For any support, just reply to this message.', 'customer_name,business_name', true, '2026-04-19 10:22:11.064897+00', '2026-04-19 10:22:11.064897+00')
 ON CONFLICT DO NOTHING;
-\unrestrict gxmr4138nJKkxvZOO7ONmbY2PdpIIErOI8gIZ7HJh5dkPiV6ykECs4heAadxefx
 -- crm_admin_settings
-\restrict cd7PVWCxIej27zj4WL1X7XxLTZct4nK05jjaaahPrkh87elJuU5JOg6NhGGDcHa
 INSERT INTO public.crm_admin_settings VALUES
 	('6a0f7e93-a29c-4079-87e2-2915ae18ed48', '2026-04-18 09:12:51.383029+00', '2026-04-18 09:12:51.383029+00', 'enquiry_categories', '["Laptop","Desktop","CCTV","Networking","Accessories","Printer","Mobile","Other"]', 'json'),
 	('f5320d4a-f090-4502-9a47-2d3b3d1070fb', '2026-04-18 09:12:51.383029+00', '2026-04-18 09:12:51.383029+00', 'enquiry_statuses', '["new","follow_up","quoted","converted","lost"]', 'json'),
@@ -1669,9 +1662,7 @@ For Calls & Consultations : {{shop_phone}}
 	('11cfb6ef-9368-4a26-8157-8825a4ed1864', '2026-04-18 09:12:51.383029+00', '2026-04-18 14:01:39.074873+00', 'shop_website', 'thecomputersolutions.in', 'text'),
 	('d686da91-5058-47c6-a93d-c647c88d021e', '2026-04-18 11:20:03.251076+00', '2026-04-18 14:02:22.525762+00', 'shop_logo_url', 'https://mtravmbfuqrmujfbcfzy.supabase.co/storage/v1/object/public/shop-assets/logo-1776520934186.png', 'text')
 ON CONFLICT DO NOTHING;
-\unrestrict cd7PVWCxIej27zj4WL1X7XxLTZct4nK05jjaaahPrkh87elJuU5JOg6NhGGDcHa
 -- crm_settings
-\restrict y0ZOJgXfuYPhb5vAbq8Ryl3QabiWQY7ANLQjiNZsOM8aMNVFpxmhYwbZdrO157S
 INSERT INTO public.crm_settings VALUES
 	('34786e36-33ac-4ce5-a36b-b39401c26ba0', '2026-04-17 18:22:57.318995+00', '2026-04-17 18:22:57.318995+00', 'shop_gst', ''),
 	('75cf1a26-5449-415c-bd17-24cc900f2b9b', '2026-04-17 18:22:57.318995+00', '2026-04-17 18:22:57.318995+00', 'shop_logo_url', ''),
@@ -1686,9 +1677,7 @@ INSERT INTO public.crm_settings VALUES
 	('b674b8ea-d6b3-4b5d-abad-8fa9d0831c83', '2026-04-18 07:19:32.051758+00', '2026-04-18 07:19:34.574873+00', 'shop_gstin', ''),
 	('646c2c85-e061-4e22-a993-4d267b965e5a', '2026-04-18 07:19:32.461328+00', '2026-04-18 07:19:35.007166+00', 'invoice_footer', 'thank you for business')
 ON CONFLICT DO NOTHING;
-\unrestrict y0ZOJgXfuYPhb5vAbq8Ryl3QabiWQY7ANLQjiNZsOM8aMNVFpxmhYwbZdrO157S
 -- crm_whatsapp_templates
-\restrict FcDL6n7ceSJDgqfE6MOdEII9aWaViiEWj8AF8NbJYltXi7yTH8lC7eqmHCQkcdP
 INSERT INTO public.crm_whatsapp_templates VALUES
 	('f33a1255-c390-44c3-b7ce-7b3424700319', '2026-04-17 18:22:57.318995+00', '2026-04-17 18:22:57.318995+00', 'warranty_1month', 'Hi {name}! Your {item} purchased on {date} is doing great! Hope you''re enjoying it. For any help call us: {phone}', 'warranty'),
 	('9b0d19a4-e7ab-425e-82e9-79c92b386c2b', '2026-04-17 18:22:57.318995+00', '2026-04-17 18:22:57.318995+00', 'warranty_3month', 'Hi {name}! Quick check-in on your {item}. Warranty valid till {expiry}. Any issues? We''re here!', 'warranty'),
@@ -1730,15 +1719,11 @@ Team — {shop_name}', 'sales'),
 Valid until {valid_until}.
 Team— {shop_name}', 'quote')
 ON CONFLICT DO NOTHING;
-\unrestrict FcDL6n7ceSJDgqfE6MOdEII9aWaViiEWj8AF8NbJYltXi7yTH8lC7eqmHCQkcdP
 -- intro_section
-\restrict R4M4BPQatPO3IXel3fRJx5lxYBoQkDky8JSwsxwLSCyoHLRZgwuwd7N0ou0yX5d
 INSERT INTO public.intro_section VALUES
 	('e68cd5b1-68b8-4423-8c83-8de1643ea37b', 'About Computer Solutions', 'Your Trusted Tech Partner Since Day One', 'From premium laptops and CCTV solutions to expert service and EMI options — Computer Solutions delivers the latest technology with unmatched trust, quality, and after-sales support across the region.', 'https://www.youtube.com/watch?v=tvuHvijJoBQ&t=53s', true, '2026-04-23 12:48:40.931863+00', '2026-04-24 14:06:14.041021+00')
 ON CONFLICT DO NOTHING;
-\unrestrict R4M4BPQatPO3IXel3fRJx5lxYBoQkDky8JSwsxwLSCyoHLRZgwuwd7N0ou0yX5d
 -- nav_items
-\restrict yyMW1mgMT8qOvkVjQd4d1oa3gb9LGAO8QvEMMmezwzTUmF5fnM1KStk7v10Hcab
 INSERT INTO public.nav_items VALUES
 	('bcb1ebe6-5500-4f87-ac6f-1634c56ab6e4', 'Contact', '#contact', 9, true, '2026-04-22 17:06:34.576496+00', '2026-04-24 14:06:19.217388+00'),
 	('ca9f7698-da76-4c5b-84fe-ff17d28c66fc', 'Home', '#home', 1, true, '2026-04-22 17:06:34.576496+00', '2026-04-24 14:06:17.747691+00'),
@@ -1750,16 +1735,12 @@ INSERT INTO public.nav_items VALUES
 	('2e080c3f-a43b-4a6a-bdd1-b828e21bf9f9', 'Updates', '#updates', 7, true, '2026-04-22 17:06:34.576496+00', '2026-04-24 14:06:18.831935+00'),
 	('5260fec4-8b3e-42c2-ba7c-af58c7c04cad', 'Gallery', '#gallery', 8, true, '2026-04-22 17:06:34.576496+00', '2026-04-24 14:06:19.014649+00')
 ON CONFLICT DO NOTHING;
-\unrestrict yyMW1mgMT8qOvkVjQd4d1oa3gb9LGAO8QvEMMmezwzTUmF5fnM1KStk7v10Hcab
 -- quotation_templates
-\restrict lUr1V0afSNCyc6uQOAhhifne2API2Bu76RjQ80KR4CQu9jyGd0oIiVHYwDtAo16
 INSERT INTO public.quotation_templates VALUES
 	('04d055b0-cde3-408c-87d5-787a4390afaa', '2026-04-18 11:35:48.536523+00', '2026-04-19 08:49:19.947452+00', 'CCTV 4 HD CAMERAS - SEG', '', '[{"qty": 1, "name": "DVR 4CH ", "price": 2500, "discount_pct": 0}, {"qty": 1, "name": "500GB HDD", "price": 2500, "discount_pct": 0}, {"qty": 4, "name": "HD CAMERA", "price": 1200, "discount_pct": 0}, {"qty": 1, "name": "WIRE  90 MTRS", "price": 1500, "discount_pct": 0}, {"qty": 1, "name": "ACCESSORIES ( PVC BOX +CONNECTORS+ HDMI CABLE 1.5MTR)", "price": 400, "discount_pct": 0}, {"qty": 1, "name": "SMPS 10 AMP", "price": 650, "discount_pct": 0}]', '', 'Prices valid for 4 days. ', 0, true, 5),
 	('89aa6a61-974e-4ebf-a823-66db44dd8233', '2026-04-18 14:57:11.815298+00', '2026-04-19 08:51:23.492919+00', 'HD CCTV  4 CAMERAS - CON', 'A SET OF 4 HD CAMERAS', '[{"qty": 1, "name": "4CH DVR + 4 HD COLORED CAMERAS |  500GB HDD  | 90 MTR WIRE BUNDLE  | 2U RACK | 10 AMP SMPS | 1.5 HDMO CABLE| ", "price": 12000, "discount_pct": 0}]', 'CPLUS DVR , MILEFOCUS CAMERAS , HDD GEONIX,  SMPS FYBER', 'Prices valid for 7 days. . Subject to availability.', 0, true, 1)
 ON CONFLICT DO NOTHING;
-\unrestrict lUr1V0afSNCyc6uQOAhhifne2API2Bu76RjQ80KR4CQu9jyGd0oIiVHYwDtAo16
 -- section_headings
-\restrict 3fXqbcOJxrRfwqxg53WiwLjRwo0024PoaOo9uPz7MnS2uPOvXbsf6zSkAXzZsIx
 INSERT INTO public.section_headings VALUES
 	('6b16cb51-be26-4b66-8e78-04bd4091dd5a', 'authorized_dealers', 'Our Partner Brands', 'Trusted by leading technology brands', true, '2026-04-22 17:06:34.576496+00', '2026-04-24 14:06:17.753594+00'),
 	('c25b2f81-13bf-4400-ae8c-894c0931aa1b', 'cctv', 'CCTV & Surveillance', 'Secure your home and business', true, '2026-04-22 17:06:34.576496+00', '2026-04-24 14:06:17.928538+00'),
@@ -1773,9 +1754,7 @@ INSERT INTO public.section_headings VALUES
 	('2b4cf3e9-1bbf-440a-8618-437db185affc', 'why_us', 'Why Choose Us', 'Price . Quality . Service . You can Pick only Two', true, '2026-04-22 17:06:34.576496+00', '2026-04-24 14:06:19.330793+00'),
 	('23bd3672-60cc-4512-ab8e-567cd306dd63', 'youtube', 'Watch & Learn', 'Tutorials and product reviews on YouTube', true, '2026-04-22 17:06:34.576496+00', '2026-04-24 14:06:19.510186+00')
 ON CONFLICT DO NOTHING;
-\unrestrict 3fXqbcOJxrRfwqxg53WiwLjRwo0024PoaOo9uPz7MnS2uPOvXbsf6zSkAXzZsIx
 -- site_settings
-\restrict uhCWFgXkNfbqvRcpWT589XO0h3GONMbfr29F0FIVsHFiFyehSiGa42CERPEAp86
 INSERT INTO public.site_settings VALUES
 	('82f2e182-3db7-4c00-91c2-b2053e83268e', 'product_categories', 'Business,Gaming,Student,Budget,Premium,Refurbished', '2026-04-13 02:48:20.297942+00', '2026-04-24 14:06:21.089122+00'),
 	('d736d103-e0c3-442a-b3ba-59338d9ebe3b', 'brands_tagline', 'Authorized Dealer for All Major Brands', '2026-04-13 02:48:20.297942+00', '2026-04-24 14:06:19.304747+00'),
@@ -1817,9 +1796,7 @@ INSERT INTO public.site_settings VALUES
 	('1e4f4ade-55a7-4a79-beb2-baebc0312384', 'facebook_url', 'https://facebook.com/thecomputersolutions', '2026-04-11 18:08:06.706132+00', '2026-04-24 14:06:24.447092+00'),
 	('3aac5bde-3d77-4c9a-869e-d5625fa7e5c8', 'shop_address', 'Ground Floor, ATEC Avenue, Hardochhanni Road Gurdaspur', '2026-04-22 17:06:34.576496+00', '2026-04-25 09:04:53.145504+00')
 ON CONFLICT DO NOTHING;
-\unrestrict uhCWFgXkNfbqvRcpWT589XO0h3GONMbfr29F0FIVsHFiFyehSiGa42CERPEAp86
 -- site_whatsapp_templates
-\restrict tNpgpdGSnqeFPITuJp0rsnDOdNjD5vZ4jO845biqR5cPPqSGKhjV1dY0jV3fFhf
 INSERT INTO public.site_whatsapp_templates VALUES
 	('1fa89612-aacd-480d-87b6-1cf65c13c7f9', 'product_enquiry', 'Product Enquiry (default)', 'Default enquiry for products that do not have a custom message. Use {product}.', 'Hi! I am interested in {product}. Please share details and price.', '{product}', 50, true, '2026-04-23 12:55:00.099223+00', '2026-04-24 14:06:15.582319+00'),
 	('acb68a2c-3dfd-4047-8fc8-063c25651ff6', 'new_arrival_enquiry', 'New Arrival Enquiry (default)', 'Default enquiry for new arrivals without a custom message. Use {product}.', 'Hi! I am interested in {product}. Please share details and price.', '{product}', 60, true, '2026-04-23 12:55:00.099223+00', '2026-04-24 14:06:15.805502+00'),
@@ -1830,6 +1807,5 @@ INSERT INTO public.site_whatsapp_templates VALUES
 	('ed6408d8-d17a-46e4-90bb-332c1652996d', 'contact_form', 'Contact Form Submission', 'Pre-filled message after submitting the Contact Us form. Use {name}, {phone}, {message}.', 'Name: {name}%0APhone: {phone}%0AMessage: {message}', '{name}, {phone}, {message}', 30, true, '2026-04-23 12:55:00.099223+00', '2026-04-24 14:06:15.162881+00'),
 	('e8758267-5619-4204-b5c6-28c9b5d56c7f', 'contact_chat_button', 'Contact Section Chat Button', 'Sent when visitor clicks "Chat on WhatsApp" in the contact section.', 'Hi! I would like to chat about your products and services.', '', 40, true, '2026-04-23 12:55:00.099223+00', '2026-04-24 14:06:15.351047+00')
 ON CONFLICT DO NOTHING;
-\unrestrict tNpgpdGSnqeFPITuJp0rsnDOdNjD5vZ4jO845biqR5cPPqSGKhjV1dY0jV3fFhf
 
 COMMIT;

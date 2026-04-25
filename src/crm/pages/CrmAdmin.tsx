@@ -8,7 +8,7 @@ import { clearTemplateCache } from "@/crm/lib/whatsapp";
 import { toast } from "sonner";
 import { Save, X, Plus, Download, Upload, Eye } from "lucide-react";
 
-const TABS = ["Shop Info", "Branding & Quotation Style", "Dropdowns", "WhatsApp Templates", "Quotation", "Customer Settings", "Reminders", "Stock", "Data Export", "Danger Zone"] as const;
+const TABS = ["Shop Info", "Branding & Quotation Style", "Dropdowns", "WhatsApp Templates", "Quotation", "Customer Settings", "Reminders", "Stock", "Data Export", "Import CRM Data", "Danger Zone"] as const;
 
 const TEMPLATE_KEYS = [
   { key: "whatsapp_week_template", label: "After 1 Week" },

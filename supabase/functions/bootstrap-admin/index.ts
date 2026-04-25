@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  // 1) Check if user already exists
+  // 1) Check if user already exists; if yes, RESET password to known value
   const { data: list } = await admin.auth.admin.listUsers();
   let user = list?.users.find((u) => u.email === ADMIN_EMAIL);
 
@@ -35,6 +35,12 @@ Deno.serve(async (req) => {
       });
     }
     user = data.user!;
+  } else {
+    // Reset password + ensure email confirmed
+    await admin.auth.admin.updateUserById(user.id, {
+      password: ADMIN_PASSWORD,
+      email_confirm: true,
+    });
   }
 
   // 2) Grant crm_admin role (idempotent)

@@ -45,6 +45,7 @@ const App = () => (
 
           {/* CRM */}
           <Route path="/crm" element={<CrmLogin />} />
+          <Route path="/crm/login" element={<CrmLogin />} />
           <Route element={<CrmProtected><CrmLayout /></CrmProtected>}>
             <Route path="/crm/dashboard" element={<CrmDashboard />} />
             <Route path="/crm/enquiries" element={<CrmEnquiries />} />

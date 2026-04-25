@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Lock, User } from "lucide-react";
 
 export default function CrmLogin() {
-  const [username, setUsername] = useState("crm");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -33,13 +33,14 @@ export default function CrmLogin() {
         </div>
         <form onSubmit={handleSubmit} className="bg-slate-900/70 backdrop-blur border border-slate-800 rounded-xl p-6 space-y-4 shadow-2xl">
           <div>
-            <label className="text-xs uppercase tracking-wider text-slate-400 mb-1.5 block">Username</label>
+            <label className="text-xs uppercase tracking-wider text-slate-400 mb-1.5 block">Email or Username</label>
             <div className="relative">
               <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
+                placeholder="admin@thecomputersolutions.in"
                 className="w-full pl-10 pr-3 py-2.5 bg-slate-800/60 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               />

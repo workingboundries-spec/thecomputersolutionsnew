@@ -117,6 +117,7 @@ export default function CrmAdmin() {
           {tab === "Reminders" && <ReminderSettings />}
           {tab === "Stock" && <StockSettings get={get} onSave={saveMany} />}
           {tab === "Data Export" && <DataExport />}
+          {tab === "Import CRM Data" && <CrmImportPanel />}
           {tab === "Danger Zone" && <DangerZone />}
         </div>
       </div>

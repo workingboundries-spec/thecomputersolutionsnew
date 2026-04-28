@@ -40,7 +40,7 @@ interface LazySectionProps {
 const LazySection = ({
   preload,
   rootMargin = "600px",
-  minHeight = "200px",
+  minHeight = "0px",
   children,
 }: LazySectionProps) => {
   const ref = useRef<HTMLDivElement | null>(null);

@@ -41,16 +41,16 @@ export default function CCTVProducts() {
           {subheading && <p className="text-white/60 mt-3 max-w-xl mx-auto">{subheading}</p>}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
           {list.map((p, i) => {
-            const specs = (p.description || "").split(/[,;\n]/).map((s: string) => s.trim()).filter(Boolean).slice(0, 4);
+            const specs = (p.description || "").split(/[,;\n]/).map((s: string) => s.trim()).filter(Boolean).slice(0, 3);
             return (
               <article
                 key={p.id}
-                className="bg-[#0f1a0f] border border-emerald-500/20 hover:border-emerald-500/60 rounded-2xl overflow-hidden flex flex-col group hover:shadow-[0_8px_32px_rgba(16,185,129,0.3)] transition-all animate-fade-in-up"
-                style={{ animationDelay: `${i * 0.1}s` }}
+                className="bg-[#0f1a0f] border border-emerald-500/20 hover:border-emerald-500/60 rounded-xl overflow-hidden flex flex-col group hover:shadow-[0_8px_32px_rgba(16,185,129,0.3)] transition-all animate-fade-in-up"
+                style={{ animationDelay: `${i * 0.05}s` }}
               >
-                <div className="h-44 md:h-48 relative overflow-hidden bg-secondary/50">
+                <div className="h-28 md:h-32 relative overflow-hidden bg-secondary/50">
                   <img
                     src={p.image || categoryFallbacks[p.category] || cctvDome}
                     alt={p.name}
@@ -58,32 +58,31 @@ export default function CCTVProducts() {
                     loading="lazy"
                     decoding="async"
                   />
-                  {/* Surveillance green tint */}
                   <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/15 to-transparent mix-blend-overlay" />
-                  <span className="absolute top-3 left-3 bg-black/70 backdrop-blur text-xs font-medium px-3 py-1 rounded-full text-emerald-400 border border-emerald-500/40">
+                  <span className="absolute top-2 left-2 bg-black/70 backdrop-blur text-[10px] font-medium px-2 py-0.5 rounded-full text-emerald-400 border border-emerald-500/40">
                     {p.category}
                   </span>
                 </div>
 
-                <div className="p-4 flex flex-col text-white flex-1">
-                  <h3 className="font-heading text-xl font-bold mb-1">{p.name}</h3>
+                <div className="p-3 flex flex-col text-white flex-1">
+                  <h3 className="font-heading text-sm font-bold mb-1 line-clamp-1">{p.name}</h3>
                   {specs.length > 0 ? (
-                    <ul className="space-y-1 my-3 flex-1">
+                    <ul className="space-y-0.5 my-2 flex-1">
                       {specs.map((s: string, k: number) => (
-                        <li key={k} className="flex items-center gap-2 text-sm text-white/80">
-                          <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" strokeWidth={3} />
-                          <span>{s}</span>
+                        <li key={k} className="flex items-center gap-1.5 text-xs text-white/80">
+                          <Check className="h-3 w-3 text-emerald-400 shrink-0" strokeWidth={3} />
+                          <span className="line-clamp-1">{s}</span>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-sm text-white/70 my-3 flex-1">{p.description}</p>
+                    <p className="text-xs text-white/70 my-2 flex-1 line-clamp-2">{p.description}</p>
                   )}
 
-                  <div className="border-t border-white/10 pt-4 flex items-center justify-between gap-3">
-                    <span className="text-xl font-heading font-black text-emerald-400">{p.price}</span>
-                    <button onClick={() => enquire(p.name, p.price)} className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl text-sm font-semibold font-heading transition-colors">
-                      <MessageCircle className="h-4 w-4" /> WhatsApp
+                  <div className="border-t border-white/10 pt-2 flex items-center justify-between gap-2">
+                    <span className="text-sm font-heading font-black text-emerald-400">{p.price}</span>
+                    <button onClick={() => enquire(p.name, p.price)} aria-label={`Enquire about ${p.name} on WhatsApp`} className="inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white px-2 py-1.5 rounded-lg text-xs font-semibold font-heading transition-colors">
+                      <MessageCircle className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </div>

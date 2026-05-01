@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { X } from "lucide-react";
 import { useAdminSetting } from "@/crm/hooks/useAdminSettings";
+import { useCrmAuth } from "@/crm/hooks/useCrmAuth";
 
 /**
  * Slide-over drawer for adding a new catalogue item.
@@ -58,6 +59,7 @@ function splitName(name: string): { brand: string; model: string } {
 
 export default function CatalogueDrawer({ open, prefillName, onClose, onCreated }: Props) {
   const adminCategories = useAdminSetting<string[]>("catalogue_categories", []);
+  const { user } = useCrmAuth();
   const dynamicCats = (adminCategories && adminCategories.length
     ? adminCategories.map((c) => c.toLowerCase())
     : CATEGORIES);
@@ -78,12 +80,15 @@ export default function CatalogueDrawer({ open, prefillName, onClose, onCreated 
       return toast.error("Brand and model required");
     }
     setSaving(true);
+    const qty = Number(editing.stock_qty || 0);
     const payload = {
       brand: editing.brand,
       model: editing.model,
       category: editing.category || "laptop",
       specs: editing.specs || null,
-      stock_qty: Number(editing.stock_qty || 0),
+      stock_qty: qty,
+      opening_stock: qty,
+      current_stock: qty,
       nlc_price: Number(editing.nlc_price || 0),
       billing_price: Number(editing.billing_price || 0),
       sale_price: Number(editing.sale_price || 0),
@@ -97,8 +102,18 @@ export default function CatalogueDrawer({ open, prefillName, onClose, onCreated 
       .insert(payload)
       .select("id, brand, model, sale_price")
       .single();
+    if (error) { setSaving(false); return toast.error(error.message); }
+    if (qty > 0 && data?.id) {
+      await supabase.from("inventory_transactions" as any).insert({
+        item_id: data.id,
+        movement_type: "opening_stock",
+        qty: qty,
+        balance_after: qty,
+        notes: "Initial stock on item creation",
+        created_by: user?.id ?? null,
+      });
+    }
     setSaving(false);
-    if (error) return toast.error(error.message);
     toast.success(`Added ${data.brand} ${data.model} to catalogue`);
     onCreated?.(data as any);
     onClose();

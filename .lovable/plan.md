@@ -1,39 +1,55 @@
-# Fix: New CRM Admin catalogue categories not appearing in Catalogue dropdown
+## Problem
 
-## Root cause
+When you create a new catalogue item and enter a stock quantity, the Stock Report shows **Opening Stock = 0** and **Received = 0**, even though the item card shows stock correctly.
 
-In CRM Admin, two separate dropdown lists exist:
-- **Enquiry Categories** → saved under key `enquiry_categories`
-- **Catalogue Categories** → saved under key `catalogue_categories`
+**Root cause** (verified in code):
+- `CrmCatalogue.tsx` (line 64-76, `save`) and `CatalogueDrawer.tsx` (line 80-99, `save`) on INSERT only write `stock_qty`. They never set `opening_stock`, `current_stock`, or insert a row into `inventory_transactions`.
+- `CrmStock.tsx`, `InventoryReports.tsx`, and `MonthEndAuditWizard.tsx` all read **`opening_stock`** directly from `crm_catalogue` and compute "Received" from `inventory_transactions` where `movement_type IN ('manual_entry','opening_stock')`.
+- Result: brand-new items always show 0 / 0 / 0 in the Stock Report regardless of the entered quantity.
 
-But the Catalogue page and Add Item drawer mistakenly read `enquiry_categories` for their Category dropdowns. So when you add "refurbished laptop" under **Catalogue Categories** in Admin, it gets saved correctly to the database — but the Catalogue form never looks at that key, so the option never appears.
+A second related issue: the edit form lets you change `stock_qty` directly, which also bypasses `current_stock` and the transaction ledger — so price/stock edits silently desync the inventory ledger.
 
-`catalogue_categories` is currently written by Admin but read by nothing in the codebase.
+## Fix
 
-## What to change
+### 1. New item creation — write all three stock fields + ledger row
 
-Two files, one-line change in each — point them at the right setting key.
+In **both** insert paths (`src/crm/pages/CrmCatalogue.tsx` `save()` and `src/crm/components/CatalogueDrawer.tsx` `save()`):
 
-### 1. `src/crm/pages/CrmCatalogue.tsx` (line 53)
-Change:
-```ts
-const adminCategories = useAdminSetting<string[]>("enquiry_categories", []);
-```
-to:
-```ts
-const adminCategories = useAdminSetting<string[]>("catalogue_categories", []);
-```
+- When inserting (no `editing.id`), set on the payload:
+  - `stock_qty = qty`
+  - `opening_stock = qty`
+  - `current_stock = qty`
+- After successful insert, if `qty > 0`, call `applyMovement` from `src/crm/lib/inventory.ts` with:
+  - `movementType: "opening_stock"`
+  - `qty: +qty` (positive)
+  - `notes: "Initial stock on item creation"`
+  - `createdBy: user?.id` (from `useCrmAuth`)
 
-### 2. `src/crm/components/CatalogueDrawer.tsx` (the `useAdminSetting` call near the top of the component)
-Same change: `"enquiry_categories"` → `"catalogue_categories"`.
+Note: `applyMovement` itself updates `current_stock` again with delta logic. To avoid double-counting, on initial insert we should set `opening_stock = qty` and `current_stock = 0` in the INSERT, then let `applyMovement` bump it to `qty`. Cleaner alternative: set all three in the INSERT and write the `inventory_transactions` row directly (mirroring `applyMovement`'s insert) so the ledger has `balance_after = qty`. We'll go with the direct-insert approach to keep it atomic and avoid the read-modify-write race.
 
-## Behavior after fix
+### 2. Edit flow — keep ledger in sync when stock_qty changes manually
 
-- The Category dropdown in **Add/Edit Catalogue Item** and the **filter dropdown** at the top of the Catalogue page will list whatever you've configured under **Admin → Catalogue Categories** (e.g. `laptop`, `cctv`, `refurbished laptop`, …).
-- If `catalogue_categories` is empty, it falls back to the built-in defaults (`laptop, cctv, accessory, networking, printer, other`) — same as today.
-- The Enquiries page continues to use `enquiry_categories` independently (unchanged).
+In `CrmCatalogue.tsx` `save()` UPDATE branch:
+- Compare `editing.stock_qty` against the original item's `stock_qty`.
+- If changed, after the UPDATE call `applyMovement` with:
+  - `movementType: "audit_adjustment"`
+  - `qty: newQty - oldQty` (signed delta)
+  - `reason: "Manual stock edit from catalogue form"`
+- Also set `current_stock = newQty` in the UPDATE payload so the two columns stay in sync.
 
-## Notes
+### 3. Price-management sanity check
 
-- No database migration needed — both settings already exist in `crm_admin_settings`.
-- Existing items with categories like `"laptop"` keep working; new categories added in Admin will appear immediately after the dropdown reloads (Admin settings are cached, so a page refresh may be needed the first time).
+Reviewed price fields (`nlc_price`, `billing_price`, `sale_price`, `online_price`, `mrp`) — these are pure numeric writes with no ledger dependency, so no inventory side-effects. The only guardrail to add: in the edit form, warn (toast) if `sale_price < nlc_price` (negative margin) — non-blocking, just informational. Optional; include if you want.
+
+## Files to change
+
+- `src/crm/pages/CrmCatalogue.tsx` — patch `save()` for INSERT (set 3 stock fields + insert ledger row) and UPDATE (delta ledger + sync `current_stock`).
+- `src/crm/components/CatalogueDrawer.tsx` — patch `save()` for INSERT (same 3 fields + ledger row); import `useCrmAuth` for `created_by`.
+
+No database schema changes. No RLS changes (existing policies already allow CRM users to insert into `crm_catalogue` and `inventory_transactions`).
+
+## Verification after build
+
+1. Add a new item with Stock Qty = 5 → Stock Report should show Opening = 5, Received = 0, Closing = 5.
+2. Edit that item, change Stock Qty to 8 → Stock Report should show Opening = 5, an audit_adjustment of +3, Closing = 8.
+3. Existing items (created before this fix) will continue to show Opening = 0 — this is expected; they can be corrected via the Month-End Audit Wizard's "Reset to Physical Count" flow.

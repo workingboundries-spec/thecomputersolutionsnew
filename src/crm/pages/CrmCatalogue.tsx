@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Share2, Grid3x3, List, Search, X, Copy } from "lucide-react";
 import { formatINR, todayISO, addDays, waLink } from "@/crm/lib/format";
 import { useAdminSetting } from "@/crm/hooks/useAdminSettings";
+import { useCrmAuth } from "@/crm/hooks/useCrmAuth";
+import { applyMovement } from "@/crm/lib/inventory";
 
 type Item = {
   id: string;
@@ -52,6 +54,7 @@ export default function CrmCatalogue() {
   const [shareItem, setShareItem] = useState<Item | null>(null);
   const adminCategories = useAdminSetting<string[]>("catalogue_categories", []);
   const dynamicCats = (adminCategories && adminCategories.length ? adminCategories.map((c: string) => c.toLowerCase()) : CATEGORIES);
+  const { user } = useCrmAuth();
 
   const load = async () => {
     setLoading(true);
@@ -63,19 +66,52 @@ export default function CrmCatalogue() {
 
   const save = async () => {
     if (!editing?.brand || !editing?.model) return toast.error("Brand and model required");
-    const payload = {
+    const qty = Number(editing.stock_qty || 0);
+    const isNew = !editing.id;
+    const originalQty = isNew ? 0 : Number(items.find((x) => x.id === editing.id)?.stock_qty || 0);
+
+    const payload: any = {
       brand: editing.brand, model: editing.model, category: editing.category || "laptop",
-      specs: editing.specs || null, stock_qty: Number(editing.stock_qty || 0),
+      specs: editing.specs || null, stock_qty: qty,
       nlc_price: Number(editing.nlc_price || 0), billing_price: Number(editing.billing_price || 0),
       sale_price: Number(editing.sale_price || 0), online_price: Number(editing.online_price || 0),
       mrp: Number(editing.mrp || 0), is_active: editing.is_active ?? true,
       image_url: editing.image_url || null,
+      current_stock: qty,
     };
-    const { error } = editing.id
-      ? await supabase.from("crm_catalogue").update(payload).eq("id", editing.id)
-      : await supabase.from("crm_catalogue").insert(payload);
-    if (error) return toast.error(error.message);
-    toast.success(editing.id ? "Updated" : "Added");
+    if (isNew) payload.opening_stock = qty;
+
+    if (isNew) {
+      const { data: created, error } = await supabase.from("crm_catalogue").insert(payload).select("id").single();
+      if (error) return toast.error(error.message);
+      // Write opening-stock ledger row so Stock Report's "received/opening" math is consistent.
+      if (qty > 0 && created?.id) {
+        await supabase.from("inventory_transactions" as any).insert({
+          item_id: created.id,
+          movement_type: "opening_stock",
+          qty: qty,
+          balance_after: qty,
+          notes: "Initial stock on item creation",
+          created_by: user?.id ?? null,
+        });
+      }
+      toast.success("Added");
+    } else {
+      const { error } = await supabase.from("crm_catalogue").update(payload).eq("id", editing.id!);
+      if (error) return toast.error(error.message);
+      const delta = qty - originalQty;
+      if (delta !== 0) {
+        await supabase.from("inventory_transactions" as any).insert({
+          item_id: editing.id,
+          movement_type: "audit_adjustment",
+          qty: delta,
+          balance_after: qty,
+          reason: "Manual stock edit from catalogue form",
+          created_by: user?.id ?? null,
+        });
+      }
+      toast.success("Updated");
+    }
     setShowForm(false); setEditing(null); load();
   };
 

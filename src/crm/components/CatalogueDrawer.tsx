@@ -57,7 +57,7 @@ function splitName(name: string): { brand: string; model: string } {
 }
 
 export default function CatalogueDrawer({ open, prefillName, onClose, onCreated }: Props) {
-  const adminCategories = useAdminSetting<string[]>("enquiry_categories", []);
+  const adminCategories = useAdminSetting<string[]>("catalogue_categories", []);
   const dynamicCats = (adminCategories && adminCategories.length
     ? adminCategories.map((c) => c.toLowerCase())
     : CATEGORIES);

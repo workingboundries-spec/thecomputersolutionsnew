@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { X } from "lucide-react";
 import { useAdminSetting } from "@/crm/hooks/useAdminSettings";
+import { useCrmAuth } from "@/crm/hooks/useCrmAuth";
 
 /**
  * Slide-over drawer for adding a new catalogue item.

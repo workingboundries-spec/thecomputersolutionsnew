@@ -90,6 +90,13 @@ export default function CrmCatalogue() {
     navigator.clipboard?.writeText(code).then(() => toast.success(`Copied ${code}`)).catch(() => {});
   };
 
+  const duplicate = (i: Item) => {
+    const { id, item_code, ...rest } = i;
+    setEditing({ ...rest, model: `${i.model} (Copy)` });
+    setShowForm(true);
+    toast.success("Item data copied — edit & save as new");
+  };
+
   const filtered = items.filter((i) => {
     const s = search.toLowerCase();
     const matchSearch = !s

@@ -221,6 +221,7 @@ export default function CrmCatalogue() {
                 <div className="text-white font-bold">{formatINR(i.sale_price)}</div>
                 <div className="flex gap-1 pt-1">
                   <button onClick={() => setShareItem(i)} className="flex-1 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 rounded text-xs flex items-center justify-center gap-1"><Share2 size={12} /> Share</button>
+                  <button onClick={() => duplicate(i)} title="Duplicate item" className="p-1.5 bg-slate-800 hover:bg-amber-600/20 rounded text-amber-400"><Copy size={12} /></button>
                   <button onClick={() => { setEditing(i); setShowForm(true); }} className="p-1.5 bg-slate-800 hover:bg-slate-700 rounded text-slate-300"><Pencil size={12} /></button>
                   <button onClick={() => del(i.id)} className="p-1.5 bg-slate-800 hover:bg-red-600/20 rounded text-red-400"><Trash2 size={12} /></button>
                 </div>

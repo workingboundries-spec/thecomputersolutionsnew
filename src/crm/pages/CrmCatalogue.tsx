@@ -184,6 +184,7 @@ export default function CrmCatalogue() {
                   <td className="p-3">
                     <div className="flex justify-end gap-1">
                       <button onClick={() => setShareItem(i)} title="Share quote" className="p-1.5 hover:bg-slate-700 rounded text-blue-400"><Share2 size={14} /></button>
+                      <button onClick={() => duplicate(i)} title="Duplicate item" className="p-1.5 hover:bg-slate-700 rounded text-amber-400"><Copy size={14} /></button>
                       <button onClick={() => { setEditing(i); setShowForm(true); }} className="p-1.5 hover:bg-slate-700 rounded text-slate-300"><Pencil size={14} /></button>
                       <button onClick={() => del(i.id)} className="p-1.5 hover:bg-red-600/20 rounded text-red-400"><Trash2 size={14} /></button>
                     </div>

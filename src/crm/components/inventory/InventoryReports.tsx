@@ -65,26 +65,32 @@ function CurrentStock() {
   const [tx, setTx] = useState<Tx[]>([]);
   useEffect(() => {
     (async () => {
-      const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+      // Load ALL transactions (not just current month) so the math reconciles
+      // against opening_stock, which is an all-time reset baseline.
       const [c, t] = await Promise.all([
         supabase.from("crm_catalogue").select("id, brand, model, category, opening_stock, current_stock, reorder_level, nlc_price, sale_price").eq("is_active", true).order("brand"),
-        supabase.from("inventory_transactions" as any).select("*").gte("transaction_date", monthStart.toISOString()),
+        supabase.from("inventory_transactions" as any).select("*"),
       ]);
       setItems((c.data || []) as any); setTx((t.data || []) as any);
     })();
   }, []);
   const aug = useMemo(() => items.map((i) => {
     const list = tx.filter((t) => t.item_id === i.id);
-    const received = list.filter((t) => t.movement_type === "manual_entry" || t.movement_type === "opening_stock").reduce((s, t) => s + Math.abs(t.qty), 0);
+    // Received = stock added via Add Stock (manual_entry). Exclude opening_stock
+    // because the opening baseline is already counted via i.opening_stock.
+    const received = list.filter((t) => t.movement_type === "manual_entry").reduce((s, t) => s + Math.abs(t.qty), 0);
     const sold = list.filter((t) => t.movement_type === "sale").reduce((s, t) => s + Math.abs(t.qty), 0)
               - list.filter((t) => t.movement_type === "sale_reversal").reduce((s, t) => s + Math.abs(t.qty), 0);
     const damaged = list.filter((t) => t.movement_type === "damage" || t.movement_type === "write_off").reduce((s, t) => s + Math.abs(t.qty), 0);
-    const status = i.current_stock === 0 ? "Out" : i.current_stock <= i.reorder_level ? "Low" : "OK";
-    return { ...i, received, sold, damaged, status };
+    // Enforce the formula: Current = Opening + Received − Sold − Damaged
+    const computedCurrent = Number(i.opening_stock || 0) + received - sold - damaged;
+    const drift = computedCurrent !== Number(i.current_stock || 0);
+    const status = computedCurrent <= 0 ? "Out" : computedCurrent <= i.reorder_level ? "Low" : "OK";
+    return { ...i, received, sold, damaged, computedCurrent, drift, status };
   }), [items, tx]);
 
   const headers = ["Item", "Category", "Opening", "Received", "Sold", "Damaged", "Current", "Reorder", "Status"];
-  const rows = aug.map((r) => [`${r.brand} ${r.model}`, r.category, r.opening_stock, r.received, r.sold, r.damaged, r.current_stock, r.reorder_level, r.status]);
+  const rows = aug.map((r) => [`${r.brand} ${r.model}`, r.category, r.opening_stock, r.received, r.sold, r.damaged, r.computedCurrent, r.reorder_level, r.status]);
 
   return (
     <div className="space-y-2">

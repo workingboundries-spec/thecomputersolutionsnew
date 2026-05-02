@@ -54,6 +54,7 @@ export default function CrmCatalogue() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Partial<Item> | null>(null);
   const [shareItem, setShareItem] = useState<Item | null>(null);
+  const [historyItem, setHistoryItem] = useState<Item | null>(null);
   const adminCategories = useAdminSetting<string[]>("catalogue_categories", []);
   const dynamicCats = (adminCategories && adminCategories.length ? adminCategories.map((c: string) => c.toLowerCase()) : CATEGORIES);
   const { user } = useCrmAuth();

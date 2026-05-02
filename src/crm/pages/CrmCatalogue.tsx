@@ -71,7 +71,8 @@ export default function CrmCatalogue() {
     if (!editing?.brand || !editing?.model) return toast.error("Brand and model required");
     const qty = Number(editing.stock_qty || 0);
     const isNew = !editing.id;
-    const originalQty = isNew ? 0 : Number(items.find((x) => x.id === editing.id)?.stock_qty || 0);
+    const original = isNew ? null : items.find((x) => x.id === editing.id) || null;
+    const originalQty = Number(original?.stock_qty || 0);
 
     const payload: any = {
       brand: editing.brand, model: editing.model, category: editing.category || "laptop",
@@ -81,13 +82,15 @@ export default function CrmCatalogue() {
       mrp: Number(editing.mrp || 0), is_active: editing.is_active ?? true,
       image_url: editing.image_url || null,
       current_stock: qty,
+      // Catalogue qty edit acts as a "reset" — opening stock follows the new qty
+      // so the Stock Report's Opening column always matches what's in the catalogue.
+      opening_stock: qty,
     };
-    if (isNew) payload.opening_stock = qty;
 
     if (isNew) {
       const { data: created, error } = await supabase.from("crm_catalogue").insert(payload).select("id").single();
       if (error) return toast.error(error.message);
-      // Write opening-stock ledger row so Stock Report's "received/opening" math is consistent.
+      // Write opening-stock ledger row so Stock Report's math is consistent.
       if (qty > 0 && created?.id) {
         await supabase.from("inventory_transactions" as any).insert({
           item_id: created.id,
@@ -102,6 +105,8 @@ export default function CrmCatalogue() {
     } else {
       const { error } = await supabase.from("crm_catalogue").update(payload).eq("id", editing.id!);
       if (error) return toast.error(error.message);
+
+      // Log a ledger row when the qty is reset via catalogue (informational; not counted as Received).
       const delta = qty - originalQty;
       if (delta !== 0) {
         await supabase.from("inventory_transactions" as any).insert({
@@ -109,9 +114,26 @@ export default function CrmCatalogue() {
           movement_type: "audit_adjustment",
           qty: delta,
           balance_after: qty,
-          reason: "Manual stock edit from catalogue form",
+          reason: "Catalogue qty reset — opening stock updated",
           created_by: user?.id ?? null,
         });
+      }
+
+      // Log price-field changes to history
+      if (original) {
+        const fields: PriceField[] = ["nlc_price", "billing_price", "sale_price", "online_price", "mrp"];
+        const changes = fields
+          .map((f) => ({ field: f, oldValue: Number((original as any)[f] || 0), newValue: Number((editing as any)[f] || 0) }))
+          .filter((c) => c.oldValue !== c.newValue);
+        if (changes.length > 0) {
+          await logPriceChanges({
+            itemId: editing.id!,
+            changes,
+            source: "manual_edit",
+            notes: "Edited from Catalogue",
+            changedBy: user?.id ?? null,
+          });
+        }
       }
       toast.success("Updated");
     }

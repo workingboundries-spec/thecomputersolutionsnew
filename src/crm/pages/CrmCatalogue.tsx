@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Share2, Grid3x3, List, Search, X, Copy } from "lucide-react";
+import { Plus, Pencil, Trash2, Share2, Grid3x3, List, Search, X, Copy, History } from "lucide-react";
 import { formatINR, todayISO, addDays, waLink } from "@/crm/lib/format";
 import { useAdminSetting } from "@/crm/hooks/useAdminSettings";
 import { useCrmAuth } from "@/crm/hooks/useCrmAuth";
 import { applyMovement } from "@/crm/lib/inventory";
+import PriceHistoryDrawer from "@/crm/components/inventory/PriceHistoryDrawer";
+import { logPriceChanges, type PriceField } from "@/crm/lib/priceHistory";
 
 type Item = {
   id: string;

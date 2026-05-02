@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Package, AlertTriangle, XCircle, IndianRupee, Plus, Minus, ClipboardCheck, FileText } from "lucide-react";
+import { Package, AlertTriangle, XCircle, IndianRupee, Plus, Minus, ClipboardCheck, FileText, History } from "lucide-react";
 import { formatINR } from "@/crm/lib/format";
 import AddStockModal from "@/crm/components/inventory/AddStockModal";
 import DamageModal from "@/crm/components/inventory/DamageModal";
 import MonthEndAuditWizard from "@/crm/components/inventory/MonthEndAuditWizard";
 import InventoryReports from "@/crm/components/inventory/InventoryReports";
+import PriceHistoryDrawer from "@/crm/components/inventory/PriceHistoryDrawer";
 
 type Item = {
   id: string;

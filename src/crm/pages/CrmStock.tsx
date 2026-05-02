@@ -56,6 +56,7 @@ function LiveStock() {
   const [search, setSearch] = useState("");
   const [addItem, setAddItem] = useState<Item | null>(null);
   const [damageItem, setDamageItem] = useState<Item | null>(null);
+  const [historyItem, setHistoryItem] = useState<Item | null>(null);
   const [showAudit, setShowAudit] = useState(false);
 
   const load = async () => {

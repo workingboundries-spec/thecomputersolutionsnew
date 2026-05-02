@@ -93,14 +93,22 @@ function LiveStock() {
     (!filterBrand || i.brand === filterBrand) &&
     (!search || `${i.brand} ${i.model}`.toLowerCase().includes(search.toLowerCase()))
   );
+  const computedById = useMemo(() => {
+    const map: Record<string, number> = {};
+    items.forEach((i) => {
+      const m = movementsByItem[i.id] || { received: 0, sold: 0, damaged: 0 };
+      map[i.id] = Number(i.opening_stock || 0) + m.received - m.sold - m.damaged;
+    });
+    return map;
+  }, [items, movementsByItem]);
   const totals = useMemo(() => {
     return {
       totalSkus: filtered.length,
-      totalValueNlc: filtered.reduce((s, i) => s + (i.current_stock * i.nlc_price), 0),
-      lowStock: filtered.filter((i) => i.current_stock > 0 && i.reorder_level > 0 && i.current_stock <= i.reorder_level).length,
-      outOfStock: filtered.filter((i) => i.current_stock === 0).length,
+      totalValueNlc: filtered.reduce((s, i) => s + ((computedById[i.id] ?? i.current_stock) * i.nlc_price), 0),
+      lowStock: filtered.filter((i) => { const cur = computedById[i.id] ?? i.current_stock; return cur > 0 && i.reorder_level > 0 && cur <= i.reorder_level; }).length,
+      outOfStock: filtered.filter((i) => (computedById[i.id] ?? i.current_stock) <= 0).length,
     };
-  }, [filtered]);
+  }, [filtered, computedById]);
 
   const itemForModal = (i: Item) => ({ id: i.id, brand: i.brand, model: i.model, current_stock: i.current_stock });
 

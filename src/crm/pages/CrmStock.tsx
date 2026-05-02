@@ -161,6 +161,7 @@ function LiveStock() {
                       <div className="flex justify-end gap-1">
                         <button onClick={() => setAddItem(i)} title="Add Stock" className="p-1.5 text-green-400 hover:bg-green-600/20 rounded"><Plus size={14} /></button>
                         <button onClick={() => setDamageItem(i)} title="Damage / Write-off" className="p-1.5 text-red-400 hover:bg-red-600/20 rounded"><Minus size={14} /></button>
+                        <button onClick={() => setHistoryItem(i)} title="Price History" className="p-1.5 text-purple-400 hover:bg-purple-600/20 rounded"><History size={14} /></button>
                       </div>
                     </td>
                   </tr>

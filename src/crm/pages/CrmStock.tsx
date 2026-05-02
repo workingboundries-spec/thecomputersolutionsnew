@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Package, AlertTriangle, XCircle, IndianRupee, Plus, Minus, ClipboardCheck, FileText } from "lucide-react";
+import { Package, AlertTriangle, XCircle, IndianRupee, Plus, Minus, ClipboardCheck, FileText, History } from "lucide-react";
 import { formatINR } from "@/crm/lib/format";
 import AddStockModal from "@/crm/components/inventory/AddStockModal";
 import DamageModal from "@/crm/components/inventory/DamageModal";
 import MonthEndAuditWizard from "@/crm/components/inventory/MonthEndAuditWizard";
 import InventoryReports from "@/crm/components/inventory/InventoryReports";
+import PriceHistoryDrawer from "@/crm/components/inventory/PriceHistoryDrawer";
 
 type Item = {
   id: string;
@@ -55,6 +56,7 @@ function LiveStock() {
   const [search, setSearch] = useState("");
   const [addItem, setAddItem] = useState<Item | null>(null);
   const [damageItem, setDamageItem] = useState<Item | null>(null);
+  const [historyItem, setHistoryItem] = useState<Item | null>(null);
   const [showAudit, setShowAudit] = useState(false);
 
   const load = async () => {
@@ -159,6 +161,7 @@ function LiveStock() {
                       <div className="flex justify-end gap-1">
                         <button onClick={() => setAddItem(i)} title="Add Stock" className="p-1.5 text-green-400 hover:bg-green-600/20 rounded"><Plus size={14} /></button>
                         <button onClick={() => setDamageItem(i)} title="Damage / Write-off" className="p-1.5 text-red-400 hover:bg-red-600/20 rounded"><Minus size={14} /></button>
+                        <button onClick={() => setHistoryItem(i)} title="Price History" className="p-1.5 text-purple-400 hover:bg-purple-600/20 rounded"><History size={14} /></button>
                       </div>
                     </td>
                   </tr>
@@ -171,6 +174,7 @@ function LiveStock() {
 
       {addItem && <AddStockModal item={itemForModal(addItem)} onClose={() => setAddItem(null)} onSaved={load} />}
       {damageItem && <DamageModal item={itemForModal(damageItem)} onClose={() => setDamageItem(null)} onSaved={load} />}
+      {historyItem && <PriceHistoryDrawer itemId={historyItem.id} itemLabel={`${historyItem.brand} ${historyItem.model}`} onClose={() => setHistoryItem(null)} />}
       {showAudit && <MonthEndAuditWizard onClose={() => setShowAudit(false)} onSaved={load} />}
     </div>
   );

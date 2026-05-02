@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Share2, Grid3x3, List, Search, X, Copy } from "lucide-react";
+import { Plus, Pencil, Trash2, Share2, Grid3x3, List, Search, X, Copy, History } from "lucide-react";
 import { formatINR, todayISO, addDays, waLink } from "@/crm/lib/format";
 import { useAdminSetting } from "@/crm/hooks/useAdminSettings";
 import { useCrmAuth } from "@/crm/hooks/useCrmAuth";
 import { applyMovement } from "@/crm/lib/inventory";
+import PriceHistoryDrawer from "@/crm/components/inventory/PriceHistoryDrawer";
+import { logPriceChanges, type PriceField } from "@/crm/lib/priceHistory";
 
 type Item = {
   id: string;
@@ -52,6 +54,7 @@ export default function CrmCatalogue() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Partial<Item> | null>(null);
   const [shareItem, setShareItem] = useState<Item | null>(null);
+  const [historyItem, setHistoryItem] = useState<Item | null>(null);
   const adminCategories = useAdminSetting<string[]>("catalogue_categories", []);
   const dynamicCats = (adminCategories && adminCategories.length ? adminCategories.map((c: string) => c.toLowerCase()) : CATEGORIES);
   const { user } = useCrmAuth();
@@ -68,7 +71,8 @@ export default function CrmCatalogue() {
     if (!editing?.brand || !editing?.model) return toast.error("Brand and model required");
     const qty = Number(editing.stock_qty || 0);
     const isNew = !editing.id;
-    const originalQty = isNew ? 0 : Number(items.find((x) => x.id === editing.id)?.stock_qty || 0);
+    const original = isNew ? null : items.find((x) => x.id === editing.id) || null;
+    const originalQty = Number(original?.stock_qty || 0);
 
     const payload: any = {
       brand: editing.brand, model: editing.model, category: editing.category || "laptop",
@@ -78,13 +82,15 @@ export default function CrmCatalogue() {
       mrp: Number(editing.mrp || 0), is_active: editing.is_active ?? true,
       image_url: editing.image_url || null,
       current_stock: qty,
+      // Catalogue qty edit acts as a "reset" — opening stock follows the new qty
+      // so the Stock Report's Opening column always matches what's in the catalogue.
+      opening_stock: qty,
     };
-    if (isNew) payload.opening_stock = qty;
 
     if (isNew) {
       const { data: created, error } = await supabase.from("crm_catalogue").insert(payload).select("id").single();
       if (error) return toast.error(error.message);
-      // Write opening-stock ledger row so Stock Report's "received/opening" math is consistent.
+      // Write opening-stock ledger row so Stock Report's math is consistent.
       if (qty > 0 && created?.id) {
         await supabase.from("inventory_transactions" as any).insert({
           item_id: created.id,
@@ -99,6 +105,8 @@ export default function CrmCatalogue() {
     } else {
       const { error } = await supabase.from("crm_catalogue").update(payload).eq("id", editing.id!);
       if (error) return toast.error(error.message);
+
+      // Log a ledger row when the qty is reset via catalogue (informational; not counted as Received).
       const delta = qty - originalQty;
       if (delta !== 0) {
         await supabase.from("inventory_transactions" as any).insert({
@@ -106,9 +114,26 @@ export default function CrmCatalogue() {
           movement_type: "audit_adjustment",
           qty: delta,
           balance_after: qty,
-          reason: "Manual stock edit from catalogue form",
+          reason: "Catalogue qty reset — opening stock updated",
           created_by: user?.id ?? null,
         });
+      }
+
+      // Log price-field changes to history
+      if (original) {
+        const fields: PriceField[] = ["nlc_price", "billing_price", "sale_price", "online_price", "mrp"];
+        const changes = fields
+          .map((f) => ({ field: f, oldValue: Number((original as any)[f] || 0), newValue: Number((editing as any)[f] || 0) }))
+          .filter((c) => c.oldValue !== c.newValue);
+        if (changes.length > 0) {
+          await logPriceChanges({
+            itemId: editing.id!,
+            changes,
+            source: "manual_edit",
+            notes: "Edited from Catalogue",
+            changedBy: user?.id ?? null,
+          });
+        }
       }
       toast.success("Updated");
     }
@@ -220,6 +245,7 @@ export default function CrmCatalogue() {
                   <td className="p-3">
                     <div className="flex justify-end gap-1">
                       <button onClick={() => setShareItem(i)} title="Share quote" className="p-1.5 hover:bg-slate-700 rounded text-blue-400"><Share2 size={14} /></button>
+                      <button onClick={() => setHistoryItem(i)} title="Price history" className="p-1.5 hover:bg-slate-700 rounded text-purple-400"><History size={14} /></button>
                       <button onClick={() => duplicate(i)} title="Duplicate item" className="p-1.5 hover:bg-slate-700 rounded text-amber-400"><Copy size={14} /></button>
                       <button onClick={() => { setEditing(i); setShowForm(true); }} className="p-1.5 hover:bg-slate-700 rounded text-slate-300"><Pencil size={14} /></button>
                       <button onClick={() => del(i.id)} className="p-1.5 hover:bg-red-600/20 rounded text-red-400"><Trash2 size={14} /></button>
@@ -313,6 +339,7 @@ export default function CrmCatalogue() {
       )}
 
       {shareItem && <QuoteShareModal item={shareItem} onClose={() => { setShareItem(null); }} />}
+      {historyItem && <PriceHistoryDrawer itemId={historyItem.id} itemLabel={`${historyItem.brand} ${historyItem.model}`} onClose={() => setHistoryItem(null)} />}
     </div>
   );
 }

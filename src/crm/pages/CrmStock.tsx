@@ -174,6 +174,7 @@ function LiveStock() {
 
       {addItem && <AddStockModal item={itemForModal(addItem)} onClose={() => setAddItem(null)} onSaved={load} />}
       {damageItem && <DamageModal item={itemForModal(damageItem)} onClose={() => setDamageItem(null)} onSaved={load} />}
+      {historyItem && <PriceHistoryDrawer itemId={historyItem.id} itemLabel={`${historyItem.brand} ${historyItem.model}`} onClose={() => setHistoryItem(null)} />}
       {showAudit && <MonthEndAuditWizard onClose={() => setShowAudit(false)} onSaved={load} />}
     </div>
   );

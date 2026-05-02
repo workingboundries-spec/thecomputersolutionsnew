@@ -61,10 +61,11 @@ function LiveStock() {
 
   const load = async () => {
     setLoading(true);
-    const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+    // Load ALL transactions so the math reconciles with opening_stock,
+    // which is an all-time reset baseline (not a monthly value).
     const [c, t] = await Promise.all([
       supabase.from("crm_catalogue").select("id,brand,model,category,opening_stock,current_stock,stock_qty,reorder_level,nlc_price,sale_price").order("brand"),
-      supabase.from("inventory_transactions" as any).select("item_id, movement_type, qty").gte("transaction_date", monthStart.toISOString()),
+      supabase.from("inventory_transactions" as any).select("item_id, movement_type, qty"),
     ]);
     if (c.error) toast.error(c.error.message);
     setItems((c.data || []) as Item[]);
@@ -72,7 +73,9 @@ function LiveStock() {
     ((t.data || []) as any[]).forEach((tx) => {
       const k = tx.item_id;
       if (!map[k]) map[k] = { received: 0, sold: 0, damaged: 0 };
-      if (tx.movement_type === "manual_entry" || tx.movement_type === "opening_stock") map[k].received += Math.abs(tx.qty);
+      // Received = Add Stock entries only. Exclude `opening_stock` movements
+      // because the opening baseline is already counted via i.opening_stock.
+      if (tx.movement_type === "manual_entry") map[k].received += Math.abs(tx.qty);
       else if (tx.movement_type === "sale") map[k].sold += Math.abs(tx.qty);
       else if (tx.movement_type === "sale_reversal") map[k].sold -= Math.abs(tx.qty);
       else if (tx.movement_type === "damage" || tx.movement_type === "write_off") map[k].damaged += Math.abs(tx.qty);
@@ -90,14 +93,22 @@ function LiveStock() {
     (!filterBrand || i.brand === filterBrand) &&
     (!search || `${i.brand} ${i.model}`.toLowerCase().includes(search.toLowerCase()))
   );
+  const computedById = useMemo(() => {
+    const map: Record<string, number> = {};
+    items.forEach((i) => {
+      const m = movementsByItem[i.id] || { received: 0, sold: 0, damaged: 0 };
+      map[i.id] = Number(i.opening_stock || 0) + m.received - m.sold - m.damaged;
+    });
+    return map;
+  }, [items, movementsByItem]);
   const totals = useMemo(() => {
     return {
       totalSkus: filtered.length,
-      totalValueNlc: filtered.reduce((s, i) => s + (i.current_stock * i.nlc_price), 0),
-      lowStock: filtered.filter((i) => i.current_stock > 0 && i.reorder_level > 0 && i.current_stock <= i.reorder_level).length,
-      outOfStock: filtered.filter((i) => i.current_stock === 0).length,
+      totalValueNlc: filtered.reduce((s, i) => s + ((computedById[i.id] ?? i.current_stock) * i.nlc_price), 0),
+      lowStock: filtered.filter((i) => { const cur = computedById[i.id] ?? i.current_stock; return cur > 0 && i.reorder_level > 0 && cur <= i.reorder_level; }).length,
+      outOfStock: filtered.filter((i) => (computedById[i.id] ?? i.current_stock) <= 0).length,
     };
-  }, [filtered]);
+  }, [filtered, computedById]);
 
   const itemForModal = (i: Item) => ({ id: i.id, brand: i.brand, model: i.model, current_stock: i.current_stock });
 
@@ -144,8 +155,10 @@ function LiveStock() {
             <tbody className="divide-y divide-slate-800">
               {filtered.map((i) => {
                 const m = movementsByItem[i.id] || { received: 0, sold: 0, damaged: 0 };
-                const out = i.current_stock === 0;
-                const low = i.current_stock > 0 && i.reorder_level > 0 && i.current_stock <= i.reorder_level;
+                const computed = computedById[i.id] ?? i.current_stock;
+                const drift = computed !== Number(i.current_stock || 0);
+                const out = computed <= 0;
+                const low = computed > 0 && i.reorder_level > 0 && computed <= i.reorder_level;
                 return (
                   <tr key={i.id} className={`${out ? "bg-red-900/20" : low ? "bg-yellow-900/15" : ""} hover:bg-slate-800/30`}>
                     <td className="p-3 text-white font-medium">{i.brand} {i.model}</td>
@@ -155,7 +168,10 @@ function LiveStock() {
                     <td className="p-3 text-right text-green-300">{m.received}</td>
                     <td className="p-3 text-right text-blue-300">{m.sold}</td>
                     <td className="p-3 text-right text-orange-300">{m.damaged}</td>
-                    <td className="p-3 text-right"><span className={out ? "text-red-300 font-bold" : low ? "text-orange-300 font-bold" : "text-white font-medium"}>{i.current_stock}</span></td>
+                    <td className="p-3 text-right">
+                      <span className={out ? "text-red-300 font-bold" : low ? "text-orange-300 font-bold" : "text-white font-medium"}>{computed}</span>
+                      {drift && <span className="ml-1.5 text-[10px] text-amber-300" title={`Stored DB value: ${i.current_stock}. Ledger says ${computed}.`}>⚠ DB:{i.current_stock}</span>}
+                    </td>
                     <td className="p-3 text-right text-slate-400">{i.reorder_level}</td>
                     <td className="p-3 text-right">
                       <div className="flex justify-end gap-1">

@@ -1,53 +1,26 @@
-## Problem
+## Discrepancy
 
-In the **Current Stock** report (`src/crm/components/inventory/InventoryReports.tsx` → `CurrentStock`), the "Current" column shows `crm_catalogue.current_stock` directly from the database. It does **not** enforce the formula:
+In your screenshot of `/crm/stock` → **Live Stock** tab, HP 1040 shows:
+`Opening=2, Received=1, Sold=0, Damaged=0` → expected **Current = 3**, but it shows **Current = 2**.
 
-```
-Current = Opening + Received − Sold − Damaged
-```
+The formula `Current = Opening + Received − Sold − Damaged` is not being enforced on the **Live Stock** tab. The earlier fix only touched the **Reports → Current Stock** tab (`InventoryReports.tsx`). The Live Stock table lives in a different file (`src/crm/pages/CrmStock.tsx`) and still has the same three bugs:
 
-So if any transaction is missed, deleted, or `current_stock` was edited manually, the row's Current value will not match Opening + Received − Sold − Damaged, and the user sees inconsistent numbers.
+1. **Loads only the current month's transactions** but uses an all-time `opening_stock` → numbers don't reconcile.
+2. **Counts `opening_stock` movement type as Received** → double-counts the baseline.
+3. **Renders `i.current_stock`** raw from the DB instead of the computed value → if the stored value drifts from the ledger, the row contradicts itself (which is what your screenshot shows).
 
-Additionally, the report only loads transactions from **the start of the current month**, but uses `opening_stock` from the catalogue (which represents the all-time opening or last manual reset). Mixing a month-window with an all-time opening can also produce wrong-looking math.
+## Fix
 
-## Fix Plan
+Edit only `src/crm/pages/CrmStock.tsx` → `LiveStock` component:
 
-### 1. Make the math consistent in the Current Stock report
+1. **Load all `inventory_transactions`** for each item (drop the `gte(monthStart)` filter), so Received/Sold/Damaged are measured from the same baseline as Opening.
+2. **Stop counting `opening_stock` movements as Received** — only `manual_entry` (Add Stock) counts as Received.
+3. **Compute `Current = Opening + Received − Sold − Damaged`** per row and display that value in the Current column (instead of `i.current_stock`).
+4. **Recompute Out / Low status** from the computed value so row colouring matches the displayed number.
+5. **Use computed value for the Stat tiles** (Stock Value NLC, Low Stock, Out of Stock) so the summary cards agree with the rows.
+6. **Drift indicator**: if the stored `current_stock` differs from the computed value, show a small `⚠ DB:n` chip next to the number so you can spot ledger/catalogue desync without auto-overwriting data.
 
-Change `CurrentStock()` so each row computes:
+## Files
 
-```
-computedCurrent = opening_stock + received − sold − damaged
-```
-
-…using the same time window for Received / Sold / Damaged that defines "Opening". Since `opening_stock` in the catalogue is a reset baseline (not month-bound), load **all** `inventory_transactions` for each item that occurred **after the last opening reset**, not just the current month.
-
-Simpler, robust approach:
-- Load ALL transactions (no month filter) per item.
-- Received = sum of `manual_entry` qty (positive deltas from Add Stock).
-- Sold = sum of `sale` qty − `sale_reversal` qty.
-- Damaged = sum of `damage` + `write_off` qty.
-- `computedCurrent = opening_stock + received − sold − damaged`.
-
-Display `computedCurrent` in the **Current** column (instead of `i.current_stock`).
-
-### 2. Show a mismatch indicator
-
-If `computedCurrent !== i.current_stock` (the value stored in the catalogue), show a small warning chip next to the number, e.g. `⚠ DB: 7` so the admin can see when stored stock has drifted from the ledger. This protects against silent corruption without auto-overwriting data.
-
-### 3. Use computed value for Status
-
-Recalculate the Out / Low / OK status from `computedCurrent` instead of the stored value, so the report is self-consistent.
-
-### 4. CSV / PDF export
-
-Update the exported rows to use `computedCurrent` so downloads match the on-screen math.
-
-## Files to change
-
-- `src/crm/components/inventory/InventoryReports.tsx` — only the `CurrentStock` component (≈ lines 63–122). No DB schema changes, no other report tabs affected.
-
-## Out of scope
-
-- No changes to Add Stock, Catalogue edit, or Price History flows — those remain as built.
-- No database migration needed.
+- `src/crm/pages/CrmStock.tsx` — only the `LiveStock` function (lines ~50–180).
+- No DB changes. No other tabs/pages affected.

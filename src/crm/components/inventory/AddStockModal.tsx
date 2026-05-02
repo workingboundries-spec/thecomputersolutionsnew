@@ -83,7 +83,7 @@ export default function AddStockModal({ item, onClose, onSaved }: { item: Item; 
 
     // Step 3: apply selected price updates + log history
     if (choice && (choice.updateBilling || choice.updateNlc || choice.updateSale)) {
-      const updates: Record<string, number> = {};
+      const updates: { billing_price?: number; nlc_price?: number; sale_price?: number } = {};
       const changes: { field: "billing_price" | "nlc_price" | "sale_price"; oldValue: number; newValue: number }[] = [];
       if (choice.updateBilling) {
         updates.billing_price = purchasePrice;

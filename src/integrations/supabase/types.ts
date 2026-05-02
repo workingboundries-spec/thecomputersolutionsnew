@@ -485,6 +485,48 @@ export type Database = {
         }
         Relationships: []
       }
+      crm_price_history: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          field_name: string
+          id: string
+          item_id: string
+          new_value: number
+          notes: string | null
+          old_value: number | null
+          reference_id: string | null
+          source: string
+          supplier_name: string | null
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          field_name: string
+          id?: string
+          item_id: string
+          new_value: number
+          notes?: string | null
+          old_value?: number | null
+          reference_id?: string | null
+          source: string
+          supplier_name?: string | null
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          field_name?: string
+          id?: string
+          item_id?: string
+          new_value?: number
+          notes?: string | null
+          old_value?: number | null
+          reference_id?: string | null
+          source?: string
+          supplier_name?: string | null
+        }
+        Relationships: []
+      }
       crm_quotations: {
         Row: {
           address: string | null

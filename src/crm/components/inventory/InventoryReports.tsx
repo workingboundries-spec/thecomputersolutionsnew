@@ -112,7 +112,12 @@ function CurrentStock() {
                 <td className="p-2 text-green-300">{r.received}</td>
                 <td className="p-2 text-blue-300">{r.sold}</td>
                 <td className="p-2 text-orange-300">{r.damaged}</td>
-                <td className="p-2 text-white font-medium">{r.current_stock}</td>
+                <td className="p-2 text-white font-medium">
+                  {r.computedCurrent}
+                  {r.drift && (
+                    <span className="ml-1.5 text-[10px] text-amber-300" title={`Stored value in DB: ${r.current_stock}. Ledger says ${r.computedCurrent}.`}>⚠ DB:{r.current_stock}</span>
+                  )}
+                </td>
                 <td className="p-2 text-slate-400">{r.reorder_level}</td>
                 <td className="p-2">
                   <span className={`px-2 py-0.5 rounded text-xs ${r.status === "OK" ? "bg-green-500/20 text-green-300" : r.status === "Low" ? "bg-orange-500/20 text-orange-300" : "bg-red-500/20 text-red-300"}`}>{r.status}</span>

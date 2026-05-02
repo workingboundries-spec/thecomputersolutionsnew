@@ -155,8 +155,10 @@ function LiveStock() {
             <tbody className="divide-y divide-slate-800">
               {filtered.map((i) => {
                 const m = movementsByItem[i.id] || { received: 0, sold: 0, damaged: 0 };
-                const out = i.current_stock === 0;
-                const low = i.current_stock > 0 && i.reorder_level > 0 && i.current_stock <= i.reorder_level;
+                const computed = computedById[i.id] ?? i.current_stock;
+                const drift = computed !== Number(i.current_stock || 0);
+                const out = computed <= 0;
+                const low = computed > 0 && i.reorder_level > 0 && computed <= i.reorder_level;
                 return (
                   <tr key={i.id} className={`${out ? "bg-red-900/20" : low ? "bg-yellow-900/15" : ""} hover:bg-slate-800/30`}>
                     <td className="p-3 text-white font-medium">{i.brand} {i.model}</td>
@@ -166,7 +168,10 @@ function LiveStock() {
                     <td className="p-3 text-right text-green-300">{m.received}</td>
                     <td className="p-3 text-right text-blue-300">{m.sold}</td>
                     <td className="p-3 text-right text-orange-300">{m.damaged}</td>
-                    <td className="p-3 text-right"><span className={out ? "text-red-300 font-bold" : low ? "text-orange-300 font-bold" : "text-white font-medium"}>{i.current_stock}</span></td>
+                    <td className="p-3 text-right">
+                      <span className={out ? "text-red-300 font-bold" : low ? "text-orange-300 font-bold" : "text-white font-medium"}>{computed}</span>
+                      {drift && <span className="ml-1.5 text-[10px] text-amber-300" title={`Stored DB value: ${i.current_stock}. Ledger says ${computed}.`}>⚠ DB:{i.current_stock}</span>}
+                    </td>
                     <td className="p-3 text-right text-slate-400">{i.reorder_level}</td>
                     <td className="p-3 text-right">
                       <div className="flex justify-end gap-1">

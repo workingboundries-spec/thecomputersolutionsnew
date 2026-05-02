@@ -339,6 +339,7 @@ export default function CrmCatalogue() {
       )}
 
       {shareItem && <QuoteShareModal item={shareItem} onClose={() => { setShareItem(null); }} />}
+      {historyItem && <PriceHistoryDrawer itemId={historyItem.id} itemLabel={`${historyItem.brand} ${historyItem.model}`} onClose={() => setHistoryItem(null)} />}
     </div>
   );
 }

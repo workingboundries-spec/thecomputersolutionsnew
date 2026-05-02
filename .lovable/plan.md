@@ -1,55 +1,53 @@
 ## Problem
 
-When you create a new catalogue item and enter a stock quantity, the Stock Report shows **Opening Stock = 0** and **Received = 0**, even though the item card shows stock correctly.
+In the **Current Stock** report (`src/crm/components/inventory/InventoryReports.tsx` → `CurrentStock`), the "Current" column shows `crm_catalogue.current_stock` directly from the database. It does **not** enforce the formula:
 
-**Root cause** (verified in code):
-- `CrmCatalogue.tsx` (line 64-76, `save`) and `CatalogueDrawer.tsx` (line 80-99, `save`) on INSERT only write `stock_qty`. They never set `opening_stock`, `current_stock`, or insert a row into `inventory_transactions`.
-- `CrmStock.tsx`, `InventoryReports.tsx`, and `MonthEndAuditWizard.tsx` all read **`opening_stock`** directly from `crm_catalogue` and compute "Received" from `inventory_transactions` where `movement_type IN ('manual_entry','opening_stock')`.
-- Result: brand-new items always show 0 / 0 / 0 in the Stock Report regardless of the entered quantity.
+```
+Current = Opening + Received − Sold − Damaged
+```
 
-A second related issue: the edit form lets you change `stock_qty` directly, which also bypasses `current_stock` and the transaction ledger — so price/stock edits silently desync the inventory ledger.
+So if any transaction is missed, deleted, or `current_stock` was edited manually, the row's Current value will not match Opening + Received − Sold − Damaged, and the user sees inconsistent numbers.
 
-## Fix
+Additionally, the report only loads transactions from **the start of the current month**, but uses `opening_stock` from the catalogue (which represents the all-time opening or last manual reset). Mixing a month-window with an all-time opening can also produce wrong-looking math.
 
-### 1. New item creation — write all three stock fields + ledger row
+## Fix Plan
 
-In **both** insert paths (`src/crm/pages/CrmCatalogue.tsx` `save()` and `src/crm/components/CatalogueDrawer.tsx` `save()`):
+### 1. Make the math consistent in the Current Stock report
 
-- When inserting (no `editing.id`), set on the payload:
-  - `stock_qty = qty`
-  - `opening_stock = qty`
-  - `current_stock = qty`
-- After successful insert, if `qty > 0`, call `applyMovement` from `src/crm/lib/inventory.ts` with:
-  - `movementType: "opening_stock"`
-  - `qty: +qty` (positive)
-  - `notes: "Initial stock on item creation"`
-  - `createdBy: user?.id` (from `useCrmAuth`)
+Change `CurrentStock()` so each row computes:
 
-Note: `applyMovement` itself updates `current_stock` again with delta logic. To avoid double-counting, on initial insert we should set `opening_stock = qty` and `current_stock = 0` in the INSERT, then let `applyMovement` bump it to `qty`. Cleaner alternative: set all three in the INSERT and write the `inventory_transactions` row directly (mirroring `applyMovement`'s insert) so the ledger has `balance_after = qty`. We'll go with the direct-insert approach to keep it atomic and avoid the read-modify-write race.
+```
+computedCurrent = opening_stock + received − sold − damaged
+```
 
-### 2. Edit flow — keep ledger in sync when stock_qty changes manually
+…using the same time window for Received / Sold / Damaged that defines "Opening". Since `opening_stock` in the catalogue is a reset baseline (not month-bound), load **all** `inventory_transactions` for each item that occurred **after the last opening reset**, not just the current month.
 
-In `CrmCatalogue.tsx` `save()` UPDATE branch:
-- Compare `editing.stock_qty` against the original item's `stock_qty`.
-- If changed, after the UPDATE call `applyMovement` with:
-  - `movementType: "audit_adjustment"`
-  - `qty: newQty - oldQty` (signed delta)
-  - `reason: "Manual stock edit from catalogue form"`
-- Also set `current_stock = newQty` in the UPDATE payload so the two columns stay in sync.
+Simpler, robust approach:
+- Load ALL transactions (no month filter) per item.
+- Received = sum of `manual_entry` qty (positive deltas from Add Stock).
+- Sold = sum of `sale` qty − `sale_reversal` qty.
+- Damaged = sum of `damage` + `write_off` qty.
+- `computedCurrent = opening_stock + received − sold − damaged`.
 
-### 3. Price-management sanity check
+Display `computedCurrent` in the **Current** column (instead of `i.current_stock`).
 
-Reviewed price fields (`nlc_price`, `billing_price`, `sale_price`, `online_price`, `mrp`) — these are pure numeric writes with no ledger dependency, so no inventory side-effects. The only guardrail to add: in the edit form, warn (toast) if `sale_price < nlc_price` (negative margin) — non-blocking, just informational. Optional; include if you want.
+### 2. Show a mismatch indicator
+
+If `computedCurrent !== i.current_stock` (the value stored in the catalogue), show a small warning chip next to the number, e.g. `⚠ DB: 7` so the admin can see when stored stock has drifted from the ledger. This protects against silent corruption without auto-overwriting data.
+
+### 3. Use computed value for Status
+
+Recalculate the Out / Low / OK status from `computedCurrent` instead of the stored value, so the report is self-consistent.
+
+### 4. CSV / PDF export
+
+Update the exported rows to use `computedCurrent` so downloads match the on-screen math.
 
 ## Files to change
 
-- `src/crm/pages/CrmCatalogue.tsx` — patch `save()` for INSERT (set 3 stock fields + insert ledger row) and UPDATE (delta ledger + sync `current_stock`).
-- `src/crm/components/CatalogueDrawer.tsx` — patch `save()` for INSERT (same 3 fields + ledger row); import `useCrmAuth` for `created_by`.
+- `src/crm/components/inventory/InventoryReports.tsx` — only the `CurrentStock` component (≈ lines 63–122). No DB schema changes, no other report tabs affected.
 
-No database schema changes. No RLS changes (existing policies already allow CRM users to insert into `crm_catalogue` and `inventory_transactions`).
+## Out of scope
 
-## Verification after build
-
-1. Add a new item with Stock Qty = 5 → Stock Report should show Opening = 5, Received = 0, Closing = 5.
-2. Edit that item, change Stock Qty to 8 → Stock Report should show Opening = 5, an audit_adjustment of +3, Closing = 8.
-3. Existing items (created before this fix) will continue to show Opening = 0 — this is expected; they can be corrected via the Month-End Audit Wizard's "Reset to Physical Count" flow.
+- No changes to Add Stock, Catalogue edit, or Price History flows — those remain as built.
+- No database migration needed.

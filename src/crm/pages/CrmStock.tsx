@@ -61,10 +61,11 @@ function LiveStock() {
 
   const load = async () => {
     setLoading(true);
-    const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+    // Load ALL transactions so the math reconciles with opening_stock,
+    // which is an all-time reset baseline (not a monthly value).
     const [c, t] = await Promise.all([
       supabase.from("crm_catalogue").select("id,brand,model,category,opening_stock,current_stock,stock_qty,reorder_level,nlc_price,sale_price").order("brand"),
-      supabase.from("inventory_transactions" as any).select("item_id, movement_type, qty").gte("transaction_date", monthStart.toISOString()),
+      supabase.from("inventory_transactions" as any).select("item_id, movement_type, qty"),
     ]);
     if (c.error) toast.error(c.error.message);
     setItems((c.data || []) as Item[]);
@@ -72,7 +73,9 @@ function LiveStock() {
     ((t.data || []) as any[]).forEach((tx) => {
       const k = tx.item_id;
       if (!map[k]) map[k] = { received: 0, sold: 0, damaged: 0 };
-      if (tx.movement_type === "manual_entry" || tx.movement_type === "opening_stock") map[k].received += Math.abs(tx.qty);
+      // Received = Add Stock entries only. Exclude `opening_stock` movements
+      // because the opening baseline is already counted via i.opening_stock.
+      if (tx.movement_type === "manual_entry") map[k].received += Math.abs(tx.qty);
       else if (tx.movement_type === "sale") map[k].sold += Math.abs(tx.qty);
       else if (tx.movement_type === "sale_reversal") map[k].sold -= Math.abs(tx.qty);
       else if (tx.movement_type === "damage" || tx.movement_type === "write_off") map[k].damaged += Math.abs(tx.qty);

@@ -107,6 +107,7 @@ function LiveStock() {
       totalValueNlc: filtered.reduce((s, i) => s + ((computedById[i.id] ?? i.current_stock) * i.nlc_price), 0),
       lowStock: filtered.filter((i) => { const cur = computedById[i.id] ?? i.current_stock; return cur > 0 && i.reorder_level > 0 && cur <= i.reorder_level; }).length,
       outOfStock: filtered.filter((i) => (computedById[i.id] ?? i.current_stock) <= 0).length,
+      totalUnits: filtered.reduce((s, i) => s + (computedById[i.id] ?? i.current_stock ?? 0), 0),
     };
   }, [filtered, computedById]);
 
@@ -121,7 +122,7 @@ function LiveStock() {
         <Stat icon={<XCircle />} label="Out of Stock" value={totals.outOfStock} color="red" />
       </div>
 
-      <div className="flex flex-wrap gap-2 items-center">
+     <div className="flex flex-wrap gap-2 items-center">
         <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…" className="px-3 py-2 bg-slate-900 border border-slate-800 rounded text-sm text-white" />
         <select value={filterCat} onChange={(e) => setFilterCat(e.target.value)} className="px-3 py-2 bg-slate-900 border border-slate-800 rounded text-sm text-white">
           <option value="">All categories</option>{cats.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -129,6 +130,12 @@ function LiveStock() {
         <select value={filterBrand} onChange={(e) => setFilterBrand(e.target.value)} className="px-3 py-2 bg-slate-900 border border-slate-800 rounded text-sm text-white">
           <option value="">All brands</option>{brands.map((b) => <option key={b} value={b}>{b}</option>)}
         </select>
+        <div className="flex items-center gap-2 px-3 py-2 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+          <span className="text-xs text-slate-400">Total Units</span>
+          <span className="text-sm font-bold text-purple-400">{totals.totalUnits}</span>
+          {filterCat && <span className="text-xs text-slate-500">in {filterCat}</span>}
+          {filterBrand && <span className="text-xs text-slate-500">{filterCat ? "·" : "in"} {filterBrand}</span>}
+        </div>
         <button onClick={() => setShowAudit(true)} className="ml-auto flex items-center gap-2 px-3 py-2 bg-purple-600 hover:bg-purple-500 rounded text-white text-sm">
           <ClipboardCheck size={14} />Run Month-end Audit
         </button>

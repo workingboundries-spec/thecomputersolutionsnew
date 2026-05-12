@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Share2, Grid3x3, List, Search, X, Copy, History } from "lucide-react";
+import { Plus, Pencil, Trash2, Share2, Grid3x3, List, Search, X, Copy, History, SlidersHorizontal } from "lucide-react";
 import { formatINR, todayISO, addDays, waLink } from "@/crm/lib/format";
 import { useAdminSetting } from "@/crm/hooks/useAdminSettings";
 import { useCrmAuth } from "@/crm/hooks/useCrmAuth";
@@ -25,6 +25,26 @@ type Item = {
   is_active: boolean;
   image_url: string | null;
 };
+
+// ── Column definitions ──────────────────────────────────────────────────────
+type ColKey = "code" | "brand_model" | "category" | "stock" | "mrp" | "nlc" | "billing" | "sale" | "online" | "margin" | "specs";
+
+const ALL_COLS: { key: ColKey; label: string; always?: boolean }[] = [
+  { key: "code",       label: "Code" },
+  { key: "brand_model",label: "Brand / Model", always: true },
+  { key: "category",   label: "Category" },
+  { key: "stock",      label: "Stock" },
+  { key: "mrp",        label: "MRP" },
+  { key: "nlc",        label: "NLC (Cost)" },
+  { key: "billing",    label: "Billing Price" },
+  { key: "sale",       label: "Sale" },
+  { key: "online",     label: "Online Price" },
+  { key: "margin",     label: "Margin" },
+  { key: "specs",      label: "Specifications" },
+];
+
+const DEFAULT_COLS: ColKey[] = ["code", "brand_model", "category", "stock", "nlc", "sale", "margin"];
+// ────────────────────────────────────────────────────────────────────────────
 
 const CATEGORIES = ["laptop", "cctv", "accessory", "networking", "printer", "other"];
 
@@ -55,6 +75,31 @@ export default function CrmCatalogue() {
   const [editing, setEditing] = useState<Partial<Item> | null>(null);
   const [shareItem, setShareItem] = useState<Item | null>(null);
   const [historyItem, setHistoryItem] = useState<Item | null>(null);
+
+  // ── Column visibility ─────────────────────────────────────────────────────
+  const [visibleCols, setVisibleCols] = useState<ColKey[]>(() => {
+    try {
+      const saved = localStorage.getItem("catalogue_column_visibility");
+      return saved ? (JSON.parse(saved) as ColKey[]) : DEFAULT_COLS;
+    } catch { return DEFAULT_COLS; }
+  });
+  const [showColPicker, setShowColPicker] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem("catalogue_column_visibility", JSON.stringify(visibleCols));
+  }, [visibleCols]);
+
+  const toggleCol = (key: ColKey) => {
+    const col = ALL_COLS.find((c) => c.key === key);
+    if (col?.always) return; // Brand/Model is always visible
+    setVisibleCols((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
+  };
+
+  const col = (key: ColKey) => visibleCols.includes(key);
+  // ─────────────────────────────────────────────────────────────────────────
+
   const adminCategories = useAdminSetting<string[]>("catalogue_categories", []);
   const dynamicCats = (adminCategories && adminCategories.length ? adminCategories.map((c: string) => c.toLowerCase()) : CATEGORIES);
   const { user } = useCrmAuth();
@@ -82,15 +127,12 @@ export default function CrmCatalogue() {
       mrp: Number(editing.mrp || 0), is_active: editing.is_active ?? true,
       image_url: editing.image_url || null,
       current_stock: qty,
-      // Catalogue qty edit acts as a "reset" — opening stock follows the new qty
-      // so the Stock Report's Opening column always matches what's in the catalogue.
       opening_stock: qty,
     };
 
     if (isNew) {
       const { data: created, error } = await supabase.from("crm_catalogue").insert(payload).select("id").single();
       if (error) return toast.error(error.message);
-      // Write opening-stock ledger row so Stock Report's math is consistent.
       if (qty > 0 && created?.id) {
         await supabase.from("inventory_transactions" as any).insert({
           item_id: created.id,
@@ -106,7 +148,6 @@ export default function CrmCatalogue() {
       const { error } = await supabase.from("crm_catalogue").update(payload).eq("id", editing.id!);
       if (error) return toast.error(error.message);
 
-      // Log a ledger row when the qty is reset via catalogue (informational; not counted as Received).
       const delta = qty - originalQty;
       if (delta !== 0) {
         await supabase.from("inventory_transactions" as any).insert({
@@ -119,7 +160,6 @@ export default function CrmCatalogue() {
         });
       }
 
-      // Log price-field changes to history
       if (original) {
         const fields: PriceField[] = ["nlc_price", "billing_price", "sale_price", "online_price", "mrp"];
         const changes = fields
@@ -173,6 +213,43 @@ export default function CrmCatalogue() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-white">Catalogue</h1>
         <div className="flex gap-2">
+          {/* ── Column picker (table view only) ── */}
+          {view === "table" && (
+            <div className="relative">
+              <button
+                onClick={() => setShowColPicker((v) => !v)}
+                title="Choose columns"
+                className={`flex items-center gap-1.5 px-3 py-2 border rounded text-sm ${showColPicker ? "bg-blue-600 border-blue-500 text-white" : "bg-slate-900 border-slate-800 text-slate-300 hover:text-white"}`}
+              >
+                <SlidersHorizontal size={15} />
+                <span className="hidden sm:inline">Columns</span>
+              </button>
+
+              {showColPicker && (
+                <div className="absolute right-0 top-full mt-1 z-30 w-52 bg-slate-900 border border-slate-700 rounded-lg shadow-xl p-3 space-y-1">
+                  <p className="text-[10px] uppercase text-slate-500 mb-2 tracking-wider">Show / Hide Columns</p>
+                  {ALL_COLS.map(({ key, label, always }) => (
+                    <label
+                      key={key}
+                      className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer text-sm ${always ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-800"}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={visibleCols.includes(key)}
+                        onChange={() => toggleCol(key)}
+                        disabled={!!always}
+                        className="accent-blue-500"
+                      />
+                      <span className="text-slate-300">{label}</span>
+                      {always && <span className="ml-auto text-[10px] text-slate-500">always</span>}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* View toggle */}
           <div className="flex bg-slate-900 border border-slate-800 rounded">
             <button onClick={() => setView("table")} className={`p-2 ${view === "table" ? "bg-blue-600 text-white" : "text-slate-400"}`}><List size={16} /></button>
             <button onClick={() => setView("grid")} className={`p-2 ${view === "grid" ? "bg-blue-600 text-white" : "text-slate-400"}`}><Grid3x3 size={16} /></button>
@@ -195,6 +272,11 @@ export default function CrmCatalogue() {
         </select>
       </div>
 
+      {/* Close col picker when clicking outside */}
+      {showColPicker && (
+        <div className="fixed inset-0 z-20" onClick={() => setShowColPicker(false)} />
+      )}
+
       {loading ? (
         <div className="text-center py-12 text-slate-400">Loading...</div>
       ) : filtered.length === 0 ? (
@@ -207,41 +289,57 @@ export default function CrmCatalogue() {
           <table className="w-full text-sm">
             <thead className="bg-slate-800/50 text-xs uppercase text-slate-400">
               <tr>
-                <th className="text-left p-3">Code</th>
-                <th className="text-left p-3">Brand / Model</th>
-                <th className="text-left p-3">Category</th>
-                <th className="text-right p-3">Stock</th>
-                <th className="text-right p-3">NLC</th>
-                <th className="text-right p-3">Sale</th>
-                <th className="text-right p-3">Margin</th>
+                {col("code")       && <th className="text-left p-3">Code</th>}
+                {col("brand_model")&& <th className="text-left p-3">Brand / Model</th>}
+                {col("category")   && <th className="text-left p-3">Category</th>}
+                {col("stock")      && <th className="text-right p-3">Stock</th>}
+                {col("mrp")        && <th className="text-right p-3">MRP</th>}
+                {col("nlc")        && <th className="text-right p-3">NLC</th>}
+                {col("billing")    && <th className="text-right p-3">Billing</th>}
+                {col("sale")       && <th className="text-right p-3">Sale</th>}
+                {col("online")     && <th className="text-right p-3">Online</th>}
+                {col("margin")     && <th className="text-right p-3">Margin</th>}
+                {col("specs")      && <th className="text-left p-3">Specifications</th>}
                 <th className="text-right p-3">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
               {filtered.map((i) => (
                 <tr key={i.id} className="hover:bg-slate-800/30">
-                  <td className="p-3">
-                    <button
-                      type="button"
-                      onClick={() => copyCode(i.item_code)}
-                      title="Click to copy code"
-                      className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded font-mono text-xs text-blue-300"
-                    >
-                      {i.item_code}
-                      <Copy size={11} className="opacity-60" />
-                    </button>
-                  </td>
-                  <td className="p-3">
-                    <div className="font-medium text-white">{i.brand}</div>
-                    <div className="text-xs text-slate-400">{i.model}</div>
-                  </td>
-                  <td className="p-3 text-slate-300 capitalize">{i.category}</td>
-                  <td className="p-3 text-right">
-                    <span className={`px-2 py-0.5 rounded text-xs border ${stockColor(i.stock_qty)}`}>{i.stock_qty}</span>
-                  </td>
-                  <td className="p-3 text-right text-slate-300">{formatINR(i.nlc_price)}</td>
-                  <td className="p-3 text-right text-white font-medium">{formatINR(i.sale_price)}</td>
-                  <td className="p-3 text-right text-green-400">{margin(i.sale_price, i.nlc_price).toFixed(1)}%</td>
+                  {col("code") && (
+                    <td className="p-3">
+                      <button
+                        type="button"
+                        onClick={() => copyCode(i.item_code)}
+                        title="Click to copy code"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded font-mono text-xs text-blue-300"
+                      >
+                        {i.item_code}
+                        <Copy size={11} className="opacity-60" />
+                      </button>
+                    </td>
+                  )}
+                  {col("brand_model") && (
+                    <td className="p-3">
+                      <div className="font-medium text-white">{i.brand}</div>
+                      <div className="text-xs text-slate-400">{i.model}</div>
+                    </td>
+                  )}
+                  {col("category") && <td className="p-3 text-slate-300 capitalize">{i.category}</td>}
+                  {col("stock") && (
+                    <td className="p-3 text-right">
+                      <span className={`px-2 py-0.5 rounded text-xs border ${stockColor(i.stock_qty)}`}>{i.stock_qty}</span>
+                    </td>
+                  )}
+                  {col("mrp")     && <td className="p-3 text-right text-slate-300">{formatINR(i.mrp)}</td>}
+                  {col("nlc")     && <td className="p-3 text-right text-slate-300">{formatINR(i.nlc_price)}</td>}
+                  {col("billing") && <td className="p-3 text-right text-slate-300">{formatINR(i.billing_price)}</td>}
+                  {col("sale")    && <td className="p-3 text-right text-white font-medium">{formatINR(i.sale_price)}</td>}
+                  {col("online")  && <td className="p-3 text-right text-slate-300">{formatINR(i.online_price)}</td>}
+                  {col("margin")  && <td className="p-3 text-right text-green-400">{margin(i.sale_price, i.nlc_price).toFixed(1)}%</td>}
+                  {col("specs")   && (
+                    <td className="p-3 text-slate-300 text-xs max-w-[220px] whitespace-pre-wrap break-words">{i.specs || "—"}</td>
+                  )}
                   <td className="p-3">
                     <div className="flex justify-end gap-1">
                       <button onClick={() => setShareItem(i)} title="Share quote" className="p-1.5 hover:bg-slate-700 rounded text-blue-400"><Share2 size={14} /></button>
@@ -360,7 +458,6 @@ function QuoteShareModal({ item, onClose }: { item: Item; onClose: () => void })
   const [savedQuote, setSavedQuote] = useState<{ no: string; id: string } | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Build the WhatsApp message from the editable template once we have a share link.
   useEffect(() => {
     if (!shareUrl) { setWaMsg(""); return; }
     (async () => {
@@ -384,7 +481,6 @@ function QuoteShareModal({ item, onClose }: { item: Item; onClose: () => void })
     })();
   }, [shareUrl, name, price, validUntil, item.brand, item.model, config, phone]);
 
-  // Try to find an open enquiry for this phone+item; otherwise create one.
   const ensureEnquiry = async (): Promise<string | null> => {
     if (!phone) return null;
     const itemName = `${item.brand} ${item.model}`;
@@ -441,17 +537,14 @@ function QuoteShareModal({ item, onClose }: { item: Item; onClose: () => void })
     }
     setSaving(true);
 
-    // 1) Public share record (existing flow)
     const { data: share, error: shareErr } = await supabase.from("crm_quote_shares").insert({
       catalogue_id: item.id, customer_name: name || null, customer_phone: phone || null,
       shared_config: config, shared_price: price, valid_until: validUntil, is_active: true,
     }).select("share_link").single();
     if (shareErr) { setSaving(false); return toast.error(shareErr.message); }
 
-    // 2) Auto-link/create enquiry
     const enquiryId = await ensureEnquiry();
 
-    // 3) Auto-save a real quotation in CRM
     try {
       const quote_no = await nextQuoteNo();
       const itemName = `${item.brand} ${item.model}`;
@@ -486,8 +579,6 @@ function QuoteShareModal({ item, onClose }: { item: Item; onClose: () => void })
     setShareUrl(url);
     toast.success(enquiryId ? "Quote saved & linked to Enquiry" : "Quote link generated");
   };
-
-  // waMsg is built reactively in a useEffect above (uses editable template).
 
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 overflow-y-auto">

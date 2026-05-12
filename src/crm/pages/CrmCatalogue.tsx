@@ -207,7 +207,7 @@ export default function CrmCatalogue() {
     const matchCat = !filterCat || i.category === filterCat;
     return matchSearch && matchCat;
   });
-
+  const totalUnits = filtered.reduce((sum, i) => sum + (Number(i.stock_qty) || 0), 0);
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -261,7 +261,7 @@ export default function CrmCatalogue() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 items-center">
         <div className="relative flex-1 min-w-[200px]">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search brand, model or code (ITM-0001)..." className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-800 rounded text-sm text-white" />
@@ -270,6 +270,11 @@ export default function CrmCatalogue() {
           <option value="">All categories</option>
           {dynamicCats.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
+        <div className="flex items-center gap-2 px-3 py-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+          <span className="text-xs text-slate-400">Total Units</span>
+          <span className="text-sm font-bold text-blue-400">{totalUnits}</span>
+          {filterCat && <span className="text-xs text-slate-500">in {filterCat}</span>}
+        </div>
       </div>
 
       {/* Close col picker when clicking outside */}

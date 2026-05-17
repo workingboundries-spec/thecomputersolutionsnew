@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { formatINR, formatDate, todayISO, addMonths, addDays } from "@/crm/lib/format";
 import { toast } from "sonner";
-import { Plus, Search, Eye, Edit2, MessageCircle, Printer, X, Trash2 } from "lucide-react";
+import { Plus, Search, Eye, Edit2, MessageCircle, Printer, X, Trash2, ChevronDown } from "lucide-react";
 import { useAdminSetting } from "@/crm/hooks/useAdminSettings";
 import { applyMovement } from "@/crm/lib/inventory";
 import { useCrmAuth } from "@/crm/hooks/useCrmAuth";
@@ -155,6 +155,152 @@ async function decrementStock(item_id: string | null, qty: number, saleId: strin
   });
 }
 
+// ─── Searchable Catalogue Picker ──────────────────────────────────────────────
+// Searches: item_code, brand, model, specifications, specs, description
+function CataloguePicker({
+  catalogue,
+  selectedId,
+  onSelect,
+}: {
+  catalogue: any[];
+  selectedId: string | null;
+  onSelect: (item: any | null) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const selectedItem = catalogue.find((c) => c.id === selectedId);
+  const displayValue = selectedItem
+    ? `${selectedItem.item_code ? `[${selectedItem.item_code}] ` : ""}${selectedItem.brand} ${selectedItem.model}`
+    : "";
+
+  const filtered = (() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return catalogue;
+    return catalogue.filter((c) => {
+      const haystack = [
+        c.item_code || "",
+        c.brand || "",
+        c.model || "",
+        c.specifications || "",
+        c.specs || "",
+        c.description || "",
+      ].join(" ").toLowerCase();
+      return haystack.includes(q);
+    });
+  })();
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setQuery("");
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const choose = (item: any | null) => {
+    onSelect(item);
+    setOpen(false);
+    setQuery("");
+  };
+
+  return (
+    <div ref={containerRef} className="relative">
+      {/* Trigger */}
+      <button
+        type="button"
+        onClick={() => {
+          setOpen((o) => !o);
+          setQuery("");
+          setTimeout(() => inputRef.current?.focus(), 50);
+        }}
+        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-left flex items-center justify-between gap-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+      >
+        <span className={selectedItem ? "text-white truncate" : "text-slate-500 truncate"}>
+          {selectedItem ? displayValue : "— Manual entry —"}
+        </span>
+        <ChevronDown size={14} className={`shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="absolute z-[200] top-full mt-1 left-0 right-0 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl flex flex-col max-h-72">
+          {/* Search box */}
+          <div className="p-2 border-b border-slate-700 shrink-0">
+            <div className="relative">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                ref={inputRef}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Type brand, model, specs e.g. R5, i7, 16GB, CCTV…"
+                className="w-full pl-8 pr-7 py-1.5 bg-slate-700 border border-slate-600 rounded text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              {query && (
+                <button type="button" onClick={() => setQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* List */}
+          <div className="overflow-y-auto flex-1">
+            {/* Manual entry option */}
+            <button
+              type="button"
+              onClick={() => choose(null)}
+              className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-700 ${!selectedId ? "bg-slate-700/60 text-blue-400" : "text-slate-400"}`}
+            >
+              — Manual entry —
+            </button>
+
+            {filtered.length === 0 ? (
+              <div className="px-3 py-5 text-center text-xs text-slate-500">
+                No items match "<span className="text-slate-300">{query}</span>"
+              </div>
+            ) : (
+              filtered.map((c) => {
+                const label = `${c.item_code ? `[${c.item_code}] ` : ""}${c.brand} ${c.model}`;
+                const spec = c.specifications || c.specs || c.description || "";
+                const isSelected = c.id === selectedId;
+                const inStock = Number(c.stock_qty) > 0;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => choose(c)}
+                    className={`w-full text-left px-3 py-2.5 hover:bg-slate-700/70 border-t border-slate-700/40 transition-colors ${isSelected ? "bg-blue-600/20" : ""}`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`text-sm font-medium truncate ${isSelected ? "text-blue-300" : "text-white"}`}>
+                        {label}
+                      </span>
+                      <span className={`text-xs shrink-0 px-1.5 py-0.5 rounded font-medium ${inStock ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
+                        {inStock ? `${c.stock_qty} in stock` : "out of stock"}
+                      </span>
+                    </div>
+                    {spec && (
+                      <div className="text-[11px] text-slate-400 truncate mt-0.5">{spec}</div>
+                    )}
+                    <div className="text-[11px] text-blue-400/80 mt-0.5">{formatINR(c.sale_price)}</div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function CrmSales() {
   const { user } = useCrmAuth();
   const [params, setParams] = useSearchParams();
@@ -193,7 +339,8 @@ export default function CrmSales() {
     setLoading(true);
     const [salesRes, catRes, settRes] = await Promise.all([
       supabase.from("crm_sales").select("*").eq("is_deleted", false).order("created_at", { ascending: false }),
-      supabase.from("crm_catalogue").select("id, item_code, brand, model, sale_price, stock_qty"),
+      // Include specifications/specs/description so the picker can search them
+      supabase.from("crm_catalogue").select("id, item_code, brand, model, sale_price, stock_qty, specifications, specs, description"),
       supabase.from("crm_settings").select("key, value"),
     ]);
     if (salesRes.error) toast.error(salesRes.error.message);
@@ -207,7 +354,6 @@ export default function CrmSales() {
 
   useEffect(() => { load(); }, []);
 
-  // Handle ?new=1 from enquiry conversion
   useEffect(() => {
     if (params.get("new") === "1") {
       const prefill: any = { ...empty };
@@ -453,10 +599,7 @@ export default function CrmSales() {
         </table>
       </div>
 
-      {/* ─── Form modal ───────────────────────────────────────────────────────────
-          FIX 1: Backdrop no longer has onClick → clicking outside does NOT close
-          the form. User must press Cancel or Save to dismiss.
-      ──────────────────────────────────────────────────────────────────────────── */}
+      {/* Form modal — backdrop click does NOT close the form */}
       {showForm && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-start justify-center p-4 overflow-y-auto">
           <form onSubmit={save} className="bg-slate-900 border border-slate-700 rounded-lg p-5 w-full max-w-3xl my-8 space-y-3">
@@ -488,56 +631,42 @@ export default function CrmSales() {
                 {codeError && <span className="text-[11px] text-red-400 mt-1 block">{codeError}</span>}
               </Field>
 
-              {/* ─── Catalogue picker ────────────────────────────────────────────────
-                  FIX 2: Selecting an item auto-fills Item Name, Sale Price, and
-                  sets item_id. The Item Name field becomes read-only when item_id
-                  is set so the auto-filled value is preserved.
-              ──────────────────────────────────────────────────────────────────── */}
-              <Field label="Pick from Catalogue (optional)">
-                <select
-                  value={form.item_id || ""}
-                  onChange={(e) => {
-                    const c = catalogue.find((x) => x.id === e.target.value);
-                    if (c) {
-                      setForm(recalc({
-                        ...form,
-                        item_id: c.id,
-                        item_name: `${c.brand} ${c.model}`,
-                        sale_price: Number(c.sale_price || 0),
-                      }));
-                      setCodeInput(c.item_code || "");
-                      setCodeError("");
-                    } else {
-                      // "Manual entry" selected — clear item_id so name becomes editable
-                      setForm({ ...form, item_id: null, item_name: "" });
-                      setCodeInput("");
-                    }
-                  }}
-                  className={fInput}
-                >
-                  <option value="">— Manual entry —</option>
-                  {catalogue.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.item_code ? `[${c.item_code}] ` : ""}{c.brand} {c.model} (stock {c.stock_qty})
-                    </option>
-                  ))}
-                </select>
-              </Field>
+              {/* ── Searchable catalogue picker — spans 2 cols for comfort ── */}
+              <div className="md:col-span-2">
+                <Field label="Pick from Catalogue — search brand, model, specs (e.g. R5, i7, 16GB, CCTV)">
+                  <CataloguePicker
+                    catalogue={catalogue}
+                    selectedId={form.item_id}
+                    onSelect={(c) => {
+                      if (c) {
+                        setForm(recalc({
+                          ...form,
+                          item_id: c.id,
+                          item_name: `${c.brand} ${c.model}`,
+                          sale_price: Number(c.sale_price || 0),
+                        }));
+                        setCodeInput(c.item_code || "");
+                        setCodeError("");
+                      } else {
+                        setForm({ ...form, item_id: null, item_name: "" });
+                        setCodeInput("");
+                      }
+                    }}
+                  />
+                </Field>
+              </div>
 
               <Field label="Item Name *">
                 <input
                   required
                   value={form.item_name}
                   onChange={(e) => setForm({ ...form, item_name: e.target.value })}
-                  // Read-only when a catalogue item is selected; editable for manual entry
                   readOnly={!!form.item_id}
-                  title={form.item_id ? "Auto-filled from catalogue — select '— Manual entry —' to type freely" : ""}
-                  className={`${fInput} ${form.item_id ? "opacity-60 cursor-not-allowed select-none" : ""}`}
+                  title={form.item_id ? "Auto-filled from catalogue — choose '— Manual entry —' to type freely" : ""}
+                  className={`${fInput} ${form.item_id ? "opacity-60 cursor-not-allowed" : ""}`}
                 />
                 {form.item_id && (
-                  <span className="text-[10px] text-slate-500 mt-0.5 block">
-                    Auto-filled from catalogue
-                  </span>
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">Auto-filled from catalogue</span>
                 )}
               </Field>
 
@@ -562,7 +691,6 @@ export default function CrmSales() {
         </div>
       )}
 
-      {/* Invoice modal */}
       {viewing && <InvoiceModal sale={viewing} shop={shopInfo} onClose={() => setViewing(null)} />}
     </div>
   );

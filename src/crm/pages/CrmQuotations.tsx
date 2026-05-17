@@ -666,24 +666,9 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
         : rawPhone.startsWith("91") && rawPhone.length >= 12
         ? rawPhone          // already has country code e.g. 919815122441
         : "91" + rawPhone;  // prepend 91 e.g. 9815122441 → 919815122441
-      const file = new File([blob], `Quotation-${q.quote_no}.jpg`, { type: "image/jpeg" });
-
-      const navAny = navigator as any;
-      const canShareFiles = !!(navAny.canShare && navAny.canShare({ files: [file] }) && navAny.share);
-      if (canShareFiles) {
-        try {
-          await navAny.share({
-            files: [file],
-            title: `Quotation ${q.quote_no}`,
-            text: `Quotation ${q.quote_no} — Total ₹${Number(q.total_amount).toLocaleString("en-IN")}`,
-          });
-          toast.success("Pick WhatsApp from the share sheet");
-          return;
-        } catch (err: any) {
-          if (err?.name !== "AbortError") console.warn("Native share failed:", err);
-        }
-      }
-
+      // Always use direct URL — native share (navigator.share) triggers
+      // WhatsApp Desktop's contact-picker and cannot pre-select a contact.
+      // Direct URL opens the specific chat immediately.
       downloadBlob(blob);
       toast.message("Uploading image for WhatsApp preview…");
       const imgUrl = await uploadAndGetUrl(blob);

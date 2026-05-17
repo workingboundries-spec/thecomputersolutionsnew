@@ -287,11 +287,9 @@ export default function QuotationTemplatesTab({ onUseTemplate }: { onUseTemplate
       {showForm && (
         <div
           className="fixed inset-0 z-50 bg-black/60 flex items-start justify-center p-4 overflow-y-auto"
-          onClick={() => setShowForm(false)}
         >
           <div
             className="bg-slate-900 border border-slate-700 rounded-lg p-5 w-full max-w-3xl my-8 space-y-4"
-            onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between">
               <h3 className="text-lg font-semibold text-white">{editing ? "Edit" : "New"} Template</h3>

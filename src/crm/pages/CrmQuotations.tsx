@@ -659,8 +659,13 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
       const canvas = await captureCanvas();
       const blob = await canvasToBlob(canvas);
 
-      const phone = (q.whatsapp || q.phone || "").replace(/\D/g, "");
-      const cc = !phone ? "" : phone.startsWith("91") || phone.length > 10 ? phone : "91" + phone;
+      const rawPhone = (q.whatsapp || q.phone || "").replace(/\D/g, "");
+      // Always ensure country code 91 is prepended for Indian numbers
+      const cc = !rawPhone
+        ? ""
+        : rawPhone.startsWith("91") && rawPhone.length >= 12
+        ? rawPhone          // already has country code e.g. 919815122441
+        : "91" + rawPhone;  // prepend 91 e.g. 9815122441 → 919815122441
       const file = new File([blob], `Quotation-${q.quote_no}.jpg`, { type: "image/jpeg" });
 
       const navAny = navigator as any;
@@ -695,7 +700,9 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
       const tpl = settings.quotation_message_template || DEFAULT_QUOTATION_MESSAGE_TEMPLATE;
       const msg = renderQuotationMessage(tpl, vars);
       window.open(
-        cc ? `https://wa.me/${cc}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`,
+        cc
+          ? `https://api.whatsapp.com/send/?phone=${cc}&text=${encodeURIComponent(msg)}&type=phone_number&app_absent=0`
+          : `https://api.whatsapp.com/send/?text=${encodeURIComponent(msg)}`,
         "_blank"
       );
       if (imgUrl) {

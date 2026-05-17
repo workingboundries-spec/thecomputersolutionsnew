@@ -128,7 +128,6 @@ export default function CrmQuotations() {
 
   const openEdit = (r: any) => {
     const items = Array.isArray(r.items) ? r.items : [];
-    // Recover extra_discount: saved discount = sum(line discounts) + extra_discount
     const lineDisc = items.reduce((s: number, it: any) => s + (Number(it.qty || 0) * Number(it.price || 0) * Number(it.discount_pct || 0) / 100), 0);
     const extra = Math.max(0, Number(r.discount || 0) - lineDisc);
     setForm({ ...emptyForm(), ...r, items, extra_discount: extra });
@@ -161,13 +160,19 @@ export default function CrmQuotations() {
   };
 
   const [pickerSearch, setPickerSearch] = useState("");
+
+  // ── SPECS SEARCH FIX ──────────────────────────────────────────────────────
+  // Searches item_code, brand, model AND specs so typing "R5" surfaces every
+  // laptop whose specification string contains "Ryzen 5" or "R5".
   const filteredPicker = catalogue.filter((c) => {
     const s = pickerSearch.trim().toLowerCase();
     if (!s) return true;
     return (c.item_code || "").toLowerCase().includes(s)
-      || c.brand.toLowerCase().includes(s)
-      || c.model.toLowerCase().includes(s);
+      || (c.brand || "").toLowerCase().includes(s)
+      || (c.model || "").toLowerCase().includes(s)
+      || (c.specs || "").toLowerCase().includes(s);
   });
+  // ─────────────────────────────────────────────────────────────────────────
 
   const totals = useMemo(() => calcTotals(form.items, form.gst_percent, form.extra_discount), [form.items, form.gst_percent, form.extra_discount]);
 
@@ -208,7 +213,6 @@ export default function CrmQuotations() {
     if (form.enquiry_id) {
       await supabase.from("crm_enquiries").update({ status: "quoted" }).eq("id", form.enquiry_id);
     }
-    // Increment template usage
     if (form._from_template_id && !form.id) {
       const { data: tpl } = await supabase.from("quotation_templates" as any).select("used_count").eq("id", form._from_template_id).single();
       const cur = Number((tpl as any)?.used_count || 0);
@@ -319,7 +323,11 @@ export default function CrmQuotations() {
         <div className="fixed inset-0 z-50 bg-black/60 flex items-start justify-center p-4 overflow-y-auto" onClick={() => setShowForm(false)}>
           <div className="bg-slate-900 border border-slate-700 rounded-lg p-5 w-full max-w-4xl my-8 space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-white">{form.id ? "Edit" : "New"} Quotation <span className="ml-2 text-sm font-mono text-blue-300">{form.quote_no}</span>{form._from_template_id && <span className="ml-2 text-xs text-blue-400">(from template)</span>}</h3>
+              <h3 className="text-lg font-semibold text-white">
+                {form.id ? "Edit" : "New"} Quotation{" "}
+                <span className="ml-2 text-sm font-mono text-blue-300">{form.quote_no}</span>
+                {form._from_template_id && <span className="ml-2 text-xs text-blue-400">(from template)</span>}
+              </h3>
               <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-white"><X size={18} /></button>
             </div>
 
@@ -446,12 +454,18 @@ export default function CrmQuotations() {
                 {Number(form.gst_percent) > 0 && (
                   <Row label={`GST ${form.gst_percent}%`} value={formatINR(totals.gst_amount)} />
                 )}
-                <div className="border-t border-slate-700 pt-2 mt-2"><Row label={<span className="font-semibold">Grand Total</span>} value={<span className="text-lg text-green-400 font-bold">{formatINR(totals.total_amount)}</span>} /></div>
+                <div className="border-t border-slate-700 pt-2 mt-2">
+                  <Row label={<span className="font-semibold">Grand Total</span>} value={<span className="text-lg text-green-400 font-bold">{formatINR(totals.total_amount)}</span>} />
+                </div>
               </div>
             </div>
 
-            <Field label="Notes (Private — owner only, not shown to customer)"><textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className={inp} placeholder="Internal notes — never sent to customer or shown in preview/JPEG" /></Field>
-            <Field label="Terms & Conditions"><textarea rows={2} value={form.terms} onChange={(e) => setForm({ ...form, terms: e.target.value })} className={inp} /></Field>
+            <Field label="Notes (Private — owner only, not shown to customer)">
+              <textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className={inp} placeholder="Internal notes — never sent to customer or shown in preview/JPEG" />
+            </Field>
+            <Field label="Terms & Conditions">
+              <textarea rows={2} value={form.terms} onChange={(e) => setForm({ ...form, terms: e.target.value })} className={inp} />
+            </Field>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
               <button onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-slate-300 hover:bg-slate-800 rounded">Cancel</button>
@@ -459,34 +473,44 @@ export default function CrmQuotations() {
               <button onClick={() => save("preview")} className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded font-medium">Save & Preview</button>
             </div>
 
+            {/* ── Catalogue Picker Modal ─────────────────────────────────────── */}
             {showPicker && (
               <div className="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center p-4" onClick={() => setShowPicker(false)}>
                 <div className="bg-slate-900 border border-slate-700 rounded-lg w-full max-w-xl max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-                  <div className="px-4 py-3 border-b border-slate-800 flex justify-between"><span className="font-semibold text-white">Pick from Catalogue</span><button onClick={() => setShowPicker(false)}><X size={18} className="text-slate-400" /></button></div>
+                  <div className="px-4 py-3 border-b border-slate-800 flex justify-between">
+                    <span className="font-semibold text-white">Pick from Catalogue</span>
+                    <button onClick={() => setShowPicker(false)}><X size={18} className="text-slate-400" /></button>
+                  </div>
                   <div className="p-3 border-b border-slate-800">
                     <input
                       autoFocus
                       value={pickerSearch}
                       onChange={(e) => setPickerSearch(e.target.value)}
-                      placeholder="Search code, brand or model..."
+                      placeholder="Search code, brand, model or specs (e.g. R5, i7, 16GB)…"
                       className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-white"
                     />
+                    <p className="text-[11px] text-slate-500 mt-1.5 px-0.5">
+                      Tip: type a processor, RAM, or any spec keyword to filter results
+                    </p>
                   </div>
                   <div className="divide-y divide-slate-800">
-                    {filteredPicker.length === 0 ? <div className="p-6 text-center text-slate-500 text-sm">No matching items</div> :
-                      filteredPicker.map((it) => (
-                        <button key={it.id} onClick={() => addFromCatalogue(it)} className="w-full text-left px-4 py-3 hover:bg-slate-800 flex items-center justify-between">
-                          <div>
-                            <div className="text-white text-sm flex items-center gap-2">
-                              <span className="font-mono text-[10px] text-blue-300 px-1.5 py-0.5 bg-slate-800 rounded">{it.item_code}</span>
-                              {it.brand} {it.model}
-                            </div>
-                            <div className="text-xs text-slate-500">Stock: {it.stock_qty}</div>
+                    {filteredPicker.length === 0 ? (
+                      <div className="p-6 text-center text-slate-500 text-sm">No matching items</div>
+                    ) : filteredPicker.map((it) => (
+                      <button key={it.id} onClick={() => addFromCatalogue(it)} className="w-full text-left px-4 py-3 hover:bg-slate-800 flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-white text-sm flex items-center gap-2 flex-wrap">
+                            <span className="font-mono text-[10px] text-blue-300 px-1.5 py-0.5 bg-slate-800 rounded shrink-0">{it.item_code}</span>
+                            <span className="font-medium">{it.brand} {it.model}</span>
                           </div>
-                          <div className="text-green-400 font-medium">{formatINR(it.sale_price)}</div>
-                        </button>
-                      ))
-                    }
+                          {it.specs && (
+                            <div className="text-[11px] text-slate-400 mt-0.5 leading-relaxed line-clamp-2">{it.specs}</div>
+                          )}
+                          <div className="text-xs text-slate-500 mt-0.5">Stock: {it.stock_qty}</div>
+                        </div>
+                        <div className="text-green-400 font-medium shrink-0">{formatINR(it.sale_price)}</div>
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -510,7 +534,6 @@ export default function CrmQuotations() {
             );
             setForm({ ...form, items });
           }
-          // Refresh catalogue so the suggestion disappears
           load();
         }}
       />
@@ -522,8 +545,6 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
   const previewRef = useRef<HTMLDivElement>(null);
   const settings = useAdminSettings(["quotation_message_template", "shop_name", "shop_phone", "shop_email"]);
 
-  // Inline every <img> inside the preview as a base64 data URI so html2canvas
-  // never has to deal with CORS / cross-origin tainting.
   const inlineImages = async (root: HTMLElement) => {
     const imgs = Array.from(root.querySelectorAll("img"));
     await Promise.all(imgs.map(async (img) => {
@@ -541,7 +562,6 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
         });
         img.removeAttribute("crossorigin");
         img.src = dataUrl;
-        // wait for the new src to load
         await new Promise<void>((res2) => {
           if (img.complete && img.naturalWidth > 0) return res2();
           img.addEventListener("load", () => res2(), { once: true });
@@ -549,7 +569,6 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
           setTimeout(() => res2(), 2000);
         });
       } catch {
-        // can't inline — hide the image so it doesn't break the export
         img.style.visibility = "hidden";
       }
     }));
@@ -559,9 +578,6 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
     const original = document.getElementById("quotation-preview") as HTMLElement | null;
     if (!original) throw new Error("Preview not ready");
 
-    // Clone the live preview into a dedicated off-screen host. We never mutate
-    // the visible node (transforms + z-index hacks were causing blank captures
-    // on some browsers/mobile viewports).
     const host = document.createElement("div");
     host.style.cssText = [
       "position:fixed",
@@ -569,7 +585,6 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
       "top:0",
       "width:794px",
       "background:#ffffff",
-      // Keep it visually hidden but fully laid out + painted.
       "opacity:0",
       "pointer-events:none",
       "z-index:0",
@@ -585,9 +600,7 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
 
     try {
       await inlineImages(clone);
-      // Let layout/paint settle after image swaps.
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-
       return await html2canvas(clone, {
         scale: 2,
         useCORS: true,
@@ -616,8 +629,6 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   };
 
-  // Upload to Supabase Storage so we can include a real image URL in WhatsApp
-  // (recipient sees a clickable image preview instead of plain text).
   const uploadAndGetUrl = async (blob: Blob): Promise<string | null> => {
     try {
       const path = `quotations/${q.id || q.quote_no}-${Date.now()}.jpg`;
@@ -652,8 +663,6 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
       const cc = !phone ? "" : phone.startsWith("91") || phone.length > 10 ? phone : "91" + phone;
       const file = new File([blob], `Quotation-${q.quote_no}.jpg`, { type: "image/jpeg" });
 
-      // Mobile / supported browsers: native share sheet attaches the image
-      // directly into WhatsApp (this is the ONLY way to auto-attach a file).
       const navAny = navigator as any;
       const canShareFiles = !!(navAny.canShare && navAny.canShare({ files: [file] }) && navAny.share);
       if (canShareFiles) {
@@ -666,14 +675,10 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
           toast.success("Pick WhatsApp from the share sheet");
           return;
         } catch (err: any) {
-          // User cancelled or share failed — fall through to URL flow.
           if (err?.name !== "AbortError") console.warn("Native share failed:", err);
         }
       }
 
-      // Desktop / fallback: ALWAYS download the JPEG so user has it ready,
-      // upload to Storage so the WhatsApp message contains a clickable image
-      // link that previews inline in WhatsApp.
       downloadBlob(blob);
       toast.message("Uploading image for WhatsApp preview…");
       const imgUrl = await uploadAndGetUrl(blob);

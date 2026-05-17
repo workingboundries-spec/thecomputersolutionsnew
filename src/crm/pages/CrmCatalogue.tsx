@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Share2, Grid3x3, List, Search, X, Copy, History, SlidersHorizontal } from "lucide-react";
@@ -30,17 +30,17 @@ type Item = {
 type ColKey = "code" | "brand_model" | "category" | "stock" | "mrp" | "nlc" | "billing" | "sale" | "online" | "margin" | "specs";
 
 const ALL_COLS: { key: ColKey; label: string; always?: boolean }[] = [
-  { key: "code",       label: "Code" },
-  { key: "brand_model",label: "Brand / Model", always: true },
-  { key: "category",   label: "Category" },
-  { key: "stock",      label: "Stock" },
-  { key: "mrp",        label: "MRP" },
-  { key: "nlc",        label: "NLC (Cost)" },
-  { key: "billing",    label: "Billing Price" },
-  { key: "sale",       label: "Sale" },
-  { key: "online",     label: "Online Price" },
-  { key: "margin",     label: "Margin" },
-  { key: "specs",      label: "Specifications" },
+  { key: "code",        label: "Code" },
+  { key: "brand_model", label: "Brand / Model", always: true },
+  { key: "category",    label: "Category" },
+  { key: "stock",       label: "Stock" },
+  { key: "mrp",         label: "MRP" },
+  { key: "nlc",         label: "NLC (Cost)" },
+  { key: "billing",     label: "Billing Price" },
+  { key: "sale",        label: "Sale" },
+  { key: "online",      label: "Online Price" },
+  { key: "margin",      label: "Margin" },
+  { key: "specs",       label: "Specifications" },
 ];
 
 const DEFAULT_COLS: ColKey[] = ["code", "brand_model", "category", "stock", "nlc", "sale", "margin"];
@@ -56,7 +56,7 @@ const empty: Partial<Item> = {
 
 function stockColor(q: number) {
   if (q === 0) return "bg-red-500/20 text-red-300 border-red-500/40";
-  if (q < 3) return "bg-orange-500/20 text-orange-300 border-orange-500/40";
+  if (q < 3)   return "bg-orange-500/20 text-orange-300 border-orange-500/40";
   return "bg-green-500/20 text-green-300 border-green-500/40";
 }
 
@@ -66,14 +66,14 @@ function margin(sale: number, nlc: number) {
 }
 
 export default function CrmCatalogue() {
-  const [items, setItems] = useState<Item[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<"grid" | "table">("table");
-  const [search, setSearch] = useState("");
-  const [filterCat, setFilterCat] = useState("");
-  const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState<Partial<Item> | null>(null);
-  const [shareItem, setShareItem] = useState<Item | null>(null);
+  const [items, setItems]           = useState<Item[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [view, setView]             = useState<"grid" | "table">("table");
+  const [search, setSearch]         = useState("");
+  const [filterCat, setFilterCat]   = useState("");
+  const [showForm, setShowForm]     = useState(false);
+  const [editing, setEditing]       = useState<Partial<Item> | null>(null);
+  const [shareItem, setShareItem]   = useState<Item | null>(null);
   const [historyItem, setHistoryItem] = useState<Item | null>(null);
 
   // ── Column visibility ─────────────────────────────────────────────────────
@@ -91,7 +91,7 @@ export default function CrmCatalogue() {
 
   const toggleCol = (key: ColKey) => {
     const col = ALL_COLS.find((c) => c.key === key);
-    if (col?.always) return; // Brand/Model is always visible
+    if (col?.always) return;
     setVisibleCols((prev) =>
       prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
     );
@@ -101,94 +101,153 @@ export default function CrmCatalogue() {
   // ─────────────────────────────────────────────────────────────────────────
 
   const adminCategories = useAdminSetting<string[]>("catalogue_categories", []);
-  const dynamicCats = (adminCategories && adminCategories.length ? adminCategories.map((c: string) => c.toLowerCase()) : CATEGORIES);
+  const dynamicCats = (adminCategories && adminCategories.length
+    ? adminCategories.map((c: string) => c.toLowerCase())
+    : CATEGORIES);
   const { user } = useCrmAuth();
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from("crm_catalogue").select("*").order("created_at", { ascending: false });
-    if (error) toast.error(error.message); else setItems((data || []) as Item[]);
+    const { data, error } = await supabase
+      .from("crm_catalogue")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) toast.error(error.message);
+    else setItems((data || []) as Item[]);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
 
+  // ── FIX 3: Close dialog safely — asks confirmation before discarding data ──
+  const closeForm = useCallback(() => {
+    // Check if editing has any meaningful data filled in
+    const hasData = editing && (
+      editing.brand || editing.model ||
+      editing.specs ||
+      Number(editing.nlc_price) > 0 ||
+      Number(editing.sale_price) > 0
+    );
+    // If this is a new item with data entered, confirm before closing
+    if (!editing?.id && hasData) {
+      if (!confirm("You have unsaved data. Close without saving?")) return;
+    }
+    setShowForm(false);
+    setEditing(null);
+  }, [editing]);
+
+  // ── FIX 3: Intercept Escape key — prevent accidental dialog close ──────────
+  useEffect(() => {
+    if (!showForm) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        closeForm();
+      }
+    };
+    document.addEventListener("keydown", handler, true); // capture phase
+    return () => document.removeEventListener("keydown", handler, true);
+  }, [showForm, closeForm]);
+
   const save = async () => {
     if (!editing?.brand || !editing?.model) return toast.error("Brand and model required");
-    const qty = Number(editing.stock_qty || 0);
-    const isNew = !editing.id;
-    const original = isNew ? null : items.find((x) => x.id === editing.id) || null;
+    const qty       = Number(editing.stock_qty || 0);
+    const isNew     = !editing.id;
+    const original  = isNew ? null : items.find((x) => x.id === editing.id) || null;
     const originalQty = Number(original?.stock_qty || 0);
 
     const payload: any = {
-      brand: editing.brand, model: editing.model, category: editing.category || "laptop",
-      specs: editing.specs || null, stock_qty: qty,
-      nlc_price: Number(editing.nlc_price || 0), billing_price: Number(editing.billing_price || 0),
-      sale_price: Number(editing.sale_price || 0), online_price: Number(editing.online_price || 0),
-      mrp: Number(editing.mrp || 0), is_active: editing.is_active ?? true,
-      image_url: editing.image_url || null,
+      brand:         editing.brand,
+      model:         editing.model,
+      category:      editing.category || "laptop",
+      specs:         editing.specs || null,
+      stock_qty:     qty,
+      nlc_price:     Number(editing.nlc_price     || 0),
+      billing_price: Number(editing.billing_price || 0),
+      sale_price:    Number(editing.sale_price    || 0),
+      online_price:  Number(editing.online_price  || 0),
+      mrp:           Number(editing.mrp           || 0),
+      is_active:     editing.is_active ?? true,
+      image_url:     editing.image_url || null,
       current_stock: qty,
       opening_stock: qty,
     };
 
     if (isNew) {
-      const { data: created, error } = await supabase.from("crm_catalogue").insert(payload).select("id").single();
+      const { data: created, error } = await supabase
+        .from("crm_catalogue")
+        .insert(payload)
+        .select("id")
+        .single();
       if (error) return toast.error(error.message);
       if (qty > 0 && created?.id) {
         await supabase.from("inventory_transactions" as any).insert({
-          item_id: created.id,
+          item_id:       created.id,
           movement_type: "opening_stock",
-          qty: qty,
+          qty:           qty,
           balance_after: qty,
-          notes: "Initial stock on item creation",
-          created_by: user?.id ?? null,
+          notes:         "Initial stock on item creation",
+          created_by:    user?.id ?? null,
         });
       }
       toast.success("Added");
     } else {
-      const { error } = await supabase.from("crm_catalogue").update(payload).eq("id", editing.id!);
+      const { error } = await supabase
+        .from("crm_catalogue")
+        .update(payload)
+        .eq("id", editing.id!);
       if (error) return toast.error(error.message);
 
       const delta = qty - originalQty;
       if (delta !== 0) {
         await supabase.from("inventory_transactions" as any).insert({
-          item_id: editing.id,
+          item_id:       editing.id,
           movement_type: "audit_adjustment",
-          qty: delta,
+          qty:           delta,
           balance_after: qty,
-          reason: "Catalogue qty reset — opening stock updated",
-          created_by: user?.id ?? null,
+          reason:        "Catalogue qty reset — opening stock updated",
+          created_by:    user?.id ?? null,
         });
       }
 
       if (original) {
         const fields: PriceField[] = ["nlc_price", "billing_price", "sale_price", "online_price", "mrp"];
         const changes = fields
-          .map((f) => ({ field: f, oldValue: Number((original as any)[f] || 0), newValue: Number((editing as any)[f] || 0) }))
+          .map((f) => ({
+            field:    f,
+            oldValue: Number((original as any)[f] || 0),
+            newValue: Number((editing  as any)[f] || 0),
+          }))
           .filter((c) => c.oldValue !== c.newValue);
         if (changes.length > 0) {
           await logPriceChanges({
-            itemId: editing.id!,
+            itemId:    editing.id!,
             changes,
-            source: "manual_edit",
-            notes: "Edited from Catalogue",
+            source:    "manual_edit",
+            notes:     "Edited from Catalogue",
             changedBy: user?.id ?? null,
           });
         }
       }
       toast.success("Updated");
     }
-    setShowForm(false); setEditing(null); load();
+    setShowForm(false);
+    setEditing(null);
+    load();
   };
 
   const del = async (id: string) => {
     if (!confirm("Delete this item?")) return;
     const { error } = await supabase.from("crm_catalogue").delete().eq("id", id);
     if (error) return toast.error(error.message);
-    toast.success("Deleted"); load();
+    toast.success("Deleted");
+    load();
   };
 
   const copyCode = (code: string) => {
-    navigator.clipboard?.writeText(code).then(() => toast.success(`Copied ${code}`)).catch(() => {});
+    navigator.clipboard?.writeText(code)
+      .then(() => toast.success(`Copied ${code}`))
+      .catch(() => {});
   };
 
   const duplicate = (i: Item) => {
@@ -198,16 +257,21 @@ export default function CrmCatalogue() {
     toast.success("Item data copied — edit & save as new");
   };
 
+  // ── FIX 1: Search now includes Specifications column ──────────────────────
   const filtered = items.filter((i) => {
     const s = search.toLowerCase();
     const matchSearch = !s
       || i.brand.toLowerCase().includes(s)
       || i.model.toLowerCase().includes(s)
-      || (i.item_code || "").toLowerCase().includes(s);
+      || (i.item_code || "").toLowerCase().includes(s)
+      || (i.specs    || "").toLowerCase().includes(s);   // ← ADDED
     const matchCat = !filterCat || i.category === filterCat;
     return matchSearch && matchCat;
   });
+  // ─────────────────────────────────────────────────────────────────────────
+
   const totalUnits = filtered.reduce((sum, i) => sum + (Number(i.stock_qty) || 0), 0);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -224,7 +288,6 @@ export default function CrmCatalogue() {
                 <SlidersHorizontal size={15} />
                 <span className="hidden sm:inline">Columns</span>
               </button>
-
               {showColPicker && (
                 <div className="absolute right-0 top-full mt-1 z-30 w-52 bg-slate-900 border border-slate-700 rounded-lg shadow-xl p-3 space-y-1">
                   <p className="text-[10px] uppercase text-slate-500 mb-2 tracking-wider">Show / Hide Columns</p>
@@ -252,9 +315,12 @@ export default function CrmCatalogue() {
           {/* View toggle */}
           <div className="flex bg-slate-900 border border-slate-800 rounded">
             <button onClick={() => setView("table")} className={`p-2 ${view === "table" ? "bg-blue-600 text-white" : "text-slate-400"}`}><List size={16} /></button>
-            <button onClick={() => setView("grid")} className={`p-2 ${view === "grid" ? "bg-blue-600 text-white" : "text-slate-400"}`}><Grid3x3 size={16} /></button>
+            <button onClick={() => setView("grid")}  className={`p-2 ${view === "grid"  ? "bg-blue-600 text-white" : "text-slate-400"}`}><Grid3x3 size={16} /></button>
           </div>
-          <button onClick={() => { setEditing(empty); setShowForm(true); }} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-white text-sm">
+          <button
+            onClick={() => { setEditing(empty); setShowForm(true); }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-white text-sm"
+          >
             <Plus size={16} /> Add Item
           </button>
         </div>
@@ -264,9 +330,18 @@ export default function CrmCatalogue() {
       <div className="flex flex-wrap gap-2 items-center">
         <div className="relative flex-1 min-w-[200px]">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search brand, model or code (ITM-0001)..." className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-800 rounded text-sm text-white" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search brand, model, code or specs (e.g. R5, i7, 16GB)..."
+            className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-800 rounded text-sm text-white"
+          />
         </div>
-        <select value={filterCat} onChange={(e) => setFilterCat(e.target.value)} className="px-3 py-2 bg-slate-900 border border-slate-800 rounded text-sm text-white">
+        <select
+          value={filterCat}
+          onChange={(e) => setFilterCat(e.target.value)}
+          className="px-3 py-2 bg-slate-900 border border-slate-800 rounded text-sm text-white"
+        >
           <option value="">All categories</option>
           {dynamicCats.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
@@ -286,25 +361,30 @@ export default function CrmCatalogue() {
         <div className="text-center py-12 text-slate-400">Loading...</div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-12 bg-slate-900 border border-slate-800 rounded">
-          <p className="text-slate-400 mb-3">No items yet</p>
-          <button onClick={() => { setEditing(empty); setShowForm(true); }} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-white text-sm">Add first item</button>
+          <p className="text-slate-400 mb-3">No items found</p>
+          <button
+            onClick={() => { setEditing(empty); setShowForm(true); }}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-white text-sm"
+          >
+            Add first item
+          </button>
         </div>
       ) : view === "table" ? (
         <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-800/50 text-xs uppercase text-slate-400">
               <tr>
-                {col("code")       && <th className="text-left p-3">Code</th>}
-                {col("brand_model")&& <th className="text-left p-3">Brand / Model</th>}
-                {col("category")   && <th className="text-left p-3">Category</th>}
-                {col("stock")      && <th className="text-right p-3">Stock</th>}
-                {col("mrp")        && <th className="text-right p-3">MRP</th>}
-                {col("nlc")        && <th className="text-right p-3">NLC</th>}
-                {col("billing")    && <th className="text-right p-3">Billing</th>}
-                {col("sale")       && <th className="text-right p-3">Sale</th>}
-                {col("online")     && <th className="text-right p-3">Online</th>}
-                {col("margin")     && <th className="text-right p-3">Margin</th>}
-                {col("specs")      && <th className="text-left p-3">Specifications</th>}
+                {col("code")        && <th className="text-left p-3">Code</th>}
+                {col("brand_model") && <th className="text-left p-3">Brand / Model</th>}
+                {col("category")    && <th className="text-left p-3">Category</th>}
+                {col("stock")       && <th className="text-right p-3">Stock</th>}
+                {col("mrp")         && <th className="text-right p-3">MRP</th>}
+                {col("nlc")         && <th className="text-right p-3">NLC</th>}
+                {col("billing")     && <th className="text-right p-3">Billing</th>}
+                {col("sale")        && <th className="text-right p-3">Sale</th>}
+                {col("online")      && <th className="text-right p-3">Online</th>}
+                {col("margin")      && <th className="text-right p-3">Margin</th>}
+                {col("specs")       && <th className="text-left p-3">Specifications</th>}
                 <th className="text-right p-3">Actions</th>
               </tr>
             </thead>
@@ -347,9 +427,9 @@ export default function CrmCatalogue() {
                   )}
                   <td className="p-3">
                     <div className="flex justify-end gap-1">
-                      <button onClick={() => setShareItem(i)} title="Share quote" className="p-1.5 hover:bg-slate-700 rounded text-blue-400"><Share2 size={14} /></button>
-                      <button onClick={() => setHistoryItem(i)} title="Price history" className="p-1.5 hover:bg-slate-700 rounded text-purple-400"><History size={14} /></button>
-                      <button onClick={() => duplicate(i)} title="Duplicate item" className="p-1.5 hover:bg-slate-700 rounded text-amber-400"><Copy size={14} /></button>
+                      <button onClick={() => setShareItem(i)}   title="Share quote"    className="p-1.5 hover:bg-slate-700 rounded text-blue-400"><Share2 size={14} /></button>
+                      <button onClick={() => setHistoryItem(i)} title="Price history"  className="p-1.5 hover:bg-slate-700 rounded text-purple-400"><History size={14} /></button>
+                      <button onClick={() => duplicate(i)}      title="Duplicate item" className="p-1.5 hover:bg-slate-700 rounded text-amber-400"><Copy size={14} /></button>
                       <button onClick={() => { setEditing(i); setShowForm(true); }} className="p-1.5 hover:bg-slate-700 rounded text-slate-300"><Pencil size={14} /></button>
                       <button onClick={() => del(i.id)} className="p-1.5 hover:bg-red-600/20 rounded text-red-400"><Trash2 size={14} /></button>
                     </div>
@@ -372,7 +452,9 @@ export default function CrmCatalogue() {
                 {i.item_code}<Copy size={10} className="opacity-60" />
               </button>
               <div className="aspect-video bg-slate-800 flex items-center justify-center">
-                {i.image_url ? <img src={i.image_url} alt={i.model} className="w-full h-full object-cover" /> : <span className="text-slate-600 text-xs">No image</span>}
+                {i.image_url
+                  ? <img src={i.image_url} alt={i.model} className="w-full h-full object-cover" />
+                  : <span className="text-slate-600 text-xs">No image</span>}
               </div>
               <div className="p-3 space-y-2">
                 <div>
@@ -396,37 +478,66 @@ export default function CrmCatalogue() {
         </div>
       )}
 
-      {/* Add/Edit modal */}
+      {/* ── FIX 3: Add/Edit modal — clicking backdrop does NOT close dialog ── */}
       {showForm && editing && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-lg w-full max-w-2xl my-8">
+        <div
+          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 overflow-y-auto"
+          // Backdrop click intentionally does NOT close — prevents accidental data loss
+          // User must click Cancel or X button
+        >
+          <div
+            className="bg-slate-900 border border-slate-800 rounded-lg w-full max-w-2xl my-8"
+            onClick={(e) => e.stopPropagation()} // stop any bubbling
+          >
             <div className="flex items-center justify-between p-4 border-b border-slate-800">
               <h2 className="text-lg font-bold text-white">{editing.id ? "Edit Item" : "Add Item"}</h2>
-              <button onClick={() => { setShowForm(false); setEditing(null); }} className="text-slate-400 hover:text-white"><X size={20} /></button>
+              <button onClick={closeForm} className="text-slate-400 hover:text-white"><X size={20} /></button>
             </div>
             <div className="px-4 pt-3 text-xs text-slate-400">
               Item Code: <span className="font-mono text-blue-300">{(editing as Item).item_code || "Will be auto-assigned on save"}</span>
             </div>
             <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="Brand *"><input value={editing.brand || ""} onChange={(e) => setEditing({ ...editing, brand: e.target.value })} className={inputCls} /></Field>
-              <Field label="Model *"><input value={editing.model || ""} onChange={(e) => setEditing({ ...editing, model: e.target.value })} className={inputCls} /></Field>
+              <Field label="Brand *">
+                <input value={editing.brand || ""} onChange={(e) => setEditing({ ...editing, brand: e.target.value })} className={inputCls} />
+              </Field>
+              <Field label="Model *">
+                <input value={editing.model || ""} onChange={(e) => setEditing({ ...editing, model: e.target.value })} className={inputCls} />
+              </Field>
               <Field label="Category">
                 <select value={editing.category || "laptop"} onChange={(e) => setEditing({ ...editing, category: e.target.value })} className={inputCls}>
                   {dynamicCats.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </Field>
-              <Field label="Stock Qty"><input type="number" value={editing.stock_qty ?? 0} onChange={(e) => setEditing({ ...editing, stock_qty: +e.target.value })} className={inputCls} /></Field>
-              <Field label="MRP"><input type="number" value={editing.mrp ?? 0} onChange={(e) => setEditing({ ...editing, mrp: +e.target.value })} className={inputCls} /></Field>
-              <Field label="NLC (Cost)"><input type="number" value={editing.nlc_price ?? 0} onChange={(e) => setEditing({ ...editing, nlc_price: +e.target.value })} className={inputCls} /></Field>
-              <Field label="Billing Price"><input type="number" value={editing.billing_price ?? 0} onChange={(e) => setEditing({ ...editing, billing_price: +e.target.value })} className={inputCls} /></Field>
-              <Field label="Sale Price"><input type="number" value={editing.sale_price ?? 0} onChange={(e) => setEditing({ ...editing, sale_price: +e.target.value })} className={inputCls} /></Field>
-              <Field label="Online Price"><input type="number" value={editing.online_price ?? 0} onChange={(e) => setEditing({ ...editing, online_price: +e.target.value })} className={inputCls} /></Field>
-              <Field label="Image URL"><input value={editing.image_url || ""} onChange={(e) => setEditing({ ...editing, image_url: e.target.value })} className={inputCls} placeholder="https://..." /></Field>
+              <Field label="Stock Qty">
+                <input type="number" value={editing.stock_qty ?? 0} onChange={(e) => setEditing({ ...editing, stock_qty: +e.target.value })} className={inputCls} />
+              </Field>
+              <Field label="MRP">
+                <input type="number" value={editing.mrp ?? 0} onChange={(e) => setEditing({ ...editing, mrp: +e.target.value })} className={inputCls} />
+              </Field>
+              <Field label="NLC (Cost)">
+                <input type="number" value={editing.nlc_price ?? 0} onChange={(e) => setEditing({ ...editing, nlc_price: +e.target.value })} className={inputCls} />
+              </Field>
+              <Field label="Billing Price">
+                <input type="number" value={editing.billing_price ?? 0} onChange={(e) => setEditing({ ...editing, billing_price: +e.target.value })} className={inputCls} />
+              </Field>
+              <Field label="Sale Price">
+                <input type="number" value={editing.sale_price ?? 0} onChange={(e) => setEditing({ ...editing, sale_price: +e.target.value })} className={inputCls} />
+              </Field>
+              <Field label="Online Price">
+                <input type="number" value={editing.online_price ?? 0} onChange={(e) => setEditing({ ...editing, online_price: +e.target.value })} className={inputCls} />
+              </Field>
+              <Field label="Image URL">
+                <input value={editing.image_url || ""} onChange={(e) => setEditing({ ...editing, image_url: e.target.value })} className={inputCls} placeholder="https://..." />
+              </Field>
               <div className="sm:col-span-2">
-                <Field label="Specifications"><textarea value={editing.specs || ""} onChange={(e) => setEditing({ ...editing, specs: e.target.value })} rows={3} className={inputCls} /></Field>
+                <Field label="Specifications">
+                  <textarea value={editing.specs || ""} onChange={(e) => setEditing({ ...editing, specs: e.target.value })} rows={3} className={inputCls} />
+                </Field>
               </div>
               <div className="sm:col-span-2 flex items-center justify-between bg-slate-800/50 p-3 rounded">
-                <span className="text-sm text-slate-300">Margin: <span className="text-green-400 font-bold">{margin(Number(editing.sale_price || 0), Number(editing.nlc_price || 0)).toFixed(2)}%</span></span>
+                <span className="text-sm text-slate-300">
+                  Margin: <span className="text-green-400 font-bold">{margin(Number(editing.sale_price || 0), Number(editing.nlc_price || 0)).toFixed(2)}%</span>
+                </span>
                 <label className="flex items-center gap-2 text-sm text-slate-300">
                   <input type="checkbox" checked={editing.is_active ?? true} onChange={(e) => setEditing({ ...editing, is_active: e.target.checked })} />
                   Active
@@ -434,14 +545,14 @@ export default function CrmCatalogue() {
               </div>
             </div>
             <div className="flex justify-end gap-2 p-4 border-t border-slate-800">
-              <button onClick={() => { setShowForm(false); setEditing(null); }} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 text-sm">Cancel</button>
+              <button onClick={closeForm} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 text-sm">Cancel</button>
               <button onClick={save} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-white text-sm">Save</button>
             </div>
           </div>
         </div>
       )}
 
-      {shareItem && <QuoteShareModal item={shareItem} onClose={() => { setShareItem(null); }} />}
+      {shareItem   && <QuoteShareModal item={shareItem} onClose={() => setShareItem(null)} />}
       {historyItem && <PriceHistoryDrawer itemId={historyItem.id} itemLabel={`${historyItem.brand} ${historyItem.model}`} onClose={() => setHistoryItem(null)} />}
     </div>
   );
@@ -452,16 +563,26 @@ const Field = ({ label, children }: { label: string; children: React.ReactNode }
   <div><label className="text-xs text-slate-400 block mb-1">{label}</label>{children}</div>
 );
 
+// ── FIX 2: QuoteShareModal — also protected from Escape key ──────────────────
 function QuoteShareModal({ item, onClose }: { item: Item; onClose: () => void }) {
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [config, setConfig] = useState(item.specs || "");
-  const [price, setPrice] = useState<number>(item.sale_price);
+  const [name, setName]             = useState("");
+  const [phone, setPhone]           = useState("");
+  const [config, setConfig]         = useState(item.specs || "");
+  const [price, setPrice]           = useState<number>(item.sale_price);
   const [validUntil, setValidUntil] = useState(addDays(todayISO(), 7));
-  const [shareUrl, setShareUrl] = useState<string | null>(null);
-  const [waMsg, setWaMsg] = useState<string>("");
+  const [shareUrl, setShareUrl]     = useState<string | null>(null);
+  const [waMsg, setWaMsg]           = useState<string>("");
   const [savedQuote, setSavedQuote] = useState<{ no: string; id: string } | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving]         = useState(false);
+
+  // Prevent Escape from closing this modal too
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); }
+    };
+    document.addEventListener("keydown", handler, true);
+    return () => document.removeEventListener("keydown", handler, true);
+  }, []);
 
   useEffect(() => {
     if (!shareUrl) { setWaMsg(""); return; }
@@ -480,7 +601,7 @@ function QuoteShareModal({ item, onClose }: { item: Item; onClose: () => void })
         name, phone, item, price,
         specs: config,
         link: shareUrl,
-        validUntil: validUntil,
+        validUntil,
         shop: { shop_name, shop_phone, shop_email, shop_address },
       })));
     })();
@@ -501,15 +622,15 @@ function QuoteShareModal({ item, onClose }: { item: Item; onClose: () => void })
     const { data: created, error } = await supabase
       .from("crm_enquiries")
       .insert({
-        customer_name: name || "Walk-in",
+        customer_name:    name || "Walk-in",
         phone,
-        whatsapp: phone,
+        whatsapp:         phone,
         product_category: item.category || "laptop",
-        item_name: itemName,
-        budget: price || null,
-        source: "catalogue",
-        status: "quoted",
-        notes: config || null,
+        item_name:        itemName,
+        budget:           price || null,
+        source:           "catalogue",   // ← source tagged
+        status:           "quoted",
+        notes:            config || null,
       })
       .select("id")
       .single();
@@ -536,42 +657,43 @@ function QuoteShareModal({ item, onClose }: { item: Item; onClose: () => void })
   };
 
   const generate = async () => {
-    if (!name || !phone) {
-      toast.error("Customer name and phone are required");
-      return;
-    }
+    if (!name || !phone) { toast.error("Customer name and phone are required"); return; }
     setSaving(true);
 
     const { data: share, error: shareErr } = await supabase.from("crm_quote_shares").insert({
-      catalogue_id: item.id, customer_name: name || null, customer_phone: phone || null,
-      shared_config: config, shared_price: price, valid_until: validUntil, is_active: true,
+      catalogue_id:    item.id,
+      customer_name:   name || null,
+      customer_phone:  phone || null,
+      shared_config:   config,
+      shared_price:    price,
+      valid_until:     validUntil,
+      is_active:       true,
     }).select("share_link").single();
     if (shareErr) { setSaving(false); return toast.error(shareErr.message); }
 
     const enquiryId = await ensureEnquiry();
 
     try {
-      const quote_no = await nextQuoteNo();
-      const itemName = `${item.brand} ${item.model}`;
-      const items = [{ name: itemName, qty: 1, price: Number(price || 0), discount_pct: 0 }];
-      const subtotal = Number(price || 0);
-      const total_amount = subtotal;
+      const quote_no  = await nextQuoteNo();
+      const itemName  = `${item.brand} ${item.model}`;
+      const lineItems = [{ name: itemName, qty: 1, price: Number(price || 0), discount_pct: 0 }];
+      const subtotal  = Number(price || 0);
       const { data: q, error: qErr } = await supabase.from("crm_quotations").insert({
         quote_no,
-        enquiry_id: enquiryId,
+        enquiry_id:    enquiryId,
         customer_name: name,
         phone,
-        whatsapp: phone,
-        items,
+        whatsapp:      phone,
+        items:         lineItems,
         subtotal,
-        discount: 0,
-        gst_percent: 0,
-        gst_amount: 0,
-        total_amount,
+        discount:      0,
+        gst_percent:   0,
+        gst_amount:    0,
+        total_amount:  subtotal,
         validity_date: validUntil,
         validity_days: 7,
-        notes: config || null,
-        status: "sent",
+        notes:         config || null,
+        status:        "sent",
       }).select("id, quote_no").single();
       if (qErr) console.warn("Quotation save failed:", qErr.message);
       if (q) setSavedQuote({ no: q.quote_no, id: q.id });
@@ -587,7 +709,10 @@ function QuoteShareModal({ item, onClose }: { item: Item; onClose: () => void })
 
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-slate-900 border border-slate-800 rounded-lg w-full max-w-lg my-8">
+      <div
+        className="bg-slate-900 border border-slate-800 rounded-lg w-full max-w-lg my-8"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between p-4 border-b border-slate-800">
           <h2 className="text-lg font-bold text-white">Share Quote — {item.brand} {item.model}</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-white"><X size={20} /></button>
@@ -616,14 +741,18 @@ function QuoteShareModal({ item, onClose }: { item: Item; onClose: () => void })
                 {phone && <a href={waLink(phone, waMsg)} target="_blank" rel="noreferrer" className="flex-1 px-3 py-2 bg-green-600 hover:bg-green-500 rounded text-sm text-white text-center">Send WhatsApp</a>}
               </div>
               {savedQuote && (
-                <a href={`/crm/quotations`} className="block text-center text-xs text-blue-300 hover:underline pt-1">Open in Quotations →</a>
+                <a href="/crm/quotations" className="block text-center text-xs text-blue-300 hover:underline pt-1">Open in Quotations →</a>
               )}
             </div>
           )}
         </div>
         <div className="flex justify-end gap-2 p-4 border-t border-slate-800">
           <button onClick={onClose} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 text-sm">Close</button>
-          {!shareUrl && <button onClick={generate} disabled={saving} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-white text-sm disabled:opacity-50">{saving ? "Saving..." : "Generate & Save Quote"}</button>}
+          {!shareUrl && (
+            <button onClick={generate} disabled={saving} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-white text-sm disabled:opacity-50">
+              {saving ? "Saving..." : "Generate & Save Quote"}
+            </button>
+          )}
         </div>
       </div>
     </div>

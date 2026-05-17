@@ -161,9 +161,7 @@ export default function CrmQuotations() {
 
   const [pickerSearch, setPickerSearch] = useState("");
 
-  // ── SPECS SEARCH FIX ──────────────────────────────────────────────────────
-  // Searches item_code, brand, model AND specs so typing "R5" surfaces every
-  // laptop whose specification string contains "Ryzen 5" or "R5".
+  // ── SPECS SEARCH: searches item_code, brand, model AND specs ─────────────
   const filteredPicker = catalogue.filter((c) => {
     const s = pickerSearch.trim().toLowerCase();
     if (!s) return true;
@@ -180,26 +178,69 @@ export default function CrmQuotations() {
     if (!form.customer_name || !form.phone) return toast.error("Customer name and phone required");
     if (form.items.length === 0) return toast.error("Add at least one item");
     const t = calcTotals(form.items, form.gst_percent, form.extra_discount);
+
+    // ── FIX 1: "Save & Preview" marks quote as "sent", not "draft" ───────────
+    // Old code: asStatus === "preview" ? form.status : ...
+    // That kept "draft" because form.status was never changed before saving.
+    // New logic: preview = intent to share = sent; draft = explicit draft save.
+    const resolvedStatus = asStatus === "preview" ? "sent" : (asStatus || form.status);
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // ── FIX 2: Auto-create enquiry so customer lands in Enquiries list ────────
+    // Direct quotes (not from catalogue share) had no code to write an enquiry.
+    // Now every new quote without a linked enquiry auto-creates one tagged
+    // source="direct_quote". Existing quotes being edited are not affected.
+    let enquiryId = form.enquiry_id || null;
+    const isNewQuote = !form.id;
+    if (isNewQuote && !enquiryId) {
+      const firstItemName = form.items[0]?.name || "";
+      const firstItemCat = catalogue.find(
+        (c) => `${c.brand} ${c.model}` === firstItemName
+      )?.category || "other";
+      const { data: createdEnq, error: enqErr } = await supabase
+        .from("crm_enquiries")
+        .insert({
+          customer_name:    form.customer_name,
+          phone:            form.phone,
+          whatsapp:         form.whatsapp || form.phone,
+          product_category: firstItemCat,
+          item_name:        firstItemName || null,
+          budget:           t.total_amount || null,
+          source:           "direct_quote",
+          status:           "quoted",
+          notes:            form.notes || null,
+        })
+        .select("id")
+        .single();
+      if (!enqErr && createdEnq) {
+        enquiryId = createdEnq.id;
+      } else {
+        console.warn("Auto-enquiry create failed:", enqErr?.message);
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     const payload: any = {
-      quote_no: form.quote_no,
-      enquiry_id: form.enquiry_id || null,
+      quote_no:      form.quote_no,
+      enquiry_id:    enquiryId,
       customer_name: form.customer_name,
-      phone: form.phone,
-      whatsapp: form.whatsapp || form.phone,
-      email: form.email || null,
-      address: form.address || null,
-      items: form.items,
-      subtotal: t.subtotal,
-      discount: t.discount,
-      gst_percent: Number(form.gst_percent || 0),
-      gst_amount: t.gst_amount,
-      total_amount: t.total_amount,
+      phone:         form.phone,
+      whatsapp:      form.whatsapp || form.phone,
+      email:         form.email || null,
+      address:       form.address || null,
+      items:         form.items,
+      subtotal:      t.subtotal,
+      discount:      t.discount,
+      gst_percent:   Number(form.gst_percent || 0),
+      gst_amount:    t.gst_amount,
+      total_amount:  t.total_amount,
       validity_days: Number(form.validity_days || 7),
       validity_date: form.validity_date,
-      notes: form.notes || null,
-      terms: form.terms || null,
-      status: asStatus === "preview" ? form.status : (asStatus || form.status),
+      notes:         form.notes || null,
+      terms:         form.terms || null,
+      status:        resolvedStatus,
     };
+
     let savedRow: any = null;
     if (form.id) {
       const { data, error } = await supabase.from("crm_quotations").update(payload).eq("id", form.id).select("*").single();
@@ -210,14 +251,18 @@ export default function CrmQuotations() {
       if (error) return toast.error(error.message);
       savedRow = data;
     }
-    if (form.enquiry_id) {
-      await supabase.from("crm_enquiries").update({ status: "quoted" }).eq("id", form.enquiry_id);
+
+    // Update linked enquiry status to "quoted"
+    if (enquiryId) {
+      await supabase.from("crm_enquiries").update({ status: "quoted" }).eq("id", enquiryId);
     }
+
     if (form._from_template_id && !form.id) {
       const { data: tpl } = await supabase.from("quotation_templates" as any).select("used_count").eq("id", form._from_template_id).single();
       const cur = Number((tpl as any)?.used_count || 0);
       await supabase.from("quotation_templates" as any).update({ used_count: cur + 1 }).eq("id", form._from_template_id);
     }
+
     toast.success("Quotation saved");
     setShowForm(false);
     load();
@@ -580,14 +625,8 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
 
     const host = document.createElement("div");
     host.style.cssText = [
-      "position:fixed",
-      "left:0",
-      "top:0",
-      "width:794px",
-      "background:#ffffff",
-      "opacity:0",
-      "pointer-events:none",
-      "z-index:0",
+      "position:fixed", "left:0", "top:0", "width:794px", "background:#ffffff",
+      "opacity:0", "pointer-events:none", "z-index:0",
     ].join(";");
 
     const clone = original.cloneNode(true) as HTMLElement;
@@ -602,13 +641,8 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
       await inlineImages(clone);
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       return await html2canvas(clone, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: "#ffffff",
-        width: 794,
-        windowWidth: 794,
-        logging: false,
+        scale: 2, useCORS: true, allowTaint: true, backgroundColor: "#ffffff",
+        width: 794, windowWidth: 794, logging: false,
       });
     } finally {
       host.remove();
@@ -660,15 +694,12 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
       const blob = await canvasToBlob(canvas);
 
       const rawPhone = (q.whatsapp || q.phone || "").replace(/\D/g, "");
-      // Always ensure country code 91 is prepended for Indian numbers
       const cc = !rawPhone
         ? ""
         : rawPhone.startsWith("91") && rawPhone.length >= 12
-        ? rawPhone          // already has country code e.g. 919815122441
-        : "91" + rawPhone;  // prepend 91 e.g. 9815122441 → 919815122441
-      // Always use direct URL — native share (navigator.share) triggers
-      // WhatsApp Desktop's contact-picker and cannot pre-select a contact.
-      // Direct URL opens the specific chat immediately.
+        ? rawPhone
+        : "91" + rawPhone;
+
       downloadBlob(blob);
       toast.message("Uploading image for WhatsApp preview…");
       const imgUrl = await uploadAndGetUrl(blob);

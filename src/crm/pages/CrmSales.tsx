@@ -63,7 +63,6 @@ async function nextInvoiceNo() {
 }
 
 async function loadTemplates() {
-  // Load message templates from crm_admin_settings (keys like whatsapp_week_template, whatsapp_month_template, etc.)
   const { data } = await supabase
     .from("crm_admin_settings")
     .select("setting_key, setting_value")
@@ -89,14 +88,12 @@ async function createWarrantyReminders(sale: any, templates: Record<string, stri
     shop_phone: "",
     shop_name: "The Computer Solutions",
   };
-  // 5 standard reminder types per spec: 1 week, 1 month, 3 month, 6 month, 11 month
   const types: { type: string; days: number; tpl: string }[] = [
     { type: "1week", days: 7, tpl: "whatsapp_week_template" },
     { type: "1month", days: 30, tpl: "whatsapp_month_template" },
     { type: "3month", days: 90, tpl: "whatsapp_3month_template" },
     { type: "6month", days: 180, tpl: "whatsapp_6month_template" },
   ];
-  // 11-month reminder only if warranty >= 12 months
   if (Number(sale.warranty_months || 0) >= 12) {
     types.push({ type: "11month", days: 330, tpl: "whatsapp_11month_template" });
   }
@@ -280,7 +277,6 @@ export default function CrmSales() {
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Validation: payment_mode, item_name, sale_price required
     if (!form.payment_mode) return toast.error("Select a payment mode");
     if (!form.item_name?.trim()) return toast.error("Item name is required");
     if (!form.sale_price || Number(form.sale_price) <= 0) return toast.error("Sale price must be greater than 0");
@@ -323,12 +319,10 @@ export default function CrmSales() {
     if (!confirm(`Delete sale ${s.invoice_no}? Stock will be restored.`)) return;
     const { error } = await supabase.from("crm_sales").update({ is_deleted: true }).eq("id", s.id);
     if (error) return toast.error(error.message);
-    // Remove tied warranty reminders & WhatsApp logs to prevent orphans on the Warranty page.
     await Promise.all([
       supabase.from("crm_warranty_reminders").delete().eq("sale_id", s.id),
       supabase.from("crm_whatsapp_log").delete().eq("sale_id", s.id),
     ]);
-    // If this sale was linked to an enquiry and no other active sale references it, reopen the enquiry.
     if (s.enquiry_id) {
       const { data: otherSales } = await supabase
         .from("crm_sales")
@@ -376,7 +370,6 @@ export default function CrmSales() {
     const cc = phone.startsWith("91") ? phone : "91" + phone;
     window.open(`https://wa.me/${cc}?text=${encodeURIComponent(msg)}`, "_blank");
   };
-
 
   return (
     <div className="space-y-4">
@@ -460,10 +453,13 @@ export default function CrmSales() {
         </table>
       </div>
 
-      {/* Form modal */}
+      {/* ─── Form modal ───────────────────────────────────────────────────────────
+          FIX 1: Backdrop no longer has onClick → clicking outside does NOT close
+          the form. User must press Cancel or Save to dismiss.
+      ──────────────────────────────────────────────────────────────────────────── */}
       {showForm && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-start justify-center p-4 overflow-y-auto" onClick={() => setShowForm(false)}>
-          <form onSubmit={save} onClick={(e) => e.stopPropagation()} className="bg-slate-900 border border-slate-700 rounded-lg p-5 w-full max-w-3xl my-8 space-y-3">
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-start justify-center p-4 overflow-y-auto">
+          <form onSubmit={save} className="bg-slate-900 border border-slate-700 rounded-lg p-5 w-full max-w-3xl my-8 space-y-3">
             <h3 className="text-lg font-semibold text-white">{editing ? "Edit" : "New"} Sale</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <Field label="Invoice No"><input value={form.invoice_no} onChange={(e) => setForm({ ...form, invoice_no: e.target.value })} className={fInput} /></Field>
@@ -491,17 +487,60 @@ export default function CrmSales() {
                 />
                 {codeError && <span className="text-[11px] text-red-400 mt-1 block">{codeError}</span>}
               </Field>
+
+              {/* ─── Catalogue picker ────────────────────────────────────────────────
+                  FIX 2: Selecting an item auto-fills Item Name, Sale Price, and
+                  sets item_id. The Item Name field becomes read-only when item_id
+                  is set so the auto-filled value is preserved.
+              ──────────────────────────────────────────────────────────────────── */}
               <Field label="Pick from Catalogue (optional)">
-                <select value={form.item_id || ""} onChange={(e) => {
-                  const c = catalogue.find((x) => x.id === e.target.value);
-                  if (c) { setForm(recalc({ ...form, item_id: c.id, item_name: `${c.brand} ${c.model}`, sale_price: c.sale_price })); setCodeInput(c.item_code || ""); setCodeError(""); }
-                  else setForm({ ...form, item_id: null });
-                }} className={fInput}>
+                <select
+                  value={form.item_id || ""}
+                  onChange={(e) => {
+                    const c = catalogue.find((x) => x.id === e.target.value);
+                    if (c) {
+                      setForm(recalc({
+                        ...form,
+                        item_id: c.id,
+                        item_name: `${c.brand} ${c.model}`,
+                        sale_price: Number(c.sale_price || 0),
+                      }));
+                      setCodeInput(c.item_code || "");
+                      setCodeError("");
+                    } else {
+                      // "Manual entry" selected — clear item_id so name becomes editable
+                      setForm({ ...form, item_id: null, item_name: "" });
+                      setCodeInput("");
+                    }
+                  }}
+                  className={fInput}
+                >
                   <option value="">— Manual entry —</option>
-                  {catalogue.map((c) => <option key={c.id} value={c.id}>{c.item_code ? `[${c.item_code}] ` : ""}{c.brand} {c.model} (stock {c.stock_qty})</option>)}
+                  {catalogue.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.item_code ? `[${c.item_code}] ` : ""}{c.brand} {c.model} (stock {c.stock_qty})
+                    </option>
+                  ))}
                 </select>
               </Field>
-              <Field label="Item Name *"><input required value={form.item_name} onChange={(e) => setForm({ ...form, item_name: e.target.value })} className={fInput} /></Field>
+
+              <Field label="Item Name *">
+                <input
+                  required
+                  value={form.item_name}
+                  onChange={(e) => setForm({ ...form, item_name: e.target.value })}
+                  // Read-only when a catalogue item is selected; editable for manual entry
+                  readOnly={!!form.item_id}
+                  title={form.item_id ? "Auto-filled from catalogue — select '— Manual entry —' to type freely" : ""}
+                  className={`${fInput} ${form.item_id ? "opacity-60 cursor-not-allowed select-none" : ""}`}
+                />
+                {form.item_id && (
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">
+                    Auto-filled from catalogue
+                  </span>
+                )}
+              </Field>
+
               <Field label="Qty"><input type="number" min={1} value={form.qty} onChange={(e) => setForm(recalc({ ...form, qty: Number(e.target.value || 1) }))} className={fInput} /></Field>
               <Field label="Sale Price (each)"><input type="number" value={form.sale_price} onChange={(e) => setForm(recalc({ ...form, sale_price: Number(e.target.value || 0) }))} className={fInput} /></Field>
               <Field label="Discount"><input type="number" value={form.discount} onChange={(e) => setForm(recalc({ ...form, discount: Number(e.target.value || 0) }))} className={fInput} /></Field>
@@ -592,7 +631,9 @@ function Stat({ label, value }: any) {
     </div>
   );
 }
+
 const fInput = "w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500";
+
 function Field({ label, children }: any) {
   return <label className="block"><span className="text-xs text-slate-400 mb-1 block">{label}</span>{children}</label>;
 }

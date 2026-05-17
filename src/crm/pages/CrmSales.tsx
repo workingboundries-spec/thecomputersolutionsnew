@@ -156,7 +156,6 @@ async function decrementStock(item_id: string | null, qty: number, saleId: strin
 }
 
 // ─── Searchable Catalogue Picker ──────────────────────────────────────────────
-// Searches: item_code, brand, model, specifications, specs, description
 function CataloguePicker({
   catalogue,
   selectedId,
@@ -180,13 +179,12 @@ function CataloguePicker({
     const q = query.trim().toLowerCase();
     if (!q) return catalogue;
     return catalogue.filter((c) => {
+      // ← FIX: only use the real DB column "specs" — removed non-existent "specifications" and "description"
       const haystack = [
         c.item_code || "",
         c.brand || "",
         c.model || "",
-        c.specifications || "",
         c.specs || "",
-        c.description || "",
       ].join(" ").toLowerCase();
       return haystack.includes(q);
     });
@@ -267,7 +265,7 @@ function CataloguePicker({
             ) : (
               filtered.map((c) => {
                 const label = `${c.item_code ? `[${c.item_code}] ` : ""}${c.brand} ${c.model}`;
-                const spec = c.specifications || c.specs || c.description || "";
+                const spec = c.specs || ""; // ← FIX: only real column
                 const isSelected = c.id === selectedId;
                 const inStock = Number(c.stock_qty) > 0;
                 return (
@@ -339,8 +337,8 @@ export default function CrmSales() {
     setLoading(true);
     const [salesRes, catRes, settRes] = await Promise.all([
       supabase.from("crm_sales").select("*").eq("is_deleted", false).order("created_at", { ascending: false }),
-      // Include specifications/specs/description so the picker can search them
-      supabase.from("crm_catalogue").select("id, item_code, brand, model, sale_price, stock_qty, specifications, specs, description"),
+      // ← FIX: only select real columns that exist in crm_catalogue — removed "specifications" and "description"
+      supabase.from("crm_catalogue").select("id, item_code, brand, model, sale_price, stock_qty, specs"),
       supabase.from("crm_settings").select("key, value"),
     ]);
     if (salesRes.error) toast.error(salesRes.error.message);

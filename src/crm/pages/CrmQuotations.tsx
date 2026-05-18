@@ -50,10 +50,7 @@ async function nextQuoteNo(prefix: string) {
   const stem = `${prefix}-${ymd}`;
   const { data } = await supabase.from("crm_quotations").select("quote_no").like("quote_no", `${stem}-%`).order("quote_no", { ascending: false }).limit(1);
   let n = 1;
-  if (data && data[0]) {
-    const last = data[0].quote_no.split("-").pop();
-    n = (parseInt(last || "0", 10) || 0) + 1;
-  }
+  if (data && data[0]) { const last = data[0].quote_no.split("-").pop(); n = (parseInt(last || "0", 10) || 0) + 1; }
   return `${stem}-${String(n).padStart(3, "0")}`;
 }
 
@@ -84,11 +81,7 @@ export default function CrmQuotations() {
     const [qRes, cRes, eRes] = await Promise.all([
       supabase.from("crm_quotations").select("*").order("created_at", { ascending: false }),
       supabase.from("crm_catalogue").select("id, item_code, brand, model, sale_price, stock_qty, specs").eq("is_active", true),
-      supabase
-        .from("crm_enquiries")
-        .select("id, customer_name, phone, item_name")
-        .eq("is_converted", false)
-        .not("status", "in", "(converted,lost)"),
+      supabase.from("crm_enquiries").select("id, customer_name, phone, item_name").eq("is_converted", false).not("status", "in", "(converted,lost)"),
     ]);
     if (qRes.error) toast.error(qRes.error.message);
     setRows(qRes.data || []);
@@ -106,8 +99,7 @@ export default function CrmQuotations() {
     f.validity_date = addDays(todayISO(), f.validity_days);
     f.terms = settings.quotation_terms || "";
     f.quote_no = await nextQuoteNo(settings.quote_prefix || "QT");
-    setForm(f);
-    setShowForm(true);
+    setForm(f); setShowForm(true);
   };
 
   const openFromTemplate = async (t: any) => {
@@ -120,9 +112,7 @@ export default function CrmQuotations() {
     f.items = (t.items || []).map((it: any) => ({ name: it.name, qty: Number(it.qty || 1), price: Number(it.price || 0), discount_pct: Number(it.discount_pct || 0), specs: it.specs || "" }));
     f.quote_no = await nextQuoteNo(settings.quote_prefix || "QT");
     f._from_template_id = t.id;
-    setForm(f);
-    setTab("list");
-    setShowForm(true);
+    setForm(f); setTab("list"); setShowForm(true);
     toast.success(`Loaded template: ${t.template_name}`);
   };
 
@@ -150,18 +140,12 @@ export default function CrmQuotations() {
     if (!code) { updateItem(idx, { code: "", codeError: "" }); return; }
     const c = catalogue.find((x) => (x.item_code || "").toLowerCase() === code.toLowerCase());
     if (!c) { updateItem(idx, { code: raw, codeError: `No item matches code ${code}` }); return; }
-    updateItem(idx, {
-      code: c.item_code,
-      codeError: "",
-      name: `${c.brand} ${c.model}`,
-      price: Number(c.sale_price || 0),
-      specs: c.specs || "",
-    });
+    updateItem(idx, { code: c.item_code, codeError: "", name: `${c.brand} ${c.model}`, price: Number(c.sale_price || 0), specs: c.specs || "" });
   };
 
   const [pickerSearch, setPickerSearch] = useState("");
 
-  // ── SPECS SEARCH: searches item_code, brand, model AND specs ─────────────
+  // Searches item_code, brand, model AND specs
   const filteredPicker = catalogue.filter((c) => {
     const s = pickerSearch.trim().toLowerCase();
     if (!s) return true;
@@ -170,7 +154,6 @@ export default function CrmQuotations() {
       || (c.model || "").toLowerCase().includes(s)
       || (c.specs || "").toLowerCase().includes(s);
   });
-  // ─────────────────────────────────────────────────────────────────────────
 
   const totals = useMemo(() => calcTotals(form.items, form.gst_percent, form.extra_discount), [form.items, form.gst_percent, form.extra_discount]);
 
@@ -179,66 +162,35 @@ export default function CrmQuotations() {
     if (form.items.length === 0) return toast.error("Add at least one item");
     const t = calcTotals(form.items, form.gst_percent, form.extra_discount);
 
-    // ── FIX 1: "Save & Preview" marks quote as "sent", not "draft" ───────────
-    // Old code: asStatus === "preview" ? form.status : ...
-    // That kept "draft" because form.status was never changed before saving.
-    // New logic: preview = intent to share = sent; draft = explicit draft save.
+    // "Save & Preview" = intent to share = mark as "sent"
     const resolvedStatus = asStatus === "preview" ? "sent" : (asStatus || form.status);
-    // ─────────────────────────────────────────────────────────────────────────
 
-    // ── FIX 2: Auto-create enquiry so customer lands in Enquiries list ────────
-    // Direct quotes (not from catalogue share) had no code to write an enquiry.
-    // Now every new quote without a linked enquiry auto-creates one tagged
-    // source="direct_quote". Existing quotes being edited are not affected.
+    // Auto-create enquiry for every new quote with no linked enquiry
     let enquiryId = form.enquiry_id || null;
     const isNewQuote = !form.id;
     if (isNewQuote && !enquiryId) {
       const firstItemName = form.items[0]?.name || "";
-      const firstItemCat = catalogue.find(
-        (c) => `${c.brand} ${c.model}` === firstItemName
-      )?.category || "other";
-      const { data: createdEnq, error: enqErr } = await supabase
-        .from("crm_enquiries")
-        .insert({
-          customer_name:    form.customer_name,
-          phone:            form.phone,
-          whatsapp:         form.whatsapp || form.phone,
-          product_category: firstItemCat,
-          item_name:        firstItemName || null,
-          budget:           t.total_amount || null,
-          source:           "direct_quote",
-          status:           "quoted",
-          notes:            form.notes || null,
-        })
-        .select("id")
-        .single();
-      if (!enqErr && createdEnq) {
-        enquiryId = createdEnq.id;
-      } else {
-        console.warn("Auto-enquiry create failed:", enqErr?.message);
-      }
+      const firstItemCat = catalogue.find((c) => `${c.brand} ${c.model}` === firstItemName)?.category || "other";
+      const { data: createdEnq, error: enqErr } = await supabase.from("crm_enquiries").insert({
+        customer_name: form.customer_name, phone: form.phone,
+        whatsapp: form.whatsapp || form.phone, product_category: firstItemCat,
+        item_name: firstItemName || null, budget: t.total_amount || null,
+        source: "direct_quote", status: "quoted", notes: form.notes || null,
+      }).select("id").single();
+      if (!enqErr && createdEnq) enquiryId = createdEnq.id;
+      else console.warn("Auto-enquiry create failed:", enqErr?.message);
     }
-    // ─────────────────────────────────────────────────────────────────────────
 
     const payload: any = {
-      quote_no:      form.quote_no,
-      enquiry_id:    enquiryId,
-      customer_name: form.customer_name,
-      phone:         form.phone,
-      whatsapp:      form.whatsapp || form.phone,
-      email:         form.email || null,
-      address:       form.address || null,
-      items:         form.items,
-      subtotal:      t.subtotal,
-      discount:      t.discount,
-      gst_percent:   Number(form.gst_percent || 0),
-      gst_amount:    t.gst_amount,
-      total_amount:  t.total_amount,
-      validity_days: Number(form.validity_days || 7),
-      validity_date: form.validity_date,
-      notes:         form.notes || null,
-      terms:         form.terms || null,
-      status:        resolvedStatus,
+      quote_no: form.quote_no, enquiry_id: enquiryId,
+      customer_name: form.customer_name, phone: form.phone,
+      whatsapp: form.whatsapp || form.phone, email: form.email || null,
+      address: form.address || null, items: form.items,
+      subtotal: t.subtotal, discount: t.discount,
+      gst_percent: Number(form.gst_percent || 0), gst_amount: t.gst_amount,
+      total_amount: t.total_amount, validity_days: Number(form.validity_days || 7),
+      validity_date: form.validity_date, notes: form.notes || null,
+      terms: form.terms || null, status: resolvedStatus,
     };
 
     let savedRow: any = null;
@@ -252,10 +204,7 @@ export default function CrmQuotations() {
       savedRow = data;
     }
 
-    // Update linked enquiry status to "quoted"
-    if (enquiryId) {
-      await supabase.from("crm_enquiries").update({ status: "quoted" }).eq("id", enquiryId);
-    }
+    if (enquiryId) await supabase.from("crm_enquiries").update({ status: "quoted" }).eq("id", enquiryId);
 
     if (form._from_template_id && !form.id) {
       const { data: tpl } = await supabase.from("quotation_templates" as any).select("used_count").eq("id", form._from_template_id).single();
@@ -264,8 +213,7 @@ export default function CrmQuotations() {
     }
 
     toast.success("Quotation saved");
-    setShowForm(false);
-    load();
+    setShowForm(false); load();
     if (asStatus === "preview") setPreviewQ(savedRow);
   };
 
@@ -273,8 +221,7 @@ export default function CrmQuotations() {
     if (!confirm("Delete this quotation?")) return;
     const { error } = await supabase.from("crm_quotations").delete().eq("id", id);
     if (error) return toast.error(error.message);
-    toast.success("Deleted");
-    load();
+    toast.success("Deleted"); load();
   };
 
   const filtered = rows.filter((r) => {
@@ -298,7 +245,6 @@ export default function CrmQuotations() {
         )}
       </div>
 
-      {/* Sub-tabs */}
       <div className="flex border-b border-slate-800">
         <button onClick={() => setTab("list")} className={`px-4 py-2 text-sm font-medium flex items-center gap-1.5 ${tab === "list" ? "text-white border-b-2 border-blue-500" : "text-slate-400 hover:text-white"}`}>
           <ListOrdered size={14} />Quotations
@@ -425,26 +371,18 @@ export default function CrmQuotations() {
                       return (
                         <tr key={idx} className="border-t border-slate-800 align-top">
                           <td className="px-2 py-1">
-                            <input
-                              value={it.code || ""}
-                              onChange={(e) => updateItem(idx, { code: e.target.value, codeError: "" })}
+                            <input value={it.code || ""} onChange={(e) => updateItem(idx, { code: e.target.value, codeError: "" })}
                               onBlur={(e) => lookupLineCode(idx, e.target.value)}
                               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); lookupLineCode(idx, (e.target as HTMLInputElement).value); } }}
-                              placeholder="ITM-0001"
-                              className={inp + " font-mono text-xs"}
-                            />
+                              placeholder="ITM-0001" className={inp + " font-mono text-xs"} />
                             {it.codeError && <div className="text-[10px] text-red-400 mt-0.5">{it.codeError}</div>}
                           </td>
                           <td className="px-2 py-1">
                             <input value={it.name} onChange={(e) => updateItem(idx, { name: e.target.value })} className={inp} />
-                            <textarea
-                              value={it.specs || ""}
-                              onChange={(e) => updateItem(idx, { specs: e.target.value })}
+                            <textarea value={it.specs || ""} onChange={(e) => updateItem(idx, { specs: e.target.value })}
                               placeholder="Specifications (auto-filled from catalogue, editable)"
-                              rows={2}
-                              className={inp + " mt-1 text-[11px] text-slate-300"}
-                            />
-                            {!inCat && (
+                              rows={2} className={inp + " mt-1 text-[11px] text-slate-300"} />
+                            {!inCat && it.name && (
                               <div className="mt-1 text-[11px] text-slate-400 flex flex-wrap items-center gap-2">
                                 <span>'{it.name}' not found in catalogue.</span>
                                 <button type="button" className="text-slate-300 underline hover:text-white">Use as one-time item</button>
@@ -482,23 +420,14 @@ export default function CrmQuotations() {
               </div>
               <div className="bg-slate-800/40 rounded p-3 space-y-1.5 text-sm">
                 <Row label="Subtotal" value={formatINR(totals.subtotal)} />
-                {totals.lineDiscount > 0 && (
-                  <Row label="Line Discount" value={`- ${formatINR(totals.lineDiscount)}`} />
-                )}
+                {totals.lineDiscount > 0 && <Row label="Line Discount" value={`- ${formatINR(totals.lineDiscount)}`} />}
                 <div className="flex items-center justify-between gap-2 py-1">
                   <span className="text-slate-300 whitespace-nowrap">Extra Discount (₹)</span>
-                  <input
-                    type="number"
-                    min={0}
-                    placeholder="0"
-                    value={form.extra_discount || ""}
+                  <input type="number" min={0} placeholder="0" value={form.extra_discount || ""}
                     onChange={(e) => setForm({ ...form, extra_discount: e.target.value === "" ? 0 : Number(e.target.value) })}
-                    className={inp + " text-right max-w-[140px] h-8"}
-                  />
+                    className={inp + " text-right max-w-[140px] h-8"} />
                 </div>
-                {Number(form.gst_percent) > 0 && (
-                  <Row label={`GST ${form.gst_percent}%`} value={formatINR(totals.gst_amount)} />
-                )}
+                {Number(form.gst_percent) > 0 && <Row label={`GST ${form.gst_percent}%`} value={formatINR(totals.gst_amount)} />}
                 <div className="border-t border-slate-700 pt-2 mt-2">
                   <Row label={<span className="font-semibold">Grand Total</span>} value={<span className="text-lg text-green-400 font-bold">{formatINR(totals.total_amount)}</span>} />
                 </div>
@@ -518,7 +447,6 @@ export default function CrmQuotations() {
               <button onClick={() => save("preview")} className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded font-medium">Save & Preview</button>
             </div>
 
-            {/* ── Catalogue Picker Modal ─────────────────────────────────────── */}
             {showPicker && (
               <div className="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center p-4" onClick={() => setShowPicker(false)}>
                 <div className="bg-slate-900 border border-slate-700 rounded-lg w-full max-w-xl max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -527,16 +455,10 @@ export default function CrmQuotations() {
                     <button onClick={() => setShowPicker(false)}><X size={18} className="text-slate-400" /></button>
                   </div>
                   <div className="p-3 border-b border-slate-800">
-                    <input
-                      autoFocus
-                      value={pickerSearch}
-                      onChange={(e) => setPickerSearch(e.target.value)}
+                    <input autoFocus value={pickerSearch} onChange={(e) => setPickerSearch(e.target.value)}
                       placeholder="Search code, brand, model or specs (e.g. R5, i7, 16GB)…"
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-white"
-                    />
-                    <p className="text-[11px] text-slate-500 mt-1.5 px-0.5">
-                      Tip: type a processor, RAM, or any spec keyword to filter results
-                    </p>
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-white" />
+                    <p className="text-[11px] text-slate-500 mt-1.5 px-0.5">Tip: type a processor, RAM, or any spec keyword to filter results</p>
                   </div>
                   <div className="divide-y divide-slate-800">
                     {filteredPicker.length === 0 ? (
@@ -548,9 +470,7 @@ export default function CrmQuotations() {
                             <span className="font-mono text-[10px] text-blue-300 px-1.5 py-0.5 bg-slate-800 rounded shrink-0">{it.item_code}</span>
                             <span className="font-medium">{it.brand} {it.model}</span>
                           </div>
-                          {it.specs && (
-                            <div className="text-[11px] text-slate-400 mt-0.5 leading-relaxed line-clamp-2">{it.specs}</div>
-                          )}
+                          {it.specs && <div className="text-[11px] text-slate-400 mt-0.5 leading-relaxed line-clamp-2">{it.specs}</div>}
                           <div className="text-xs text-slate-500 mt-0.5">Stock: {it.stock_qty}</div>
                         </div>
                         <div className="text-green-400 font-medium shrink-0">{formatINR(it.sale_price)}</div>
@@ -573,9 +493,7 @@ export default function CrmQuotations() {
         onCreated={(item) => {
           if (drawerForIdx !== null) {
             const items = form.items.map((it, i) =>
-              i === drawerForIdx
-                ? { ...it, name: `${item.brand} ${item.model}`, price: Number(item.sale_price || it.price) }
-                : it
+              i === drawerForIdx ? { ...it, name: `${item.brand} ${item.model}`, price: Number(item.sale_price || it.price) } : it
             );
             setForm({ ...form, items });
           }
@@ -600,53 +518,32 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
         if (!res.ok) throw new Error("fetch failed");
         const blob = await res.blob();
         const dataUrl: string = await new Promise((resolve, reject) => {
-          const r = new FileReader();
-          r.onload = () => resolve(r.result as string);
-          r.onerror = reject;
-          r.readAsDataURL(blob);
+          const r = new FileReader(); r.onload = () => resolve(r.result as string); r.onerror = reject; r.readAsDataURL(blob);
         });
-        img.removeAttribute("crossorigin");
-        img.src = dataUrl;
+        img.removeAttribute("crossorigin"); img.src = dataUrl;
         await new Promise<void>((res2) => {
           if (img.complete && img.naturalWidth > 0) return res2();
           img.addEventListener("load", () => res2(), { once: true });
           img.addEventListener("error", () => res2(), { once: true });
           setTimeout(() => res2(), 2000);
         });
-      } catch {
-        img.style.visibility = "hidden";
-      }
+      } catch { img.style.visibility = "hidden"; }
     }));
   };
 
   const captureCanvas = async (): Promise<HTMLCanvasElement> => {
     const original = document.getElementById("quotation-preview") as HTMLElement | null;
     if (!original) throw new Error("Preview not ready");
-
     const host = document.createElement("div");
-    host.style.cssText = [
-      "position:fixed", "left:0", "top:0", "width:794px", "background:#ffffff",
-      "opacity:0", "pointer-events:none", "z-index:0",
-    ].join(";");
-
+    host.style.cssText = ["position:fixed","left:0","top:0","width:794px","background:#ffffff","opacity:0","pointer-events:none","z-index:0"].join(";");
     const clone = original.cloneNode(true) as HTMLElement;
-    clone.id = "quotation-preview-capture";
-    clone.style.width = "794px";
-    clone.style.transform = "none";
-    clone.style.position = "static";
-    host.appendChild(clone);
-    document.body.appendChild(host);
-
+    clone.id = "quotation-preview-capture"; clone.style.width = "794px"; clone.style.transform = "none"; clone.style.position = "static";
+    host.appendChild(clone); document.body.appendChild(host);
     try {
       await inlineImages(clone);
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-      return await html2canvas(clone, {
-        scale: 2, useCORS: true, allowTaint: true, backgroundColor: "#ffffff",
-        width: 794, windowWidth: 794, logging: false,
-      });
-    } finally {
-      host.remove();
-    }
+      return await html2canvas(clone, { scale: 2, useCORS: true, allowTaint: true, backgroundColor: "#ffffff", width: 794, windowWidth: 794, logging: false });
+    } finally { host.remove(); }
   };
 
   const canvasToBlob = (canvas: HTMLCanvasElement): Promise<Blob> =>
@@ -654,21 +551,15 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
 
   const downloadBlob = (blob: Blob) => {
     const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.download = `Quotation-${q.quote_no}.jpg`;
-    link.href = url;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const link = document.createElement("a"); link.download = `Quotation-${q.quote_no}.jpg`; link.href = url;
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   };
 
   const uploadAndGetUrl = async (blob: Blob): Promise<string | null> => {
     try {
       const path = `quotations/${q.id || q.quote_no}-${Date.now()}.jpg`;
-      const { error } = await supabase.storage.from("shop-assets").upload(path, blob, {
-        contentType: "image/jpeg", upsert: true, cacheControl: "3600",
-      });
+      const { error } = await supabase.storage.from("shop-assets").upload(path, blob, { contentType: "image/jpeg", upsert: true, cacheControl: "3600" });
       if (error) return null;
       const { data } = supabase.storage.from("shop-assets").getPublicUrl(path);
       return data?.publicUrl || null;
@@ -676,11 +567,8 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
   };
 
   const exportAsJpeg = async (): Promise<{ blob: Blob; url: string | null }> => {
-    const canvas = await captureCanvas();
-    const blob = await canvasToBlob(canvas);
-    downloadBlob(blob);
-    const url = await uploadAndGetUrl(blob);
-    return { blob, url };
+    const canvas = await captureCanvas(); const blob = await canvasToBlob(canvas);
+    downloadBlob(blob); const url = await uploadAndGetUrl(blob); return { blob, url };
   };
 
   const handleJpegOnly = async () => {
@@ -690,45 +578,28 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
   const shareJpegWA = async () => {
     try {
       toast.message("Generating image…");
-      const canvas = await captureCanvas();
-      const blob = await canvasToBlob(canvas);
-
+      const canvas = await captureCanvas(); const blob = await canvasToBlob(canvas);
       const rawPhone = (q.whatsapp || q.phone || "").replace(/\D/g, "");
-      const cc = !rawPhone
-        ? ""
-        : rawPhone.startsWith("91") && rawPhone.length >= 12
-        ? rawPhone
-        : "91" + rawPhone;
-
+      const cc = !rawPhone ? "" : rawPhone.startsWith("91") && rawPhone.length >= 12 ? rawPhone : "91" + rawPhone;
       downloadBlob(blob);
       toast.message("Uploading image for WhatsApp preview…");
       const imgUrl = await uploadAndGetUrl(blob);
       const onlineUrl = `${window.location.origin}/q/quote/${q.id}`;
       const vars = buildMessageVarsFromQuote({
-        quote: q,
-        companyName: settings.shop_name || "The Computer Solutions",
-        shopPhone: settings.shop_phone || "",
-        shopEmail: settings.shop_email || "",
-        imageUrl: imgUrl,
-        onlineUrl,
-        recipientName: q.customer_name,
+        quote: q, companyName: settings.shop_name || "The Computer Solutions",
+        shopPhone: settings.shop_phone || "", shopEmail: settings.shop_email || "",
+        imageUrl: imgUrl, onlineUrl, recipientName: q.customer_name,
       });
       const tpl = settings.quotation_message_template || DEFAULT_QUOTATION_MESSAGE_TEMPLATE;
       const msg = renderQuotationMessage(tpl, vars);
       window.open(
-        cc
-          ? `https://api.whatsapp.com/send/?phone=${cc}&text=${encodeURIComponent(msg)}&type=phone_number&app_absent=0`
-          : `https://api.whatsapp.com/send/?text=${encodeURIComponent(msg)}`,
+        cc ? `https://api.whatsapp.com/send/?phone=${cc}&text=${encodeURIComponent(msg)}&type=phone_number&app_absent=0`
+           : `https://api.whatsapp.com/send/?text=${encodeURIComponent(msg)}`,
         "_blank"
       );
-      if (imgUrl) {
-        toast.success("WhatsApp opened. Image link is in the message + JPEG downloaded — drag it into the chat to attach.", { duration: 8000 });
-      } else {
-        toast.warning("WhatsApp opened. Upload failed — please attach the downloaded JPEG manually.", { duration: 8000 });
-      }
-    } catch (e: any) {
-      toast.error("Failed: " + (e?.message || "Unknown error"));
-    }
+      if (imgUrl) toast.success("WhatsApp opened. Image link is in the message + JPEG downloaded — drag it into the chat to attach.", { duration: 8000 });
+      else toast.warning("WhatsApp opened. Upload failed — please attach the downloaded JPEG manually.", { duration: 8000 });
+    } catch (e: any) { toast.error("Failed: " + (e?.message || "Unknown error")); }
   };
 
   return (
@@ -739,9 +610,7 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
             <QuotationPreview q={q} b={branding} />
           </div>
         </div>
-
         <SendQuotationPanel quotation={q} onJpegRequest={async () => { const r = await exportAsJpeg(); return r.url; }} />
-
         <div className="px-3 sm:px-6 py-3 border-t bg-slate-100 flex flex-wrap justify-end gap-2 print:hidden">
           <button onClick={onClose} className="px-3 py-2 text-sm bg-slate-200 hover:bg-slate-300 rounded">Close</button>
           <button onClick={handleJpegOnly} className="px-3 py-2 text-sm bg-purple-600 hover:bg-purple-500 text-white rounded flex items-center gap-1"><Download size={14} />Download JPEG</button>

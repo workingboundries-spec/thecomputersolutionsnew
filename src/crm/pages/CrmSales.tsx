@@ -23,10 +23,7 @@ async function shareSalesForm() {
     getAdminSetting("shop_email"), getAdminSetting("shop_address"),
   ]);
   const link = `${window.location.origin}/sales-form`;
-  const tpl = await getTemplate(
-    "sales_form_request",
-    "Hello! Please fill in your purchase details using the link below — it only takes a minute:\n\n{link}\n\nThank you!"
-  );
+  const tpl = await getTemplate("sales_form_request", "Hello! Please fill in your purchase details using the link below — it only takes a minute:\n\n{link}\n\nThank you!");
   const msg = fillTemplate(tpl, buildSalesVars({}, { shop: { shop_name, shop_phone, shop_email, shop_address }, link }));
   navigator.clipboard?.writeText(link).catch(() => {});
   window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
@@ -48,25 +45,14 @@ async function nextInvoiceNo() {
   const m = String(today.getMonth() + 1).padStart(2, "0");
   const d = String(today.getDate()).padStart(2, "0");
   const prefix = `INV-${y}${m}${d}`;
-  const { data } = await supabase
-    .from("crm_sales")
-    .select("invoice_no")
-    .like("invoice_no", `${prefix}-%`)
-    .order("invoice_no", { ascending: false })
-    .limit(1);
+  const { data } = await supabase.from("crm_sales").select("invoice_no").like("invoice_no", `${prefix}-%`).order("invoice_no", { ascending: false }).limit(1);
   let n = 1;
-  if (data && data[0]) {
-    const last = data[0].invoice_no.split("-").pop();
-    n = (parseInt(last || "0", 10) || 0) + 1;
-  }
+  if (data && data[0]) { const last = data[0].invoice_no.split("-").pop(); n = (parseInt(last || "0", 10) || 0) + 1; }
   return `${prefix}-${String(n).padStart(3, "0")}`;
 }
 
 async function loadTemplates() {
-  const { data } = await supabase
-    .from("crm_admin_settings")
-    .select("setting_key, setting_value")
-    .like("setting_key", "whatsapp_%_template");
+  const { data } = await supabase.from("crm_admin_settings").select("setting_key, setting_value").like("setting_key", "whatsapp_%_template");
   const map: Record<string, string> = {};
   (data || []).forEach((t: any) => { map[t.setting_key] = t.setting_value; });
   return map;
@@ -79,14 +65,10 @@ function fillTemplate(tpl: string, vars: Record<string, string>) {
 async function createWarrantyReminders(sale: any, templates: Record<string, string>) {
   const reminders: any[] = [];
   const baseVars = {
-    name: sale.customer_name,
-    item: sale.item_name,
-    purchase_date: formatDate(sale.sale_date),
-    date: formatDate(sale.sale_date),
-    expiry: formatDate(sale.warranty_expiry),
-    phone: sale.phone,
-    shop_phone: "",
-    shop_name: "The Computer Solutions",
+    name: sale.customer_name, item: sale.item_name,
+    purchase_date: formatDate(sale.sale_date), date: formatDate(sale.sale_date),
+    expiry: formatDate(sale.warranty_expiry), phone: sale.phone,
+    shop_phone: "", shop_name: "The Computer Solutions",
   };
   const types: { type: string; days: number; tpl: string }[] = [
     { type: "1week", days: 7, tpl: "whatsapp_week_template" },
@@ -94,23 +76,15 @@ async function createWarrantyReminders(sale: any, templates: Record<string, stri
     { type: "3month", days: 90, tpl: "whatsapp_3month_template" },
     { type: "6month", days: 180, tpl: "whatsapp_6month_template" },
   ];
-  if (Number(sale.warranty_months || 0) >= 12) {
-    types.push({ type: "11month", days: 330, tpl: "whatsapp_11month_template" });
-  }
+  if (Number(sale.warranty_months || 0) >= 12) types.push({ type: "11month", days: 330, tpl: "whatsapp_11month_template" });
   for (const t of types) {
     reminders.push({
-      sale_id: sale.id,
-      customer_name: sale.customer_name,
-      phone: sale.phone,
-      whatsapp: sale.whatsapp || sale.phone,
-      item_name: sale.item_name,
-      purchase_date: sale.sale_date,
-      warranty_expiry: sale.warranty_expiry,
-      reminder_type: t.type,
-      scheduled_date: addDays(sale.sale_date, t.days),
+      sale_id: sale.id, customer_name: sale.customer_name, phone: sale.phone,
+      whatsapp: sale.whatsapp || sale.phone, item_name: sale.item_name,
+      purchase_date: sale.sale_date, warranty_expiry: sale.warranty_expiry,
+      reminder_type: t.type, scheduled_date: addDays(sale.sale_date, t.days),
       whatsapp_message: fillTemplate(templates[t.tpl] || "", baseVars),
-      status: "pending",
-      message_sent: false,
+      status: "pending", message_sent: false,
     });
   }
   if (reminders.length) await supabase.from("crm_warranty_reminders").insert(reminders);
@@ -120,24 +94,17 @@ async function upsertCustomer(sale: any) {
   const { data: existing } = await supabase.from("crm_customers").select("*").eq("phone", sale.phone).maybeSingle();
   if (existing) {
     await supabase.from("crm_customers").update({
-      name: sale.customer_name,
-      whatsapp: sale.whatsapp || sale.phone,
-      address: sale.address || existing.address,
-      dob: sale.customer_dob || existing.dob,
+      name: sale.customer_name, whatsapp: sale.whatsapp || sale.phone,
+      address: sale.address || existing.address, dob: sale.customer_dob || existing.dob,
       total_purchases: (existing.total_purchases || 0) + 1,
       total_value: Number(existing.total_value || 0) + Number(sale.total_amount || 0),
       last_purchase_date: sale.sale_date,
     }).eq("id", existing.id);
   } else {
     await supabase.from("crm_customers").insert({
-      name: sale.customer_name,
-      phone: sale.phone,
-      whatsapp: sale.whatsapp || sale.phone,
-      address: sale.address,
-      dob: sale.customer_dob || null,
-      total_purchases: 1,
-      total_value: Number(sale.total_amount || 0),
-      last_purchase_date: sale.sale_date,
+      name: sale.customer_name, phone: sale.phone, whatsapp: sale.whatsapp || sale.phone,
+      address: sale.address, dob: sale.customer_dob || null,
+      total_purchases: 1, total_value: Number(sale.total_amount || 0), last_purchase_date: sale.sale_date,
     });
   }
 }
@@ -145,25 +112,95 @@ async function upsertCustomer(sale: any) {
 async function decrementStock(item_id: string | null, qty: number, saleId: string, userId: string | null) {
   if (!item_id || !qty) return;
   await applyMovement({
-    itemId: item_id,
-    movementType: "sale",
-    qty: -Math.abs(qty),
-    referenceId: saleId,
-    referenceType: "crm_sales",
-    notes: `Sale ${saleId.slice(0, 8)}`,
-    createdBy: userId,
+    itemId: item_id, movementType: "sale", qty: -Math.abs(qty),
+    referenceId: saleId, referenceType: "crm_sales",
+    notes: `Sale ${saleId.slice(0, 8)}`, createdBy: userId,
   });
 }
 
-// ─── Searchable Catalogue Picker ──────────────────────────────────────────────
-function CataloguePicker({
-  catalogue,
-  selectedId,
-  onSelect,
+// ── Quick Add to Catalogue modal ──────────────────────────────────────────────
+// Shown when the typed item name is not found in catalogue.
+// Only Brand + Model required. All other fields can be filled in Catalogue later.
+function QuickAddCatalogueModal({
+  prefillName, onClose, onCreated,
 }: {
-  catalogue: any[];
-  selectedId: string | null;
-  onSelect: (item: any | null) => void;
+  prefillName: string;
+  onClose: () => void;
+  onCreated: (item: any) => void;
+}) {
+  const parts = prefillName.trim().split(" ");
+  const [brand, setBrand] = useState(parts[0] || "");
+  const [model, setModel] = useState(parts.slice(1).join(" ") || "");
+  const [category, setCategory] = useState("laptop");
+  const [salePrice, setSalePrice] = useState("");
+  const [specs, setSpecs] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  // Block Escape so it doesn't close the parent form behind this modal
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); } };
+    document.addEventListener("keydown", h, true);
+    return () => document.removeEventListener("keydown", h, true);
+  }, []);
+
+  const save = async () => {
+    if (!brand.trim() || !model.trim()) return toast.error("Brand and model are required");
+    setSaving(true);
+    const { data, error } = await supabase.from("crm_catalogue").insert({
+      brand: brand.trim(), model: model.trim(), category,
+      sale_price: Number(salePrice || 0),
+      nlc_price: 0, billing_price: 0, online_price: 0, mrp: 0,
+      stock_qty: 0, current_stock: 0, opening_stock: 0,
+      specs: specs.trim() || null, is_active: true,
+    }).select().single();
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success(`"${brand} ${model}" added to catalogue`);
+    onCreated(data);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[70] bg-black/70 flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-slate-900 border border-slate-700 rounded-lg w-full max-w-md p-5 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-semibold text-white">Quick Add to Catalogue</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-white"><X size={18} /></button>
+        </div>
+        <p className="text-xs text-slate-400">Brand &amp; model required. Fill pricing and stock in Catalogue later.</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div><label className="text-xs text-slate-400 block mb-1">Brand *</label><input value={brand} onChange={(e) => setBrand(e.target.value)} className={fInput} /></div>
+          <div><label className="text-xs text-slate-400 block mb-1">Model *</label><input value={model} onChange={(e) => setModel(e.target.value)} className={fInput} /></div>
+          <div>
+            <label className="text-xs text-slate-400 block mb-1">Category</label>
+            <select value={category} onChange={(e) => setCategory(e.target.value)} className={fInput}>
+              <option value="laptop">Laptop</option>
+              <option value="cctv">CCTV</option>
+              <option value="accessory">Accessory</option>
+              <option value="networking">Networking</option>
+              <option value="printer">Printer</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div><label className="text-xs text-slate-400 block mb-1">Sale Price (₹)</label><input type="number" value={salePrice} onChange={(e) => setSalePrice(e.target.value)} className={fInput} /></div>
+        </div>
+        <div><label className="text-xs text-slate-400 block mb-1">Specifications</label>
+          <textarea value={specs} onChange={(e) => setSpecs(e.target.value)} rows={2} className={fInput} placeholder="e.g. i5 13th / 8GB / 512GB SSD" />
+        </div>
+        <div className="flex justify-end gap-2 pt-1">
+          <button onClick={onClose} className="px-3 py-2 text-sm text-slate-300 hover:bg-slate-800 rounded">Cancel</button>
+          <button onClick={save} disabled={saving} className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded disabled:opacity-50">
+            {saving ? "Adding…" : "Add to Catalogue"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Searchable Catalogue Picker ───────────────────────────────────────────────
+function CataloguePicker({ catalogue, selectedId, onSelect }: {
+  catalogue: any[]; selectedId: string | null; onSelect: (item: any | null) => void;
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -171,53 +208,30 @@ function CataloguePicker({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const selectedItem = catalogue.find((c) => c.id === selectedId);
-  const displayValue = selectedItem
-    ? `${selectedItem.item_code ? `[${selectedItem.item_code}] ` : ""}${selectedItem.brand} ${selectedItem.model}`
-    : "";
+  const displayValue = selectedItem ? `${selectedItem.item_code ? `[${selectedItem.item_code}] ` : ""}${selectedItem.brand} ${selectedItem.model}` : "";
 
+  // Searches brand, model, item_code AND specs
   const filtered = (() => {
     const q = query.trim().toLowerCase();
     if (!q) return catalogue;
-    return catalogue.filter((c) => {
-      // ← FIX: only use the real DB column "specs" — removed non-existent "specifications" and "description"
-      const haystack = [
-        c.item_code || "",
-        c.brand || "",
-        c.model || "",
-        c.specs || "",
-      ].join(" ").toLowerCase();
-      return haystack.includes(q);
-    });
+    return catalogue.filter((c) => [c.item_code || "", c.brand || "", c.model || "", c.specs || ""].join(" ").toLowerCase().includes(q));
   })();
 
-  // Close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-        setQuery("");
-      }
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) { setOpen(false); setQuery(""); }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const choose = (item: any | null) => {
-    onSelect(item);
-    setOpen(false);
-    setQuery("");
-  };
+  const choose = (item: any | null) => { onSelect(item); setOpen(false); setQuery(""); };
 
   return (
     <div ref={containerRef} className="relative">
-      {/* Trigger */}
       <button
         type="button"
-        onClick={() => {
-          setOpen((o) => !o);
-          setQuery("");
-          setTimeout(() => inputRef.current?.focus(), 50);
-        }}
+        onClick={() => { setOpen((o) => !o); setQuery(""); setTimeout(() => inputRef.current?.focus(), 50); }}
         className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-left flex items-center justify-between gap-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
       >
         <span className={selectedItem ? "text-white truncate" : "text-slate-500 truncate"}>
@@ -228,76 +242,48 @@ function CataloguePicker({
 
       {open && (
         <div className="absolute z-[200] top-full mt-1 left-0 right-0 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl flex flex-col max-h-72">
-          {/* Search box */}
           <div className="p-2 border-b border-slate-700 shrink-0">
             <div className="relative">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                ref={inputRef}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Type brand, model, specs e.g. R5, i7, 16GB, CCTV…"
+              <input ref={inputRef} value={query} onChange={(e) => setQuery(e.target.value)}
+                placeholder="Type brand, model, specs e.g. R5, i7, 16GB…"
                 className="w-full pl-8 pr-7 py-1.5 bg-slate-700 border border-slate-600 rounded text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
-              {query && (
-                <button type="button" onClick={() => setQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
-                  <X size={12} />
-                </button>
-              )}
+              {query && <button type="button" onClick={() => setQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"><X size={12} /></button>}
             </div>
           </div>
-
-          {/* List */}
           <div className="overflow-y-auto flex-1">
-            {/* Manual entry option */}
-            <button
-              type="button"
-              onClick={() => choose(null)}
-              className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-700 ${!selectedId ? "bg-slate-700/60 text-blue-400" : "text-slate-400"}`}
-            >
+            <button type="button" onClick={() => choose(null)}
+              className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-700 ${!selectedId ? "bg-slate-700/60 text-blue-400" : "text-slate-400"}`}>
               — Manual entry —
             </button>
-
             {filtered.length === 0 ? (
-              <div className="px-3 py-5 text-center text-xs text-slate-500">
-                No items match "<span className="text-slate-300">{query}</span>"
-              </div>
-            ) : (
-              filtered.map((c) => {
-                const label = `${c.item_code ? `[${c.item_code}] ` : ""}${c.brand} ${c.model}`;
-                const spec = c.specs || ""; // ← FIX: only real column
-                const isSelected = c.id === selectedId;
-                const inStock = Number(c.stock_qty) > 0;
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => choose(c)}
-                    className={`w-full text-left px-3 py-2.5 hover:bg-slate-700/70 border-t border-slate-700/40 transition-colors ${isSelected ? "bg-blue-600/20" : ""}`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={`text-sm font-medium truncate ${isSelected ? "text-blue-300" : "text-white"}`}>
-                        {label}
-                      </span>
-                      <span className={`text-xs shrink-0 px-1.5 py-0.5 rounded font-medium ${inStock ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
-                        {inStock ? `${c.stock_qty} in stock` : "out of stock"}
-                      </span>
-                    </div>
-                    {spec && (
-                      <div className="text-[11px] text-slate-400 truncate mt-0.5">{spec}</div>
-                    )}
-                    <div className="text-[11px] text-blue-400/80 mt-0.5">{formatINR(c.sale_price)}</div>
-                  </button>
-                );
-              })
-            )}
+              <div className="px-3 py-5 text-center text-xs text-slate-500">No items match "<span className="text-slate-300">{query}</span>"</div>
+            ) : filtered.map((c) => {
+              const label = `${c.item_code ? `[${c.item_code}] ` : ""}${c.brand} ${c.model}`;
+              const isSelected = c.id === selectedId;
+              const inStock = Number(c.stock_qty) > 0;
+              return (
+                <button key={c.id} type="button" onClick={() => choose(c)}
+                  className={`w-full text-left px-3 py-2.5 hover:bg-slate-700/70 border-t border-slate-700/40 transition-colors ${isSelected ? "bg-blue-600/20" : ""}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`text-sm font-medium truncate ${isSelected ? "text-blue-300" : "text-white"}`}>{label}</span>
+                    <span className={`text-xs shrink-0 px-1.5 py-0.5 rounded font-medium ${inStock ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
+                      {inStock ? `${c.stock_qty} in stock` : "out of stock"}
+                    </span>
+                  </div>
+                  {c.specs && <div className="text-[11px] text-slate-400 truncate mt-0.5">{c.specs}</div>}
+                  <div className="text-[11px] text-blue-400/80 mt-0.5">{formatINR(c.sale_price)}</div>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
     </div>
   );
 }
-// ──────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function CrmSales() {
   const { user } = useCrmAuth();
@@ -315,7 +301,14 @@ export default function CrmSales() {
   const [shopInfo, setShopInfo] = useState<Record<string, string>>({});
   const [codeInput, setCodeInput] = useState("");
   const [codeError, setCodeError] = useState("");
+  // ── Quick Add to Catalogue state ──────────────────────────────────────────
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  // ─────────────────────────────────────────────────────────────────────────
   const paymentModes = useAdminSetting<string[]>("sale_payment_modes", ["Cash", "UPI", "Card", "EMI", "Credit", "NEFT"]);
+
+  // True when manually typed name doesn't match any catalogue entry
+  const itemNotInCatalogue = !form.item_id && form.item_name?.trim()
+    && !catalogue.some((c) => `${c.brand} ${c.model}`.toLowerCase() === form.item_name.trim().toLowerCase());
 
   const lookupItemCode = (raw: string) => {
     const code = raw.trim();
@@ -324,10 +317,7 @@ export default function CrmSales() {
     if (!c) { setCodeError(`No item matches code ${code}`); return; }
     setCodeError("");
     setForm((f: any) => ({
-      ...f,
-      item_id: c.id,
-      item_name: `${c.brand} ${c.model}`,
-      sale_price: Number(c.sale_price || 0),
+      ...f, item_id: c.id, item_name: `${c.brand} ${c.model}`, sale_price: Number(c.sale_price || 0),
       total_amount: Math.max(0, Number(f.qty || 1) * Number(c.sale_price || 0) - Number(f.discount || 0)),
     }));
     toast.success(`Loaded ${c.brand} ${c.model}`);
@@ -337,7 +327,6 @@ export default function CrmSales() {
     setLoading(true);
     const [salesRes, catRes, settRes] = await Promise.all([
       supabase.from("crm_sales").select("*").eq("is_deleted", false).order("created_at", { ascending: false }),
-      // ← FIX: only select real columns that exist in crm_catalogue — removed "specifications" and "description"
       supabase.from("crm_catalogue").select("id, item_code, brand, model, sale_price, stock_qty, specs"),
       supabase.from("crm_settings").select("key, value"),
     ]);
@@ -358,8 +347,7 @@ export default function CrmSales() {
       params.forEach((v, k) => { if (k !== "new" && k in prefill) prefill[k] = v; });
       if (params.get("enquiry_id")) prefill.enquiry_id = params.get("enquiry_id");
       const sp = Number(prefill.sale_price || 0);
-      prefill.sale_price = sp;
-      prefill.total_amount = sp;
+      prefill.sale_price = sp; prefill.total_amount = sp;
       openNew(prefill);
       params.delete("new");
       setParams(params, { replace: true });
@@ -373,17 +361,12 @@ export default function CrmSales() {
       const q = search.toLowerCase();
       if (!r.customer_name?.toLowerCase().includes(q) && !r.phone?.includes(q) && !r.invoice_no?.toLowerCase().includes(q)) return false;
     }
-    if (itemSearch) {
-      const q = itemSearch.toLowerCase();
-      if (!r.item_name?.toLowerCase().includes(q)) return false;
-    }
+    if (itemSearch) { const q = itemSearch.toLowerCase(); if (!r.item_name?.toLowerCase().includes(q)) return false; }
     return true;
   });
 
   const totalsByDate = (() => {
-    const today = todayISO();
-    const weekAgo = addDays(today, -7);
-    const monthStart = today.slice(0, 7) + "-01";
+    const today = todayISO(); const weekAgo = addDays(today, -7); const monthStart = today.slice(0, 7) + "-01";
     let t = 0, w = 0, m = 0;
     rows.forEach((r) => {
       const amt = Number(r.total_amount || 0);
@@ -395,23 +378,17 @@ export default function CrmSales() {
   })();
 
   const openNew = async (prefill?: any) => {
-    setEditing(null);
-    setCodeInput("");
-    setCodeError("");
+    setEditing(null); setCodeInput(""); setCodeError("");
     const inv = await nextInvoiceNo();
     const base = { ...empty, ...(prefill || {}), invoice_no: inv };
     base.warranty_expiry = addMonths(base.sale_date, base.warranty_months);
-    setForm(base);
-    setShowForm(true);
+    setForm(base); setShowForm(true);
   };
 
   const openEdit = (r: any) => {
-    setEditing(r);
-    setForm({ ...empty, ...r });
+    setEditing(r); setForm({ ...empty, ...r });
     const c = catalogue.find((x) => x.id === r.item_id);
-    setCodeInput(c?.item_code || "");
-    setCodeError("");
-    setShowForm(true);
+    setCodeInput(c?.item_code || ""); setCodeError(""); setShowForm(true);
   };
 
   const recalc = (f: any) => {
@@ -424,21 +401,15 @@ export default function CrmSales() {
     if (!form.payment_mode) return toast.error("Select a payment mode");
     if (!form.item_name?.trim()) return toast.error("Item name is required");
     if (!form.sale_price || Number(form.sale_price) <= 0) return toast.error("Sale price must be greater than 0");
-
     const payload = {
       ...form,
-      qty: Number(form.qty || 1),
-      sale_price: Number(form.sale_price || 0),
-      discount: Number(form.discount || 0),
-      total_amount: Number(form.total_amount || 0),
+      qty: Number(form.qty || 1), sale_price: Number(form.sale_price || 0),
+      discount: Number(form.discount || 0), total_amount: Number(form.total_amount || 0),
       warranty_months: Number(form.warranty_months || 0),
       warranty_expiry: form.warranty_expiry || addMonths(form.sale_date, Number(form.warranty_months || 0)),
-      whatsapp: form.whatsapp || form.phone,
-      customer_dob: form.customer_dob || null,
-      enquiry_id: form.enquiry_id || null,
-      item_id: form.item_id || null,
+      whatsapp: form.whatsapp || form.phone, customer_dob: form.customer_dob || null,
+      enquiry_id: form.enquiry_id || null, item_id: form.item_id || null,
     };
-
     if (editing) {
       const { error } = await supabase.from("crm_sales").update(payload).eq("id", editing.id);
       if (error) return toast.error(error.message);
@@ -455,8 +426,7 @@ export default function CrmSales() {
       ]);
       toast.success(payload.enquiry_id ? "Sale created & enquiry marked as converted" : "Sale saved + reminders scheduled");
     }
-    setShowForm(false);
-    load();
+    setShowForm(false); load();
   };
 
   const handleDelete = async (s: any) => {
@@ -468,48 +438,27 @@ export default function CrmSales() {
       supabase.from("crm_whatsapp_log").delete().eq("sale_id", s.id),
     ]);
     if (s.enquiry_id) {
-      const { data: otherSales } = await supabase
-        .from("crm_sales")
-        .select("id")
-        .eq("enquiry_id", s.enquiry_id)
-        .eq("is_deleted", false)
-        .neq("id", s.id);
+      const { data: otherSales } = await supabase.from("crm_sales").select("id").eq("enquiry_id", s.enquiry_id).eq("is_deleted", false).neq("id", s.id);
       if (!otherSales || otherSales.length === 0) {
         await supabase.from("crm_enquiries").update({ status: "follow_up", is_converted: false }).eq("id", s.enquiry_id);
       }
     }
     if (s.item_id && Number(s.qty || 0) > 0) {
       const res = await applyMovement({
-        itemId: s.item_id,
-        movementType: "sale_reversal",
-        qty: Math.abs(Number(s.qty || 0)),
-        referenceId: s.id,
-        referenceType: "crm_sales",
-        reason: `Reversed sale ${s.invoice_no}`,
-        createdBy: user?.id ?? null,
+        itemId: s.item_id, movementType: "sale_reversal", qty: Math.abs(Number(s.qty || 0)),
+        referenceId: s.id, referenceType: "crm_sales",
+        reason: `Reversed sale ${s.invoice_no}`, createdBy: user?.id ?? null,
       });
       if (res.ok) toast.success(`Sale deleted. Stock restored to ${res.balanceAfter}.`);
       else toast.success("Sale deleted (stock restore failed: " + (res.error || "unknown") + ")");
-    } else {
-      toast.success("Sale deleted");
-    }
+    } else { toast.success("Sale deleted"); }
     load();
   };
 
   const sendReceipt = async (s: any) => {
     const { getTemplate, fillTemplate, buildSalesVars } = await import("@/crm/lib/whatsapp");
-    const tpl = await getTemplate(
-      "sales_receipt",
-      "Hi {name}, thank you for your purchase!\nInvoice: {invoice_no}\nItem: {item}\nAmount: {amount}\nWarranty till: {warranty_expiry}\n— {shop_name}"
-    );
-    const msg = fillTemplate(tpl, buildSalesVars(s, {
-      shop: {
-        shop_name: shopInfo.shop_name,
-        shop_phone: shopInfo.shop_phone,
-        shop_email: shopInfo.shop_email,
-        shop_address: shopInfo.shop_address,
-      },
-    }));
+    const tpl = await getTemplate("sales_receipt", "Hi {name}, thank you for your purchase!\nInvoice: {invoice_no}\nItem: {item}\nAmount: {amount}\nWarranty till: {warranty_expiry}\n— {shop_name}");
+    const msg = fillTemplate(tpl, buildSalesVars(s, { shop: { shop_name: shopInfo.shop_name, shop_phone: shopInfo.shop_phone, shop_email: shopInfo.shop_email, shop_address: shopInfo.shop_address } }));
     const phone = (s.whatsapp || s.phone || "").replace(/\D/g, "");
     const cc = phone.startsWith("91") ? phone : "91" + phone;
     window.open(`https://wa.me/${cc}?text=${encodeURIComponent(msg)}`, "_blank");
@@ -542,16 +491,12 @@ export default function CrmSales() {
         <div className="relative flex-1 min-w-[180px]">
           <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
           <input value={itemSearch} onChange={(e) => setItemSearch(e.target.value)} placeholder="Search by Item — Laptop, CCTV, etc." className="w-full pl-8 pr-8 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-white" />
-          {itemSearch && (
-            <button type="button" onClick={() => setItemSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white" aria-label="Clear">
-              <X size={14} />
-            </button>
-          )}
+          {itemSearch && <button type="button" onClick={() => setItemSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"><X size={14} /></button>}
         </div>
         <select value={filterPay} onChange={(e) => setFilterPay(e.target.value)} className="px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-white">
           <option value="">All payments</option>
-          <option value="paid">Paid</option><option value="partial">Partial</option><option value="pending">Pending</option>
-          <option value="pending_review">Pending Review</option>
+          <option value="paid">Paid</option><option value="partial">Partial</option>
+          <option value="pending">Pending</option><option value="pending_review">Pending Review</option>
         </select>
       </div>
 
@@ -559,12 +504,9 @@ export default function CrmSales() {
         <table className="w-full text-sm">
           <thead className="bg-slate-800/50 text-xs uppercase text-slate-400">
             <tr>
-              <th className="text-left px-3 py-2">Date</th>
-              <th className="text-left px-3 py-2">Invoice</th>
-              <th className="text-left px-3 py-2">Customer</th>
-              <th className="text-left px-3 py-2">Item</th>
-              <th className="text-right px-3 py-2">Amount</th>
-              <th className="text-left px-3 py-2">Payment</th>
+              <th className="text-left px-3 py-2">Date</th><th className="text-left px-3 py-2">Invoice</th>
+              <th className="text-left px-3 py-2">Customer</th><th className="text-left px-3 py-2">Item</th>
+              <th className="text-right px-3 py-2">Amount</th><th className="text-left px-3 py-2">Payment</th>
               <th className="text-right px-3 py-2">Actions</th>
             </tr>
           </thead>
@@ -597,19 +539,20 @@ export default function CrmSales() {
         </table>
       </div>
 
-      {/* Form modal — backdrop click does NOT close the form */}
+      {/* ── Sale Form modal — backdrop does NOT close the form ── */}
       {showForm && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-start justify-center p-4 overflow-y-auto">
           <form onSubmit={save} className="bg-slate-900 border border-slate-700 rounded-lg p-5 w-full max-w-3xl my-8 space-y-3">
-            <h3 className="text-lg font-semibold text-white">{editing ? "Edit" : "New"} Sale</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-white">{editing ? "Edit" : "New"} Sale</h3>
+              <button type="button" onClick={() => setShowForm(false)} className="text-slate-400 hover:text-white"><X size={18} /></button>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <Field label="Invoice No"><input value={form.invoice_no} onChange={(e) => setForm({ ...form, invoice_no: e.target.value })} className={fInput} /></Field>
               <Field label="Sale Date"><input type="date" value={form.sale_date} onChange={(e) => setForm(recalc({ ...form, sale_date: e.target.value, warranty_expiry: addMonths(e.target.value, Number(form.warranty_months || 0)) }))} className={fInput} /></Field>
               <Field label="Payment Mode">
                 <select value={form.payment_mode} onChange={(e) => setForm({ ...form, payment_mode: e.target.value })} className={fInput}>
-                  {(paymentModes || []).map((m: string) => (
-                    <option key={m} value={m.toLowerCase()}>{m}</option>
-                  ))}
+                  {(paymentModes || []).map((m: string) => <option key={m} value={m.toLowerCase()}>{m}</option>)}
                 </select>
               </Field>
               <Field label="Customer Name *"><input required value={form.customer_name} onChange={(e) => setForm({ ...form, customer_name: e.target.value })} className={fInput} /></Field>
@@ -618,36 +561,27 @@ export default function CrmSales() {
               <Field label="Address"><input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className={fInput} /></Field>
               <Field label="Customer DOB (for birthday)"><input type="date" value={form.customer_dob || ""} onChange={(e) => setForm({ ...form, customer_dob: e.target.value })} className={fInput} /></Field>
               <Field label="Item Code (quick entry)">
-                <input
-                  value={codeInput}
+                <input value={codeInput}
                   onChange={(e) => { setCodeInput(e.target.value); setCodeError(""); }}
                   onBlur={(e) => lookupItemCode(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); lookupItemCode((e.target as HTMLInputElement).value); } }}
-                  placeholder="e.g. ITM-0001"
-                  className={fInput}
+                  placeholder="e.g. ITM-0001" className={fInput}
                 />
                 {codeError && <span className="text-[11px] text-red-400 mt-1 block">{codeError}</span>}
               </Field>
 
-              {/* ── Searchable catalogue picker — spans 2 cols for comfort ── */}
+              {/* Searchable catalogue picker — searches brand, model, specs */}
               <div className="md:col-span-2">
-                <Field label="Pick from Catalogue — search brand, model, specs (e.g. R5, i7, 16GB, CCTV)">
+                <Field label="Pick from Catalogue — search brand, model, specs (e.g. R5, i7, 16GB)">
                   <CataloguePicker
                     catalogue={catalogue}
                     selectedId={form.item_id}
                     onSelect={(c) => {
                       if (c) {
-                        setForm(recalc({
-                          ...form,
-                          item_id: c.id,
-                          item_name: `${c.brand} ${c.model}`,
-                          sale_price: Number(c.sale_price || 0),
-                        }));
-                        setCodeInput(c.item_code || "");
-                        setCodeError("");
+                        setForm(recalc({ ...form, item_id: c.id, item_name: `${c.brand} ${c.model}`, sale_price: Number(c.sale_price || 0) }));
+                        setCodeInput(c.item_code || ""); setCodeError("");
                       } else {
-                        setForm({ ...form, item_id: null, item_name: "" });
-                        setCodeInput("");
+                        setForm({ ...form, item_id: null, item_name: "" }); setCodeInput("");
                       }
                     }}
                   />
@@ -656,15 +590,25 @@ export default function CrmSales() {
 
               <Field label="Item Name *">
                 <input
-                  required
-                  value={form.item_name}
-                  onChange={(e) => setForm({ ...form, item_name: e.target.value })}
+                  required value={form.item_name}
+                  onChange={(e) => setForm({ ...form, item_name: e.target.value, item_id: null })}
                   readOnly={!!form.item_id}
                   title={form.item_id ? "Auto-filled from catalogue — choose '— Manual entry —' to type freely" : ""}
                   className={`${fInput} ${form.item_id ? "opacity-60 cursor-not-allowed" : ""}`}
                 />
-                {form.item_id && (
-                  <span className="text-[10px] text-slate-500 mt-0.5 block">Auto-filled from catalogue</span>
+                {form.item_id && <span className="text-[10px] text-slate-500 mt-0.5 block">Auto-filled from catalogue</span>}
+                {/* ── Quick Add to Catalogue prompt ── */}
+                {itemNotInCatalogue && (
+                  <div className="mt-1 text-[11px] text-slate-400 flex items-center gap-2 flex-wrap">
+                    <span>"{form.item_name}" not in catalogue.</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowQuickAdd(true)}
+                      className="text-blue-400 underline hover:text-blue-300"
+                    >
+                      + Add to Catalogue
+                    </button>
+                  </div>
                 )}
               </Field>
 
@@ -687,6 +631,28 @@ export default function CrmSales() {
             </div>
           </form>
         </div>
+      )}
+
+      {/* Quick Add to Catalogue modal */}
+      {showQuickAdd && (
+        <QuickAddCatalogueModal
+          prefillName={form.item_name || ""}
+          onClose={() => setShowQuickAdd(false)}
+          onCreated={(newItem) => {
+            setShowQuickAdd(false);
+            // Auto-select the newly created item in the form
+            setForm(recalc({
+              ...form,
+              item_id: newItem.id,
+              item_name: `${newItem.brand} ${newItem.model}`,
+              sale_price: Number(newItem.sale_price || form.sale_price || 0),
+            }));
+            setCodeInput(newItem.item_code || "");
+            // Refresh catalogue list so new item appears in picker
+            supabase.from("crm_catalogue").select("id, item_code, brand, model, sale_price, stock_qty, specs")
+              .then(({ data }) => { if (data) setCatalogue(data); });
+          }}
+        />
       )}
 
       {viewing && <InvoiceModal sale={viewing} shop={shopInfo} onClose={() => setViewing(null)} />}
@@ -759,7 +725,6 @@ function Stat({ label, value }: any) {
 }
 
 const fInput = "w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500";
-
 function Field({ label, children }: any) {
   return <label className="block"><span className="text-xs text-slate-400 mb-1 block">{label}</span>{children}</label>;
 }

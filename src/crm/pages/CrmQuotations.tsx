@@ -3,12 +3,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatINR, formatDate, todayISO, addDays } from "@/crm/lib/format";
 import { useAdminSettings } from "@/crm/hooks/useAdminSettings";
 import { useQuotationBranding } from "@/crm/lib/quotationBranding";
-import { QuotationPreview } from "@/crm/components/QuotationPreview";
+import { QuotationPreview, DEFAULT_VISIBILITY, type QuoteVisibility } from "@/crm/components/QuotationPreview";
 import QuotationTemplatesTab from "@/crm/components/QuotationTemplatesTab";
 import SendQuotationPanel from "@/crm/components/SendQuotationPanel";
 import { renderQuotationMessage, buildMessageVarsFromQuote, DEFAULT_QUOTATION_MESSAGE_TEMPLATE } from "@/crm/lib/quotationMessage";
 import { toast } from "sonner";
-import { Plus, Search, Eye, Edit2, Trash2, Printer, X, FileText, Download, FileStack, ListOrdered, Send } from "lucide-react";
+import { Plus, Search, Eye, Edit2, Trash2, Printer, X, FileText, Download, FileStack, ListOrdered, Send, SlidersHorizontal } from "lucide-react";
 import html2canvas from "html2canvas";
 import CatalogueDrawer from "@/crm/components/CatalogueDrawer";
 
@@ -144,8 +144,6 @@ export default function CrmQuotations() {
   };
 
   const [pickerSearch, setPickerSearch] = useState("");
-
-  // Searches item_code, brand, model AND specs
   const filteredPicker = catalogue.filter((c) => {
     const s = pickerSearch.trim().toLowerCase();
     if (!s) return true;
@@ -161,11 +159,8 @@ export default function CrmQuotations() {
     if (!form.customer_name || !form.phone) return toast.error("Customer name and phone required");
     if (form.items.length === 0) return toast.error("Add at least one item");
     const t = calcTotals(form.items, form.gst_percent, form.extra_discount);
-
-    // "Save & Preview" = intent to share = mark as "sent"
     const resolvedStatus = asStatus === "preview" ? "sent" : (asStatus || form.status);
 
-    // Auto-create enquiry for every new quote with no linked enquiry
     let enquiryId = form.enquiry_id || null;
     const isNewQuote = !form.id;
     if (isNewQuote && !enquiryId) {
@@ -504,9 +499,67 @@ export default function CrmQuotations() {
   );
 }
 
+// ── Visibility toggle labels ──────────────────────────────────────────────────
+const VIS_GROUPS: { label: string; items: { key: keyof QuoteVisibility; label: string }[] }[] = [
+  {
+    label: "Header",
+    items: [
+      { key: "logo",           label: "Logo" },
+      { key: "companyName",    label: "Company Name" },
+      { key: "companyContact", label: "Address / Phone / Email / GST" },
+    ],
+  },
+  {
+    label: "Quote Info",
+    items: [
+      { key: "quoteMeta", label: "Quote No / Date / Validity" },
+      { key: "billTo",    label: "Bill To (Customer)" },
+    ],
+  },
+  {
+    label: "Item Table Columns",
+    items: [
+      { key: "colQty",      label: "Qty Column" },
+      { key: "colPrice",    label: "Price Column" },
+      { key: "colDiscount", label: "Discount Column" },
+      { key: "colTotal",    label: "Total Column" },
+      { key: "specs",       label: "Specifications (under each item)" },
+    ],
+  },
+  {
+    label: "Totals",
+    items: [
+      { key: "subtotalRow", label: "Subtotal Row" },
+      { key: "discountRow", label: "Discount Row" },
+      { key: "gstRow",      label: "GST Row" },
+      { key: "grandTotal",  label: "Grand Total Bar" },
+    ],
+  },
+  {
+    label: "Bottom",
+    items: [
+      { key: "terms",  label: "Terms & Conditions" },
+      { key: "footer", label: "Footer Bar" },
+    ],
+  },
+];
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: any; onClose: () => void }) {
   const previewRef = useRef<HTMLDivElement>(null);
   const settings = useAdminSettings(["quotation_message_template", "shop_name", "shop_phone", "shop_email"]);
+
+  // ── Visibility state — all on by default ─────────────────────────────────
+  const [vis, setVis] = useState<QuoteVisibility>({ ...DEFAULT_VISIBILITY });
+  const [showVisPanel, setShowVisPanel] = useState(false);
+
+  const toggleVis = (key: keyof QuoteVisibility) =>
+    setVis((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const resetVis = () => setVis({ ...DEFAULT_VISIBILITY });
+
+  const hiddenCount = Object.values(vis).filter((v) => !v).length;
+  // ─────────────────────────────────────────────────────────────────────────
 
   const inlineImages = async (root: HTMLElement) => {
     const imgs = Array.from(root.querySelectorAll("img"));
@@ -547,7 +600,7 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
   };
 
   const canvasToBlob = (canvas: HTMLCanvasElement): Promise<Blob> =>
-    new Promise((res, rej) => canvas.toBlob((b) => (b ? res(b) : rej(new Error("Blob conversion failed"))), "image/jpeg", 0.92));
+    new Promise((res, rej) => canvas.toBlob((b) => (b ? res(b) : rej(new Error("Blob failed"))), "image/jpeg", 0.92));
 
   const downloadBlob = (blob: Blob) => {
     const url = URL.createObjectURL(blob);
@@ -597,20 +650,70 @@ export function QuotePreviewModal({ q, branding, onClose }: { q: any; branding: 
            : `https://api.whatsapp.com/send/?text=${encodeURIComponent(msg)}`,
         "_blank"
       );
-      if (imgUrl) toast.success("WhatsApp opened. Image link is in the message + JPEG downloaded — drag it into the chat to attach.", { duration: 8000 });
-      else toast.warning("WhatsApp opened. Upload failed — please attach the downloaded JPEG manually.", { duration: 8000 });
+      if (imgUrl) toast.success("WhatsApp opened. JPEG downloaded — drag it into the chat to attach.", { duration: 8000 });
+      else toast.warning("WhatsApp opened. Upload failed — attach JPEG manually.", { duration: 8000 });
     } catch (e: any) { toast.error("Failed: " + (e?.message || "Unknown error")); }
   };
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-start justify-center p-2 sm:p-4 overflow-y-auto print:bg-white print:p-0" onClick={onClose}>
       <div className="bg-white text-slate-900 rounded-lg w-full max-w-[840px] my-4 sm:my-8 print:my-0 print:max-w-none print:rounded-none overflow-hidden" onClick={(e) => e.stopPropagation()}>
+
+        {/* ── Visibility toggle panel ── */}
+        <div className="bg-slate-50 border-b border-slate-200 px-4 py-2.5 flex items-center gap-3 print:hidden flex-wrap">
+          <button
+            onClick={() => setShowVisPanel((v) => !v)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium border transition-colors ${showVisPanel ? "bg-slate-800 text-white border-slate-700" : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"}`}
+          >
+            <SlidersHorizontal size={14} />
+            Customise Layout
+            {hiddenCount > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 bg-blue-500 text-white text-[10px] rounded-full">{hiddenCount} hidden</span>
+            )}
+          </button>
+          {hiddenCount > 0 && (
+            <button onClick={resetVis} className="text-xs text-slate-500 hover:text-slate-800 underline">
+              Reset to default
+            </button>
+          )}
+          <span className="text-xs text-slate-400 ml-auto">Changes affect output only — data is always saved</span>
+        </div>
+
+        {/* Toggle checkboxes — shown when panel is open */}
+        {showVisPanel && (
+          <div className="bg-slate-50 border-b border-slate-200 px-4 py-3 print:hidden">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-x-6 gap-y-3">
+              {VIS_GROUPS.map((group) => (
+                <div key={group.label}>
+                  <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-1.5">{group.label}</div>
+                  <div className="space-y-1">
+                    {group.items.map(({ key, label }) => (
+                      <label key={key} className="flex items-center gap-1.5 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={vis[key]}
+                          onChange={() => toggleVis(key)}
+                          className="accent-blue-500 w-3.5 h-3.5"
+                        />
+                        <span className={`text-xs ${vis[key] ? "text-slate-700" : "text-slate-400 line-through"}`}>{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Quotation preview — receives vis prop */}
         <div className="p-2 sm:p-4 print:p-0 overflow-x-auto" ref={previewRef}>
           <div className="origin-top-left mx-auto" style={{ width: 794 }}>
-            <QuotationPreview q={q} b={branding} />
+            <QuotationPreview q={q} b={branding} vis={vis} />
           </div>
         </div>
+
         <SendQuotationPanel quotation={q} onJpegRequest={async () => { const r = await exportAsJpeg(); return r.url; }} />
+
         <div className="px-3 sm:px-6 py-3 border-t bg-slate-100 flex flex-wrap justify-end gap-2 print:hidden">
           <button onClick={onClose} className="px-3 py-2 text-sm bg-slate-200 hover:bg-slate-300 rounded">Close</button>
           <button onClick={handleJpegOnly} className="px-3 py-2 text-sm bg-purple-600 hover:bg-purple-500 text-white rounded flex items-center gap-1"><Download size={14} />Download JPEG</button>

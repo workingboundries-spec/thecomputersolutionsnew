@@ -50,6 +50,7 @@ export type QuotationVisibility = {
   // Footer sections
   terms: boolean;
   footer: boolean;
+  footerShopName: boolean;  // company name line inside footer bar
 };
 
 export const DEFAULT_VISIBILITY: QuotationVisibility = {
@@ -59,7 +60,7 @@ export const DEFAULT_VISIBILITY: QuotationVisibility = {
   colSerial: true, colQty: true, colPrice: true, colDiscount: true, colTotal: true,
   itemSpecs: true,
   rowSubtotal: true, rowDiscount: true, rowGst: true, grandTotal: true,
-  terms: true, footer: true,
+  terms: true, footer: true, footerShopName: true,
 };
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -248,7 +249,7 @@ export function QuotationPreview({
       {/* ── Footer bar ─────────────────────────────────────────────────── */}
       {vis.footer && (
         <div style={{ background: b.primary, color: onDarkText, padding: "12px 28px", textAlign: "center", fontSize: 11 }}>
-          <div style={{ fontWeight: 600, marginBottom: 2 }}>{b.footer_text}</div>
+          {vis.footerShopName && <div style={{ fontWeight: 600, marginBottom: 2 }}>{b.footer_text}</div>}
           <div style={{ opacity: 0.8 }}>{[b.shop_website, b.shop_phone].filter(Boolean).join("  •  ")}</div>
         </div>
       )}
